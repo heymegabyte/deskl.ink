@@ -117,7 +117,7 @@ import { join } from 'path';
 import { rmSync } from 'node:fs';
 
 // Set app name for macOS dock and menu bar
-app.setName('Emdash');
+app.setName('Desklink');
 
 // Prevent multiple instances in production (e.g. user clicks icon while auto-updater is restarting).
 // Skip in dev so dev server can run alongside the packaged app.

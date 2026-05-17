@@ -367,6 +367,21 @@ export function registerSshIpc() {
     }
   );
 
+  /**
+   * Looks up a ProxyCommand from ~/.ssh/config for a given host.
+   * Checks both the hostname and any Host aliases that match.
+   */
+  const resolveProxyCommand = async (host: string): Promise<string | undefined> => {
+    const hosts = await parseSshConfigFile();
+    // Check by Host alias (e.g. "coolify.megabyte.space") or by HostName
+    const match = hosts.find(
+      (h) =>
+        h.host.split(/\s+/).some((alias) => alias.toLowerCase() === host.toLowerCase()) ||
+        h.hostname?.toLowerCase() === host.toLowerCase()
+    );
+    return match?.proxyCommand;
+  };
+
   // Connect
   ipcMain.handle(
     SSH_IPC_CHANNELS.CONNECT,
@@ -400,6 +415,10 @@ export function registerSshIpc() {
           }
 
           const loadedConfig = mapRowToConfig(row);
+          // Enrich with ProxyCommand from ~/.ssh/config if available
+          if (!loadedConfig.proxyCommand) {
+            loadedConfig.proxyCommand = await resolveProxyCommand(loadedConfig.host);
+          }
           const connectionId = await sshService.connect(loadedConfig);
           monitor.startMonitoring(connectionId, loadedConfig);
           void import('../telemetry').then(({ capture }) => {
@@ -438,11 +457,16 @@ export function registerSshIpc() {
           passphrase = (await credentialService.getPassphrase(effectiveId)) ?? undefined;
         }
 
+        // Enrich with ProxyCommand from ~/.ssh/config if not provided
+        const proxyCommand =
+          config.proxyCommand ?? (await resolveProxyCommand(config.host));
+
         const fullConfig = {
           ...config,
           id: effectiveId,
           password,
           passphrase,
+          proxyCommand,
         };
 
         const connectionId = await sshService.connect(fullConfig as any);
@@ -714,6 +738,13 @@ export function registerSshIpc() {
       const portMatch = trimmed.match(/^Port\s+(\d+)$/i);
       if (portMatch && currentHost) {
         currentHost.port = parseInt(portMatch[1], 10);
+        continue;
+      }
+
+      // Match ProxyCommand
+      const proxyMatch = trimmed.match(/^ProxyCommand\s+(.+)$/i);
+      if (proxyMatch && currentHost) {
+        currentHost.proxyCommand = proxyMatch[1].trim();
         continue;
       }
 

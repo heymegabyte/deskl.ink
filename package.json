@@ -132,12 +132,12 @@
     "tsconfig-paths": "^3.15.0"
   },
   "build": {
-    "appId": "com.emdash",
-    "productName": "Emdash",
+    "appId": "space.megabyte.desklink",
+    "productName": "Desklink",
     "directories": {
       "output": "release"
     },
-    "artifactName": "emdash-${arch}.${ext}",
+    "artifactName": "desklink-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
@@ -236,5 +236,8 @@
       "keytar",
       "electron"
     ]
+  },
+  "volta": {
+    "node": "22.22.2"
   }
 }

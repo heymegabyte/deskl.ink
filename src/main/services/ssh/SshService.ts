@@ -7,6 +7,8 @@ import { quoteShellArg } from '../../utils/shellEscape';
 import { readFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { homedir } from 'os';
+import { spawn, ChildProcess } from 'child_process';
+import { Duplex } from 'stream';
 
 /** Maximum number of concurrent SSH connections allowed in the pool. */
 const MAX_CONNECTIONS = 10;
@@ -26,6 +28,7 @@ const POOL_WARNING_THRESHOLD = 0.8;
 export class SshService extends EventEmitter {
   private connections: ConnectionPool = {};
   private pendingConnections: Map<string, Promise<string>> = new Map();
+  private proxyProcesses: Map<string, ChildProcess> = new Map();
   private credentialService: SshCredentialService;
 
   constructor(credentialService?: SshCredentialService) {
@@ -141,6 +144,57 @@ export class SshService extends EventEmitter {
   }
 
   /**
+   * Spawns a ProxyCommand child process and returns a Duplex stream
+   * that ssh2 can use as a socket (`sock` option).
+   */
+  private spawnProxyCommand(
+    connectionId: string,
+    command: string,
+    host: string,
+    port: number
+  ): Duplex {
+    const expanded = command.replace(/%h/g, host).replace(/%p/g, String(port));
+    const proc = spawn('sh', ['-c', expanded], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+
+    this.proxyProcesses.set(connectionId, proc);
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      console.warn(`[SshService] ProxyCommand stderr: ${data.toString().trim()}`);
+    });
+
+    const sock = new Duplex({
+      read() {},
+      write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+        if (proc.stdin?.writable) {
+          proc.stdin.write(chunk, encoding, callback);
+        } else {
+          callback(new Error('ProxyCommand stdin closed'));
+        }
+      },
+      final(callback: (error?: Error | null) => void) {
+        proc.stdin?.end(callback);
+      },
+      destroy(err: Error | null, callback: (error: Error | null) => void) {
+        proc.kill();
+        callback(err);
+      },
+    });
+
+    proc.stdout?.on('data', (chunk: Buffer) => sock.push(chunk));
+    proc.stdout?.on('end', () => sock.push(null));
+    proc.on('error', (err: Error) => sock.destroy(err));
+    proc.on('close', () => {
+      if (!sock.destroyed) sock.destroy();
+      this.proxyProcesses.delete(connectionId);
+    });
+
+    return sock;
+  }
+
+  /**
    * Builds the ssh2 ConnectConfig from our SshConfig
    */
   private async buildConnectConfig(
@@ -155,6 +209,17 @@ export class SshService extends EventEmitter {
       keepaliveInterval: 60000,
       keepaliveCountMax: 3,
     };
+
+    // If a ProxyCommand is configured, spawn it and use the resulting
+    // Duplex stream as the transport socket instead of a direct TCP connection.
+    if (config.proxyCommand) {
+      connectConfig.sock = this.spawnProxyCommand(
+        connectionId,
+        config.proxyCommand,
+        config.host,
+        config.port
+      );
+    }
 
     switch (config.authType) {
       case 'password': {
@@ -250,6 +315,13 @@ export class SshService extends EventEmitter {
         // Ignore errors during SFTP close
       }
       connection.sftp = undefined;
+    }
+
+    // Kill proxy process if one exists
+    const proxyProc = this.proxyProcesses.get(connectionId);
+    if (proxyProc) {
+      proxyProc.kill();
+      this.proxyProcesses.delete(connectionId);
     }
 
     // Close SSH client
