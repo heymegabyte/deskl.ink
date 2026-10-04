@@ -13,8 +13,10 @@ export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
 
-  /* After the suite, destroy any leftover desktops so the monitor never leaks a
-     running container (catches strays from overlapping / interrupted runs). */
+  /* Clear leftover desktops BEFORE and AFTER the suite so every run starts + ends at zero.
+     Immune to concurrent-run leaks: a stray can't persist (teardown) or break the run's
+     `.first()` tile assertions (setup). */
+  globalSetup: path.join(import.meta.dirname, 'global-setup.ts'),
   globalTeardown: path.join(import.meta.dirname, 'global-teardown.ts'),
 
   /* Generous timeouts — container spin-up from cold can take 90-120s */
