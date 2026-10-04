@@ -1,0 +1,32 @@
+# deskl.ink — Plasma desktop/shell layout (pre-baked)
+# -----------------------------------------------------------------------------
+# Sets the desktop wallpaper to a SOLID near-black (#05060A) via the built-in
+# org.kde.color wallpaper plugin — deterministic, needs no image file, renders
+# instantly, and sends almost no pixels over VNC. (A near-black PNG is also
+# shipped under ~/.local/share/wallpapers/deskl-dark as a guaranteed fallback;
+# flip Containment plugin to org.kde.image + point Wallpaper/.../Image at it to
+# use the gradient PNG instead.)
+#
+# Containment 1 = the desktop; Containment 2 = the bottom panel (plasmashell
+# recreates panels on first run from its defaults — this pins the desktop
+# background deterministically, which is the brand-critical surface).
+# -----------------------------------------------------------------------------
+
+[Containments][1]
+activityId=
+formfactor=0
+immutability=1
+lastScreen=0
+location=0
+plugin=org.kde.desktopcontainment
+wallpaperplugin=org.kde.color
+
+[Containments][1][Wallpaper][org.kde.color][General]
+# #05060A as comma-separated RGB (5,6,10). Solid near-black deskl.ink backdrop.
+Color=5,6,10
+
+[Containments][1][Wallpaper][org.kde.image][General]
+# Fallback image wallpaper (used only if wallpaperplugin is switched to
+# org.kde.image above). Points at the shipped 1920x1080 dark PNG.
+Image=file:///home/desklink/.local/share/wallpapers/deskl-dark/contents/images/1920x1080.png
+FillMode=2

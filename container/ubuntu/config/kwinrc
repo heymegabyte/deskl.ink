@@ -1,0 +1,19 @@
+# deskl.ink — KWin configuration (pre-baked into ~/.config/kwinrc)
+# -----------------------------------------------------------------------------
+# Compositing OFF is CRITICAL for a software-rendered VNC desktop with no GPU:
+# the KWin compositor would try OpenGL/XRender effects (blur, shadows, fades)
+# that have nothing to accelerate them here — the result is tearing, high CPU,
+# and heavy pixel churn over the WebSocket. Disabling it gives a crisp, flat,
+# low-bandwidth desktop that stays responsive on a 4 GiB container.
+#
+# OpenGLIsUnsafe=true additionally stops KWin from auto-reviving GL compositing.
+[Compositing]
+Enabled=false
+OpenGLIsUnsafe=true
+WindowsBlockCompositing=true
+
+# Quiet, snappy window behaviour suited to a remote desktop (no focus-follows
+# surprises; title-bar double-click maximises as users expect).
+[Windows]
+FocusPolicy=ClickToFocus
+TitlebarDoubleClickCommand=Maximize

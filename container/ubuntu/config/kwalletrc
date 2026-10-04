@@ -1,0 +1,8 @@
+# deskl.ink — KWallet OFF (pre-baked)
+# -----------------------------------------------------------------------------
+# No interactive user set a wallet password; a KWallet unlock prompt on first
+# launch would be a dead-end. Disable the wallet subsystem.
+# -----------------------------------------------------------------------------
+[Wallet]
+Enabled=false
+First Use=false

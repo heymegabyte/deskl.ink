@@ -2,17 +2,18 @@
 # -----------------------------------------------------------------------------
 # deskl.ink — container entrypoint
 # -----------------------------------------------------------------------------
-# Boots a lightweight graphical Linux desktop reachable in the browser over
-# noVNC on a single port (6080). Flow:
+# Boots a polished KDE Plasma desktop reachable in the browser over noVNC on a
+# single port (6080). Flow:
 #
-#   1. prepare the `desklink` user session (dirs, env)
+#   1. prepare the `desklink` user session (dirs, env, XDG runtime dir)
 #   2. start Xtigervnc on :1  (loopback-only, NO password — see SECURITY below)
-#        └─ Xtigervnc execs ~/.vnc/xstartup which launches the XFCE session
-#   3. exec websockify in the FOREGROUND as PID 1:
+#        └─ Xtigervnc execs ~/.vnc/xstartup which launches the Plasma session
+#           (startplasma-x11 under a fresh dbus-run-session; kwin_x11 as WM)
+#   3. run websockify in the FOREGROUND as PID 1:
 #        serves noVNC's HTML from /usr/share/novnc AND proxies the browser
 #        WebSocket to the local VNC server at localhost:5901.
 #
-#   browser ──wss/https──▶ :6080 websockify ──ws──▶ :5901 Xtigervnc ──▶ XFCE
+#   browser ──wss/https──▶ :6080 websockify ──ws──▶ :5901 Xtigervnc ──▶ Plasma
 #
 # SECURITY: the VNC server binds loopback only (-localhost yes) with
 # -SecurityTypes None (no VNC password). That is intentional and safe HERE
@@ -35,6 +36,13 @@ export HOME="${HOME_DIR}"
 export DISPLAY="${VNC_DISPLAY}"
 export USER="${USER:-desklink}"
 
+# Plasma/KWin need a private XDG runtime dir (0700). No systemd/elogind here to
+# create /run/user/<uid>, so provision it up-front; xstartup also ensures it.
+XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-desklink}"
+export XDG_RUNTIME_DIR
+mkdir -p "${XDG_RUNTIME_DIR}"
+chmod 700 "${XDG_RUNTIME_DIR}"
+
 VNC_DIR="${HOME_DIR}/.vnc"
 LOG_PREFIX="[deskl.ink]"
 
@@ -47,14 +55,26 @@ mkdir -p "${VNC_DIR}"
 chmod 700 "${VNC_DIR}"
 
 # If no xstartup was baked in (defensive — the image ships one), synthesize a
-# minimal one so the desktop still comes up.
+# minimal Plasma launcher so the desktop still comes up.
 if [ ! -x "${VNC_DIR}/xstartup" ]; then
-  log "no xstartup found — writing a minimal fallback"
+  log "no xstartup found — writing a minimal Plasma fallback"
   cat > "${VNC_DIR}/xstartup" <<'EOF'
 #!/bin/sh
 export DISPLAY="${DISPLAY:-:1}"
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+export XDG_RUNTIME_DIR="/tmp/runtime-desklink"
+mkdir -p "${XDG_RUNTIME_DIR}"; chmod 700 "${XDG_RUNTIME_DIR}"
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export LIBGL_ALWAYS_SOFTWARE=1
 command -v xsetroot >/dev/null 2>&1 && xsetroot -solid "#05060A"
-exec xfce4-session
+if command -v dbus-run-session >/dev/null 2>&1; then
+  exec dbus-run-session -- startplasma-x11
+else
+  eval "$(dbus-launch --sh-syntax)"; export DBUS_SESSION_BUS_ADDRESS
+  exec startplasma-x11
+fi
 EOF
   chmod +x "${VNC_DIR}/xstartup"
 fi
@@ -86,11 +106,11 @@ trap shutdown TERM INT
 
 # ----------------------------- start Xtigervnc -------------------------------
 # Background (daemonized) so websockify can own the foreground. Xtigervnc reads
-# our xstartup, which launches XFCE.
+# our xstartup, which launches KDE Plasma.
 #   -localhost yes        bind 127.0.0.1 only (never on the wire)
 #   -SecurityTypes None   no VNC auth (the Worker ticket + wss is the auth layer)
 #   -geometry WxH         desktop size
-#   -xstartup <file>      our deskl.ink-branded XFCE launcher
+#   -xstartup <file>      our deskl.ink-branded Plasma launcher
 #   -depth 24             24-bit color (crisp, standard for noVNC)
 #   -verbose              surface startup detail in the server log
 log "starting Xtigervnc on ${VNC_DISPLAY} (loopback-only, no VNC password)"
