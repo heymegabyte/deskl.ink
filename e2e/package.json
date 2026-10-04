@@ -1,0 +1,15 @@
+{
+  "name": "@deskl/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Golden-path Playwright E2E for deskl.ink — TDD-first, runs against DESKL_BASE_URL.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest"
+  }
+}

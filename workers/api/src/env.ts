@@ -12,6 +12,8 @@
  */
 
 import type { D1Database, R2Bucket, DurableObjectNamespace } from '@cloudflare/workers-types';
+import type { DesktopContainer } from './containers/DesktopContainer.js';
+import type { DesktopRegistry } from './containers/DesktopRegistry.js';
 
 export interface Env {
   /** Primary relational store. */
@@ -26,8 +28,18 @@ export interface Env {
   /** Files agents/users produce inside a desktop. */
   ARTIFACTS?: R2Bucket;
 
-  /** One DesktopDO per live desktop; orchestrates its container. */
-  DESKTOP_DO?: DurableObjectNamespace;
+  /**
+   * One DesktopContainer DO (container-enabled) per live desktop; it runs the
+   * Linux workstation image and serves websockify/VNC on VNC_CONTAINER_PORT.
+   * Driven via `getContainer(env.DESKTOP, desktopId)`.
+   */
+  DESKTOP: DurableObjectNamespace<DesktopContainer>;
+
+  /** Single SQLite DO holding the authoritative desktop list (M2: per-user). */
+  REGISTRY: DurableObjectNamespace<DesktopRegistry>;
+
+  /** HMAC secret for signing/verifying short-lived VNC connection tickets. */
+  VNC_TICKET_SECRET?: string;
 
   /** Deploy environment tag, e.g. "production" | "preview". */
   ENVIRONMENT?: string;

@@ -1,0 +1,61 @@
+#!/bin/sh
+# -----------------------------------------------------------------------------
+# deskl.ink — TigerVNC xstartup (runs inside the X server on display :1)
+# -----------------------------------------------------------------------------
+# Xtigervnc execs this script once the X server is up. Its job: dress the root
+# window in deskl.ink colors, quiet X power-management, and hand off to a full
+# XFCE session. Keep it POSIX sh (xstartup is invoked via /bin/sh).
+# -----------------------------------------------------------------------------
+set -e
+
+# Make sure the session agrees on which display it is painting.
+export DISPLAY="${DISPLAY:-:1}"
+
+# Drop any inherited session/bus addresses so XFCE starts its OWN session and
+# does not try to attach to a stale/host D-Bus (a classic cause of a blank VNC
+# screen: "Failed to connect to session bus"). tigervncserver wraps us in a
+# fresh dbus-launch, so a clean slate here is the safe default.
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+# deskl.ink desktop background: solid near-black (#05060A). XFCE's own desktop
+# (xfdesktop) will repaint this once it starts, so we ALSO set the xfconf
+# background to the same color below — this xsetroot covers the brief window
+# before xfdesktop paints, and the no-DE fallback case.
+if command -v xsetroot >/dev/null 2>&1; then
+  xsetroot -solid "#05060A"
+fi
+
+# Headless desktop: disable screen blanking / DPMS so the session never goes
+# dark behind the browser (there is no physical monitor to save).
+if command -v xset >/dev/null 2>&1; then
+  xset s off || true        # no screensaver
+  xset -dpms || true        # no power-management blanking
+  xset s noblank || true    # never blank the framebuffer
+fi
+
+# Brand the XFCE desktop itself so it reads unmistakably as deskl.ink:
+#  - solid near-black backdrop on every monitor/workspace (color-style 0 = solid)
+#  - hide desktop icons/clutter so the surface is clean
+# xfconf writes are best-effort (the channel/props only exist once xfconfd is
+# up); failures are non-fatal — the xsetroot solid above is the guaranteed floor.
+brand_xfce() {
+  # Solid-color backdrop in deskl.ink near-black. RGBA doubles are 0..1.
+  #   color-style 0 = solid color · rgba1 = #05060A fully opaque.
+  xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/color-style -n -t int -s 0 2>/dev/null || true
+  xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/image-style -n -t int -s 0 2>/dev/null || true
+  xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/rgba1 \
+    -n -t double -t double -t double -t double \
+    -s 0.0196 -s 0.0235 -s 0.0392 -s 1.0 2>/dev/null || true
+  # Hide desktop clutter (no Home/Trash/filesystem/removable icons).
+  xfconf-query -c xfce4-desktop -p /desktop-icons/style -n -t int -s 0 2>/dev/null || true
+}
+
+if command -v xfconf-query >/dev/null 2>&1; then
+  # Defer slightly so xfconfd (started with the session) is listening.
+  ( sleep 2; brand_xfce ) &
+fi
+
+# Hand off to the full XFCE session. `exec` so XFCE becomes this script's
+# process — when the session exits, Xtigervnc tears the display down.
+exec xfce4-session

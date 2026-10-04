@@ -13,9 +13,12 @@ turn work lands.
 
 ## Status snapshot (2026-10-03)
 
-- **Repo founded.** emdash backup preserved at tag `archive/emdash-v0.4.15` (+ `origin/main`, history).
-- **M1 (beautiful shell)** — `[~]` foundation scaffold in progress (monorepo + design tokens + homepage overlay seed + Worker API skeleton).
-- All other milestones `[ ]` queued below, decomposed into drainable slices.
+- **Repo founded.** emdash backup preserved at tag `archive/emdash-v0.4.15`. deskl.ink lives on branch `deskl-ink-foundation` (origin/main is a live emdash mirror — see memory).
+- **M1 (beautiful shell)** — `[x]` monorepo + black/cyan tokens + homepage overlay + lazy WebGL hero + Worker skeleton. Builds green.
+- **M4 + M5 (compute + remote desktop) — code slice BUILT, verified green (`[~]`, deploy pending):** `DesktopContainer`/`DesktopRegistry` Durable Objects (`@cloudflare/containers`), lifecycle API (create/list/status/start/stop/**delete**), HMAC-ticket-gated VNC WebSocket proxy, Ubuntu 24.04 + XFCE + TigerVNC + noVNC image (listens :6080), desktop-manager UI (`+ New computer` → tiles → Open/Stop/Delete), fullscreen noVNC route + tiny control surface, and the **golden-path Playwright E2E** (create→ready→VNC→visual-confirm→delete) written TDD-RED.
+  - **BLOCKED on deploy prereqs** (the golden path can't go live until): Docker daemon running (CF builds the image locally on `wrangler deploy`), **Workers Paid plan + Containers enabled** on the CF account, `wrangler` auth, and `wrangler secret put VNC_TICKET_SECRET`. The loop drains these next fires.
+- Shared contract: `packages/shared/src/desktop-api.ts` (Zod SSOT for server + client + E2E).
+- Other milestones `[ ]` queued below.
 
 ---
 

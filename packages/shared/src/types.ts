@@ -1,66 +1,17 @@
 /**
  * deskl.ink core domain types.
  *
- * Minimal but real — the shapes the whole product is built around. These are
- * plain TypeScript types for Milestone 1; Zod schemas that validate them at
- * runtime boundaries land in Milestone 2 (per house `zod-everywhere` doctrine,
- * the Zod schema will become the source of truth and these will be inferred).
+ * Minimal but real — the shapes the whole product is built around.
+ *
+ * SOURCE-OF-TRUTH NOTE: the desktop LIFECYCLE + SIZE catalog (`DesktopStatus`,
+ * `DesktopSizeId`, size specs, `DESKTOP_SIZES`) live in `./desktop-api.ts` as
+ * Zod schemas — that is the single source of truth shared by the Worker, web
+ * app, and E2E. They are imported here only to type the domain shapes below;
+ * the barrel (`index.ts`) publicly re-exports them from `./desktop-api.js`, so
+ * nothing is duplicated (per house `zod-everywhere` doctrine).
  */
 
-/**
- * Lifecycle of a desktop (a containerized Linux workstation backed by a
- * Durable Object + Cloudflare Container). Ordering reflects the natural flow:
- * stopped → restoring (pulling persisted state) → starting (boot) → ready →
- * active (in use) → stopping → persisting (snapshot to R2) → stopped.
- */
-export type DesktopStatus =
-  'stopped' | 'restoring' | 'starting' | 'ready' | 'active' | 'stopping' | 'persisting' | 'failed';
-
-/** Catalog key for a desktop size tier. */
-export type DesktopSizeId = 'everyday' | 'developer' | 'power' | 'heavy';
-
-/** A selectable desktop size with its friendly name and RAM allocation. */
-export interface DesktopSize {
-  readonly id: DesktopSizeId;
-  readonly friendlyName: string;
-  readonly ramGiB: number;
-  /** Virtual CPU cores allocated to the container. */
-  readonly vcpu: number;
-  /** One-line human description surfaced in the picker. */
-  readonly description: string;
-}
-
-/** The canonical size catalog. Source of truth for the picker + billing. */
-export const DESKTOP_SIZES: Readonly<Record<DesktopSizeId, DesktopSize>> = {
-  everyday: {
-    id: 'everyday',
-    friendlyName: 'Everyday',
-    ramGiB: 2,
-    vcpu: 1,
-    description: 'Browsing, writing, light tools.',
-  },
-  developer: {
-    id: 'developer',
-    friendlyName: 'Developer',
-    ramGiB: 4,
-    vcpu: 2,
-    description: 'Editors, build tools, containers.',
-  },
-  power: {
-    id: 'power',
-    friendlyName: 'Power',
-    ramGiB: 8,
-    vcpu: 4,
-    description: 'Heavy IDEs, parallel workloads.',
-  },
-  heavy: {
-    id: 'heavy',
-    friendlyName: 'Heavy',
-    ramGiB: 16,
-    vcpu: 8,
-    description: 'Data, simulation, large builds.',
-  },
-} as const;
+import type { DesktopStatus, DesktopSizeId } from './desktop-api.js';
 
 /** Who or what owns the active control of a desktop at a moment in time. */
 export type DesktopOperator = 'human' | 'agent';

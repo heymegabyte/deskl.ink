@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { HomeOverlay } from './components/HomeOverlay.js';
+import { DesktopManager } from './components/DesktopManager.js';
+import type { DesktopResource } from '../../../packages/shared/src/desktop-api';
+
+// Lazy-load the fullscreen VNC view so its chunk (and nothing homepage-WebGL)
+// loads only when a desktop is actually opened.
+const DesktopFullscreen = lazy(() =>
+  import('./routes/DesktopFullscreen.js').then((m) => ({ default: m.DesktopFullscreen }))
+);
 
 /**
  * localStorage key tracking whether the home overlay was dismissed this
@@ -16,47 +24,16 @@ function readDismissed(): boolean {
   }
 }
 
-/**
- * The locked, read-only app shell rendered BEHIND the overlay. It's a preview
- * of the real workspace (top bar + empty desktop grid). Non-interactive until
- * the user signs in — Milestone 2 replaces this with the live desktop grid.
- */
-function AppShellPreview() {
-  return (
-    <div className="ds-nebula-fallback flex h-full flex-col" aria-hidden="true" inert>
-      {/* Top bar */}
-      <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-[var(--color-cyan)] to-[var(--color-violet)] font-display text-sm font-800 text-[var(--color-black)]">
-            d
-          </span>
-          <span className="font-display text-lg font-700 tracking-tight text-white">deskl.ink</span>
-        </div>
-        <nav className="flex items-center gap-6 text-sm text-[var(--color-muted)]">
-          <span>Desktops</span>
-          <span>Activity</span>
-          <span>Billing</span>
-        </nav>
-      </header>
-
-      {/* Empty desktop grid placeholder */}
-      <main className="flex flex-1 items-center justify-center p-10">
-        <div className="grid w-full max-w-5xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="ds-glass flex h-40 flex-col justify-end rounded-xl p-5">
-              <div className="h-2.5 w-24 rounded-full bg-[var(--color-border)]" />
-              <div className="mt-2 h-2 w-16 rounded-full bg-[var(--color-border)]/60" />
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
-  );
+/** A desktop opened into the fullscreen view, plus its freshest VNC ticket. */
+interface OpenTarget {
+  desktop: DesktopResource;
+  ticket?: string | undefined;
 }
 
-/** Root orchestration: overlay over a locked app shell. */
+/** Root orchestration: homepage overlay → desktop manager → fullscreen VNC. */
 export function App() {
   const [dismissed, setDismissed] = useState<boolean>(readDismissed);
+  const [openTarget, setOpenTarget] = useState<OpenTarget | null>(null);
 
   const dismiss = useCallback(() => {
     setDismissed(true);
@@ -66,6 +43,23 @@ export function App() {
       // Storage unavailable (private mode / sandbox) — overlay still dismisses.
     }
   }, []);
+
+  // Sign out: clear the dismiss flag, drop any open desktop, reopen the overlay.
+  const reopenOverlay = useCallback(() => {
+    setOpenTarget(null);
+    setDismissed(false);
+    try {
+      window.sessionStorage.removeItem(OVERLAY_DISMISSED_KEY);
+    } catch {
+      // Storage unavailable — state reset still reopens the overlay.
+    }
+  }, []);
+
+  const openDesktop = useCallback((desktop: DesktopResource, ticket?: string) => {
+    setOpenTarget({ desktop, ticket });
+  }, []);
+
+  const closeFullscreen = useCallback(() => setOpenTarget(null), []);
 
   // Lock background scroll while the overlay is up.
   useEffect(() => {
@@ -78,8 +72,37 @@ export function App() {
 
   return (
     <div className="relative h-full">
-      <AppShellPreview />
+      {/* The authenticated app surface. Rendered behind the overlay so dismissing
+          reveals a live manager; inert while the overlay is up for a11y. */}
+      <div className="h-full" aria-hidden={!dismissed} {...(!dismissed ? { inert: true } : {})}>
+        <DesktopManager onOpen={openDesktop} onSignOut={reopenOverlay} />
+      </div>
+
       {!dismissed && <HomeOverlay onDismiss={dismiss} />}
+
+      {/* Fullscreen VNC view for the opened desktop (lazy chunk). */}
+      {openTarget && (
+        <Suspense fallback={<FullscreenBoot />}>
+          <DesktopFullscreen
+            desktop={openTarget.desktop}
+            ticket={openTarget.ticket}
+            onExit={closeFullscreen}
+          />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+/** Minimal boot screen while the fullscreen chunk loads (no WebGL dep). */
+function FullscreenBoot() {
+  return (
+    <div className="ds-nebula-fallback fixed inset-0 z-[60] flex items-center justify-center">
+      <span
+        className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-cyan)] border-t-transparent"
+        aria-hidden="true"
+      />
+      <span className="sr-only">Loading desktop…</span>
     </div>
   );
 }

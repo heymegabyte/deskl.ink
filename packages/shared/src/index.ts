@@ -5,4 +5,5 @@
  */
 
 export * from './design-tokens.js';
+export * from './desktop-api.js';
 export * from './types.js';

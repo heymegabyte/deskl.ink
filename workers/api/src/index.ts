@@ -9,6 +9,13 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './env.js';
+import desktops from './routes/desktops.js';
+
+// Container + registry Durable Objects must be exported from the Worker entry
+// so the runtime can instantiate them (classes referenced in wrangler.jsonc
+// durable_objects.bindings + migrations.new_sqlite_classes).
+export { DesktopContainer } from './containers/DesktopContainer.js';
+export { DesktopRegistry } from './containers/DesktopRegistry.js';
 
 /** API surface version — bump on breaking contract changes. */
 const API_VERSION = 'v1' as const;
@@ -36,6 +43,9 @@ app.get('/api/v1/version', (c) =>
     environment: c.env.ENVIRONMENT ?? 'development',
   })
 );
+
+// Desktop control-plane: create/list/get/start/stop/destroy + ticketed VNC proxy.
+app.route('/api/v1/desktops', desktops);
 
 /** JSON 404 for every unmatched route — never an HTML body. */
 app.notFound((c) =>

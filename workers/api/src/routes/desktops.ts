@@ -1,0 +1,231 @@
+/**
+ * Desktop control-plane — the `/api/v1/desktops` Hono sub-app.
+ *
+ * Implements every route in `desktopApi` from the shared contract:
+ *   - POST   /api/v1/desktops            create (+ mint VNC ticket)
+ *   - GET    /api/v1/desktops            list
+ *   - GET    /api/v1/desktops/:id        get one
+ *   - POST   /api/v1/desktops/:id/start  start container  → status ready
+ *   - POST   /api/v1/desktops/:id/stop   stop container   → status stopped
+ *   - DELETE /api/v1/desktops/:id        destroy + forget
+ *   - ALL    /api/v1/desktops/:id/vnc/*  ticketed VNC proxy (HTTP + WebSocket)
+ *
+ * Every request body is Zod-validated (`CreateDesktopRequestSchema`) and every
+ * response is Zod-validated against its contract schema before it leaves the
+ * Worker. Container lifecycle is idempotent (double-start / double-stop /
+ * double-create are safe — see `@cloudflare/containers` semantics + the
+ * registry's upsert/no-op methods). The VNC route is NEVER public: it verifies
+ * an HMAC ticket (signature + expiry + desktopId) before proxying a packet.
+ *
+ * Mounted at `/api/v1/desktops` in `../index.ts`.
+ */
+
+import { Hono } from 'hono';
+import { getContainer, switchPort } from '@cloudflare/containers';
+import {
+  CreateDesktopRequestSchema,
+  CreateDesktopResponseSchema,
+  DEFAULT_DESKTOP_OS,
+  DESKTOP_SIZES,
+  DesktopListResponseSchema,
+  DesktopResponseSchema,
+  VNC_CONTAINER_PORT,
+  type DesktopResource,
+} from '@deskl/shared';
+import type { Env } from '../env.js';
+import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
+import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
+
+/**
+ * Resolve the (currently global) desktop registry DO stub.
+ *
+ * TODO(M2): scope per user — resolve `getByName(REGISTRY, userId)` from the
+ * authenticated session so each user gets an isolated registry. For now a
+ * single well-known id holds the whole fleet.
+ */
+function getRegistry(env: Env): DurableObjectStub<DesktopRegistry> {
+  // The `.get()` stub-proxy type over DesktopRegistry's RPC methods expands
+  // recursively under exactOptionalPropertyTypes (TS2589). The function's return
+  // annotation IS the authoritative contract, so cast the expression to it to
+  // break the deep inference without weakening the stub's public type.
+  const id = env.REGISTRY.idFromName('global');
+  return env.REGISTRY.get(id) as unknown as DurableObjectStub<DesktopRegistry>;
+}
+
+/** The container-lifecycle surface the control-plane drives on a DesktopContainer. */
+interface DesktopContainerStub {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  destroy(): Promise<void>;
+  fetch(req: Request): Response | Promise<Response>;
+}
+
+/**
+ * Resolve a DesktopContainer stub narrowed to the lifecycle methods we use.
+ *
+ * `getContainer(...)`'s full stub-proxy type expands recursively under
+ * `exactOptionalPropertyTypes` (TS2589 at every call site). Narrowing to the
+ * `DesktopContainerStub` surface breaks that deep inference once, here, without
+ * changing runtime behavior (`getContainer` is called exactly as before).
+ */
+function getDesktopContainer(env: Env, id: string): DesktopContainerStub {
+  // Cast the `getContainer` REFERENCE (not just its result) so TS never
+  // instantiates its deep `DurableObjectStub<DesktopContainer>` proxy return
+  // type — that recursive expansion is the TS2589 source. Runtime is unchanged.
+  const resolve = getContainer as unknown as (
+    binding: Env['DESKTOP'],
+    name: string
+  ) => DesktopContainerStub;
+  return resolve(env.DESKTOP, id);
+}
+
+/** Generate a URL-safe desktop id (UUIDv4 — unpredictable, no info leak). */
+function newDesktopId(): string {
+  return crypto.randomUUID();
+}
+
+/** Default label when the user doesn't name the desktop. */
+function defaultName(size: keyof typeof DESKTOP_SIZES): string {
+  return `${DESKTOP_SIZES[size].friendlyName} desktop`;
+}
+
+const app = new Hono<{ Bindings: Env }>();
+
+/**
+ * POST /api/v1/desktops — create a desktop.
+ * Validates the body, inserts a registry row (status `stopped`), and mints a
+ * short-lived VNC ticket the client appends to the VNC URL once the desktop is
+ * started. Idempotent at the registry layer (upsert by id).
+ */
+app.post('/', async (c) => {
+  const raw = await c.req.json().catch(() => undefined);
+  const parsed = CreateDesktopRequestSchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    return c.json({ ok: false, error: 'invalid_request', details: parsed.error.flatten() }, 400);
+  }
+  const { name, size, disposable } = parsed.data;
+
+  const id = newDesktopId();
+  const registry = getRegistry(c.env);
+  // New desktops start `stopped`; the client calls /start to boot the container.
+  const desktop: DesktopResource = await registry.create({
+    id,
+    name: name ?? defaultName(size),
+    os: DEFAULT_DESKTOP_OS,
+    size,
+    status: 'stopped',
+    persistent: !disposable,
+  });
+
+  const vncTicket = await mintVncTicket(id, c.env.VNC_TICKET_SECRET);
+
+  const body = CreateDesktopResponseSchema.parse({ desktop, vncTicket });
+  return c.json(body, 201);
+});
+
+/** GET /api/v1/desktops — list every desktop (newest first). */
+app.get('/', async (c) => {
+  const desktops = await getRegistry(c.env).list();
+  const body = DesktopListResponseSchema.parse({ desktops });
+  return c.json(body);
+});
+
+/** GET /api/v1/desktops/:id — fetch one desktop; 404 when unknown. */
+app.get('/:id', async (c) => {
+  const desktop = await getRegistry(c.env).get(c.req.param('id'));
+  if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
+  const body = DesktopResponseSchema.parse({ desktop });
+  return c.json(body);
+});
+
+/**
+ * POST /api/v1/desktops/:id/start — boot the container.
+ * Idempotent: `getContainer(...).start()` no-ops if the instance is already
+ * running. Sets status `starting` then `ready` once the start command is
+ * accepted. 404 for an unknown desktop.
+ */
+app.post('/:id/start', async (c) => {
+  const id = c.req.param('id');
+  const registry = getRegistry(c.env);
+  if (!(await registry.get(id))) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  await registry.updateStatus(id, 'starting');
+  try {
+    // `.start()` is non-blocking + idempotent (safe on an already-running instance).
+    await getDesktopContainer(c.env, id).start();
+  } catch (err) {
+    console.error('[deskl.ink desktops] start failed', id, err);
+    const failed = await registry.updateStatus(id, 'failed');
+    return c.json({ ok: false, error: 'start_failed', desktop: failed }, 502);
+  }
+
+  const desktop = await registry.updateStatus(id, 'ready');
+  if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
+  const body = DesktopResponseSchema.parse({ desktop });
+  return c.json(body);
+});
+
+/**
+ * POST /api/v1/desktops/:id/stop — stop the container (SIGTERM).
+ * Idempotent: `.stop()` is a no-op if not running. Sets status `stopped`.
+ */
+app.post('/:id/stop', async (c) => {
+  const id = c.req.param('id');
+  const registry = getRegistry(c.env);
+  if (!(await registry.get(id))) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  await registry.updateStatus(id, 'stopping');
+  try {
+    await getDesktopContainer(c.env, id).stop();
+  } catch (err) {
+    // A stop failure shouldn't wedge the record — log, still mark stopped.
+    console.error('[deskl.ink desktops] stop failed', id, err);
+  }
+
+  const desktop = await registry.updateStatus(id, 'stopped');
+  if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
+  const body = DesktopResponseSchema.parse({ desktop });
+  return c.json(body);
+});
+
+/**
+ * DELETE /api/v1/desktops/:id — destroy the container and forget the desktop.
+ * Idempotent: destroying a stopped/unknown container + removing an unknown row
+ * are both no-ops, so a double-delete is safe.
+ */
+app.delete('/:id', async (c) => {
+  const id = c.req.param('id');
+  const registry = getRegistry(c.env);
+  try {
+    await getDesktopContainer(c.env, id).destroy();
+  } catch (err) {
+    console.error('[deskl.ink desktops] destroy failed', id, err);
+  }
+  await registry.remove(id);
+  return c.json({ ok: true, id });
+});
+
+/**
+ * ALL /api/v1/desktops/:id/vnc/* — ticketed VNC proxy (HTTP + WebSocket).
+ *
+ * Verifies the `?ticket=` query param (HMAC + expiry + desktopId match) and
+ * returns 401 on ANY defect. On success it proxies the raw request to the
+ * container's websockify on {@link VNC_CONTAINER_PORT} via
+ * `getContainer(...).fetch(switchPort(req, port))` — `.fetch` (not
+ * `containerFetch`) so WebSocket upgrades pass through bi-directionally.
+ */
+app.all('/:id/vnc/*', async (c) => {
+  const id = c.req.param('id');
+  const ticket = c.req.query('ticket');
+
+  const verdict = await verifyVncTicket(ticket, id, c.env.VNC_TICKET_SECRET);
+  if (!verdict.ok) {
+    console.warn('[deskl.ink vnc] rejected ticket', id, verdict.error);
+    return c.json({ ok: false, error: 'unauthorized' }, 401);
+  }
+
+  // Proxy (HTTP + WebSocket) to websockify inside the container.
+  return getDesktopContainer(c.env, id).fetch(switchPort(c.req.raw, VNC_CONTAINER_PORT));
+});
+
+export default app;

@@ -11,10 +11,43 @@ workers_dev = true
 enabled = true
 
 # ---------------------------------------------------------------------------
-# Bindings below are STAGED for Milestone 2. They are intentionally commented
-# out so the skeleton deploys with zero infrastructure. Uncomment + fill the
-# ids (via `wrangler d1/r2/... create`) as each lands. Do NOT hardcode account
-# ids here — Wrangler reads CLOUDFLARE_ACCOUNT_ID from the environment.
+# Desktop control-plane: Containers + Durable Objects (Milestone 1 live).
+#
+# DesktopContainer = one container-enabled DO per live desktop, running the
+#   Ubuntu workstation image; serves websockify/VNC on VNC_CONTAINER_PORT.
+# DesktopRegistry  = one SQLite DO holding the authoritative desktop list.
+#
+# Prereqs to actually spin a container: Docker daemon running locally for the
+# image build, a Workers PAID plan (Containers are paid-tier only), and the
+# container/ubuntu/Dockerfile present. Set the signing secret with
+# `wrangler secret put VNC_TICKET_SECRET` before production.
+# ---------------------------------------------------------------------------
+
+# --- Containers: the Linux workstation image, driven by DesktopContainer ---
+[[containers]]
+class_name = "DesktopContainer"
+image = "../../container/ubuntu/Dockerfile"
+instance_type = "standard-1"
+max_instances = 25
+
+# --- Durable Objects ---
+[[durable_objects.bindings]]
+name = "DESKTOP"
+class_name = "DesktopContainer"
+
+[[durable_objects.bindings]]
+name = "REGISTRY"
+class_name = "DesktopRegistry"
+
+# --- Migrations: container DOs + the registry both require SQLite storage ---
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DesktopContainer", "DesktopRegistry"]
+
+# ---------------------------------------------------------------------------
+# Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill
+# ids (via `wrangler d1/r2 create`) as each lands. Do NOT hardcode account ids
+# here — Wrangler reads CLOUDFLARE_ACCOUNT_ID from the environment.
 # ---------------------------------------------------------------------------
 
 # --- D1: primary relational store (users, desktops, sessions, usage) ---
@@ -36,18 +69,3 @@ enabled = true
 # [[r2_buckets]]
 # binding = "ARTIFACTS"        # files agents/users produce inside a desktop
 # bucket_name = "deskl-ink-artifacts"
-
-# --- Durable Objects: one DesktopDO per live desktop (orchestrates container) ---
-# [[durable_objects.bindings]]
-# name = "DESKTOP_DO"
-# class_name = "DesktopDO"
-#
-# [[migrations]]
-# tag = "v1"
-# new_sqlite_classes = ["DesktopDO"]
-
-# --- Containers: the actual Linux workstation image, driven by DesktopDO ---
-# [[containers]]
-# class_name = "DesktopDO"
-# image = "./container/Dockerfile"
-# max_instances = 50
