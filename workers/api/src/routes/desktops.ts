@@ -30,7 +30,6 @@ import {
   DESKTOP_SIZES,
   DesktopListResponseSchema,
   DesktopResponseSchema,
-  VNC_CONTAINER_PORT,
   type DesktopResource,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
