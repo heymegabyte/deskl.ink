@@ -178,7 +178,10 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
         className="ds-glass absolute right-4 top-4 z-20 flex items-center gap-2 rounded-full px-2.5 py-1.5 transition-opacity duration-300 ease-[var(--ease-standard)]"
         style={{
           opacity: controlsVisible ? 1 : 0,
-          pointerEvents: controlsVisible ? 'auto' : 'none',
+          // Keep the controls clickable even while faded — otherwise the full-screen VNC
+          // iframe swallows clicks on the (idle-hidden) exit/stop buttons. Any pointer move
+          // reveals them; the small top-right zone staying interactive is the correct tradeoff.
+          pointerEvents: 'auto',
         }}
       >
         {/* Connection/status dot */}
