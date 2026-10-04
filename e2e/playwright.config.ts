@@ -13,6 +13,10 @@ export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
 
+  /* After the suite, destroy any leftover desktops so the monitor never leaks a
+     running container (catches strays from overlapping / interrupted runs). */
+  globalTeardown: path.join(import.meta.dirname, 'global-teardown.ts'),
+
   /* Generous timeouts — container spin-up from cold can take 90-120s */
   timeout: 3 * 60 * 1_000, // 3 min per test
   expect: {
