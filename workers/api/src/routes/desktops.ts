@@ -21,7 +21,8 @@
  */
 
 import { Hono } from 'hono';
-import { getContainer, switchPort } from '@cloudflare/containers';
+import { getCookie } from 'hono/cookie';
+import { getContainer } from '@cloudflare/containers';
 import {
   CreateDesktopRequestSchema,
   CreateDesktopResponseSchema,
@@ -216,7 +217,12 @@ app.delete('/:id', async (c) => {
  */
 app.all('/:id/vnc/*', async (c) => {
   const id = c.req.param('id');
-  const ticket = c.req.query('ticket');
+  // noVNC loads its JS/CSS as RELATIVE module imports and opens the WebSocket WITHOUT the
+  // parent page's `?ticket=` query — so requiring the query on every request 401s every asset
+  // and the module graph fails to load. Resolve the ticket from the query OR a path-scoped
+  // cookie; the HTML response (below) sets that cookie so assets + ws authenticate automatically.
+  const cookieName = `deskl_vnc_${id}`;
+  const ticket = c.req.query('ticket') ?? getCookie(c, cookieName);
 
   const verdict = await verifyVncTicket(ticket, id, c.env.VNC_TICKET_SECRET);
   if (!verdict.ok) {
@@ -224,8 +230,33 @@ app.all('/:id/vnc/*', async (c) => {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  // Proxy (HTTP + WebSocket) to websockify inside the container.
-  return getDesktopContainer(c.env, id).fetch(switchPort(c.req.raw, VNC_CONTAINER_PORT));
+  const container = getDesktopContainer(c.env, id);
+
+  // WebSocket upgrades: pass the ORIGINAL request straight to the container's defaultPort
+  // (VNC_CONTAINER_PORT = websockify). NO switchPort / NO `new Request` — both reconstruct
+  // the request and drop the forbidden Upgrade/Connection headers, so websockify would see a
+  // plain GET and 404. websockify proxies a socket on ANY path, so no prefix-strip is needed.
+  // The browser sends the path-scoped cookie on the ws handshake, so it stays authenticated.
+  if (c.req.header('upgrade')?.toLowerCase() === 'websocket') {
+    return container.fetch(c.req.raw);
+  }
+
+  // Plain HTTP: strip the `/api/v1/desktops/:id/vnc` route prefix so websockify — which
+  // serves noVNC at its OWN root (/vnc.html, /app/*, /core/*) — resolves the static path.
+  const url = new URL(c.req.raw.url);
+  const prefix = `/api/v1/desktops/${id}/vnc`;
+  url.pathname = url.pathname.slice(prefix.length) || '/';
+  const upstream = await container.fetch(new Request(url.toString(), c.req.raw));
+
+  // Set the short-lived, path-scoped, HttpOnly ticket cookie so subsequent relative asset
+  // requests + the ws handshake authenticate without carrying `?ticket=`. Scoped to THIS
+  // desktop's vnc path so it never leaks to another desktop.
+  const out = new Response(upstream.body, upstream);
+  out.headers.append(
+    'Set-Cookie',
+    `${cookieName}=${ticket}; Path=${prefix}; HttpOnly; Secure; SameSite=Lax; Max-Age=900`
+  );
+  return out;
 });
 
 export default app;
