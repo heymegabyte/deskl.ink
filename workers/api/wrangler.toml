@@ -10,6 +10,16 @@ workers_dev = true
 [observability]
 enabled = true
 
+# Serve the web SPA (homepage overlay + desktop manager + fullscreen VNC route) from THIS
+# same Worker → single origin, so the SPA's /api/* calls, the cookie, and the noVNC iframe
+# are all same-origin. /api/* runs the Worker first; every other path serves the built SPA
+# with client-side-routing fallback to index.html.
+[assets]
+directory = "../../apps/web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
 # ---------------------------------------------------------------------------
 # Desktop control-plane: Containers + Durable Objects (Milestone 1 live).
 #

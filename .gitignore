@@ -47,3 +47,9 @@ Thumbs.db
 
 # Scratch
 .notes/
+
+# Playwright E2E artifacts
+e2e/screenshots/
+e2e/test-results/
+e2e/playwright-report/
+**/.last-run.json

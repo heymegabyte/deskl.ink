@@ -107,15 +107,26 @@ app.post('/', async (c) => {
 
   const id = newDesktopId();
   const registry = getRegistry(c.env);
-  // New desktops start `stopped`; the client calls /start to boot the container.
-  const desktop: DesktopResource = await registry.create({
+  const created: DesktopResource = await registry.create({
     id,
     name: name ?? defaultName(size),
     os: DEFAULT_DESKTOP_OS,
     size,
-    status: 'stopped',
+    status: 'starting',
     persistent: !disposable,
   });
+
+  // Auto-start so `+ New computer` yields a booting→ready desktop in ONE action
+  // (embarrassingly-easy UX). `.start()` is non-blocking + idempotent; the first VNC
+  // request blocks on websockify readiness, so `ready` here means "boot accepted".
+  let desktop = created;
+  try {
+    await getDesktopContainer(c.env, id).start();
+    desktop = (await registry.updateStatus(id, 'ready')) ?? created;
+  } catch (err) {
+    console.error('[deskl.ink desktops] auto-start on create failed', id, err);
+    desktop = (await registry.updateStatus(id, 'failed')) ?? created;
+  }
 
   const vncTicket = await mintVncTicket(id, c.env.VNC_TICKET_SECRET);
 

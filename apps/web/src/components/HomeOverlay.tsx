@@ -48,8 +48,9 @@ export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
 
       <button
         type="button"
+        data-testid="overlay-close"
         onClick={onDismiss}
-        aria-label="Dismiss and preview the workspace"
+        aria-label="Close and preview the workspace"
         className="ds-glass absolute right-5 top-5 z-10 grid h-10 w-10 place-items-center rounded-full text-[var(--color-white)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:scale-105"
       >
         <svg
