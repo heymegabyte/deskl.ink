@@ -1,216 +1,84 @@
-<img alt="Emdash banner" src="https://github.com/user-attachments/assets/a2ecaf3c-9d84-40ca-9a8e-d4f612cc1c6f" />
+<div align="center">
 
+# deskl.ink
 
-<div align="center" style="margin:24px 0;">
-  
-<br />
+### A desktop for you. A computer for your AI.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-555555.svg?labelColor=333333&color=666666)](./LICENSE.md)
-[![Downloads](https://img.shields.io/github/downloads/generalaction/emdash/total?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/generalaction/emdash?labelColor=333333&color=666666)](https://github.com/generalaction/emdash)
-[![Last Commit](https://img.shields.io/github/last-commit/generalaction/emdash?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/generalaction/emdash?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/graphs/commit-activity)
-<br>
-[![Discord](https://img.shields.io/badge/Discord-join-%235462eb?labelColor=%235462eb&logo=discord&logoColor=%23f5f5f5)](https://discord.gg/f2fv7YxuR2)
-<a href="https://www.ycombinator.com"><img src="https://img.shields.io/badge/Y%20Combinator-W26-orange" alt="Y Combinator W26"></a>
-[![Follow @emdashsh on X](https://img.shields.io/twitter/follow/emdashsh?logo=X&color=%23f5f5f5)](https://twitter.com/intent/follow?screen_name=emdashsh)
-
-<br />
-
-  <a href="https://github.com/generalaction/emdash/releases" style="display:inline-block; margin-right:24px; text-decoration:none; outline:none; border:none;">
-    <img src="./docs/public/media/downloadformacos.png" alt="Download app for macOS" height="40">
-  </a>
+Instantly available, browser-accessible Linux workstations — operable by a human, an AI agent,
+many cooperating agents, or a human and AI together. Cloudflare-native. **Open computer**, not
+_configure cloud infrastructure_.
 
 </div>
 
-<br />
+---
 
-**Run multiple coding agents in parallel**
+> **Status:** Founding / early build. Milestone 1 (beautiful shell) in progress.
+> Scope + progress live in [`docs/ROADMAP.md`](docs/ROADMAP.md). Architecture in
+> [`docs/adr/0001-platform-architecture.md`](docs/adr/0001-platform-architecture.md).
 
-Emdash lets you develop and test multiple features with multiple agents in parallel. It’s provider-agnostic (supports 15+ CLI agents, such as Claude Code, Qwen Code, Amp, and Codex) and runs each agent in its own Git worktree to keep changes clean; Hand off Linear, GitHub, or Jira tickets to an agent and review diffs side-by-side.
+## What it is
 
-**Develop on remote servers via SSH**
+Visit deskl.ink → an extraordinary WebGL homepage → sign in → create a 4 GiB Ubuntu workstation →
+open it → the whole browser becomes the Linux desktop with a tiny translucent control surface in the
+upper-right. Work yourself, hand it to an AI, or work together. Everything persists when the machine
+stops. Everything it did is recorded into **human-viewable and AI-readable** history. It
+auto-stops after 10 idle minutes.
 
-Connect to remote machines via SSH/SFTP to work with remote codebases. Emdash supports SSH agent and key authentication, with secure credential storage in your OS keychain. Run agents on remote projects using the same parallel workflow as local development.
+## Architecture
 
-<div align="center" style="margin:24px 0;">
+```
+Browser ─▶ CF Worker (Hono, auth/API) ─▶ Durable Object (one per desktop) ─▶ Cloudflare Container (Ubuntu)
+R2 = durable truth (backups · screenshots · recordings · exports · AI memory)   D1 = accounts/app data
+```
 
-[Installation](#installation) • [Providers](#providers) • [Contributing](#contributing) • [FAQ](#faq)
+## Monorepo layout
 
-</div>
+| Path               | What                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `apps/web`         | React 19 + Vite + Tailwind v4 — homepage overlay, desktop manager, fullscreen desktop route |
+| `workers/api`      | Cloudflare Worker (Hono) — auth, billing, lifecycle, control-plane, MCP, API v1             |
+| `packages/shared`  | Design tokens (black/cyan) + shared TypeScript types                                        |
+| `packages/schemas` | Zod schemas (single source of truth → OpenAPI + typed clients) — _M2+_                      |
+| `container/ubuntu` | Ubuntu + XFCE + Install Doctor profile + VNC + desklink-agent — _M4+_                       |
+| `mcp/`             | DeskLink MCP server (capability-scoped) — _M8+_                                             |
+| `docs/`            | ROADMAP (build ledger) + ADRs                                                               |
 
-# Installation
+## Local development
 
-### macOS
-- Apple Silicon: https://github.com/generalaction/emdash/releases/latest/download/emdash-arm64.dmg  
-- Intel x64: https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.dmg
+Requires **Node 22+** (repo uses Node 26) and **pnpm 10**.
 
-[![Homebrew](https://img.shields.io/badge/-Homebrew-000000?style=for-the-badge&logo=homebrew&logoColor=FBB040)](https://formulae.brew.sh/cask/emdash)
-> macOS users can also: `brew install --cask emdash`
+```bash
+pnpm install            # install all workspaces
+pnpm dev                # run the web app (Vite dev server)
+pnpm -C workers/api dev # run the API worker locally (wrangler)
+pnpm typecheck          # strict TypeScript across workspaces
+pnpm lint && pnpm format
+pnpm test               # unit/integration (vitest) — added per milestone
+```
 
-### Linux
-- AppImage (x64): https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.AppImage  
-- Debian package (x64): https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.deb
-</details>
+## Configuration & secrets
 
-### Release Overview
+Copy `.env.example` → `.env` (and Worker secrets → `.dev.vars` / `wrangler secret`). **Never commit
+secrets.** Stripe runs in **test mode**. Cloudflare account/binding IDs and OAuth app credentials are
+documented as setup checklists in `docs/` as each milestone lands; nothing in the repo contains real
+credentials.
 
-**[Latest Releases (macOS • Linux)](https://github.com/generalaction/emdash/releases/latest)**
+## Design language
 
-# Providers
+Black `#05060A` · near-black · **electric cyan `#00E5FF`** · violet accent `#7C3AED` · very restrained
+white · deep translucent glass · subtle bloom · cinematic motion · premium WebGL. Fonts: Sora /
+Space Grotesk / JetBrains Mono. Must remain fully usable without WebGL and honor `prefers-reduced-motion`.
 
-<img alt="Providers banner" src="https://github.com/user-attachments/assets/c7b32a3e-452c-4209-91ef-71bcd895e2df" />
+## Repo history note
 
-### Supported CLI Providers
+This repository previously held a backup of an unrelated Electron app ("emdash"). That backup is
+preserved at tag **`archive/emdash-v0.4.15`** and on `origin/main` history. deskl.ink was founded
+over it on 2026-10-03.
 
-Emdash currently supports twenty-one CLI providers and we are adding new providers regularly. If you miss one, let us know or create a PR.
+```bash
+git checkout archive/emdash-v0.4.15   # recover the emdash backup if ever needed
+```
 
-| CLI Provider | Status | Install |
-| ----------- | ------ | ----------- |
-| [Amp](https://ampcode.com/manual) | ✅ Supported | `npm install -g @sourcegraph/amp@latest` |
-| [Auggie](https://docs.augmentcode.com/cli/overview) | ✅ Supported | `npm install -g @augmentcode/auggie` |
-| [Charm](https://github.com/charmbracelet/crush) | ✅ Supported | `npm install -g @charmland/crush` |
-| [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) | ✅ Supported | `curl -fsSL https://claude.ai/install.sh \| bash` |
-| [Cline](https://docs.cline.bot/cline-cli/overview) | ✅ Supported | `npm install -g cline` |
-| [Codebuff](https://www.codebuff.com/docs/help/quick-start) | ✅ Supported | `npm install -g codebuff` |
-| [Codex](https://developers.openai.com/codex/cli/) | ✅ Supported | `npm install -g @openai/codex` |
-| [Continue](https://docs.continue.dev/guides/cli) | ✅ Supported | `npm i -g @continuedev/cli` |
-| [Cursor](https://cursor.com/cli) | ✅ Supported | `curl https://cursor.com/install -fsS | bash` |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅ Supported | `curl -fsSL https://app.factory.ai/cli | sh` |
-| [Gemini](https://github.com/google-gemini/gemini-cli) | ✅ Supported | `npm install -g @google/gemini-cli` |
-| [GitHub Copilot](https://docs.github.com/en/copilot/how-tos/set-up/installing-github-copilot-in-the-cli) | ✅ Supported | `npm install -g @github/copilot` |
-| [Goose](https://github.com/block/goose) | ✅ Supported | `curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | bash` |
-| [Kilocode](https://kilo.ai/docs/cli) | ✅ Supported | `npm install -g @kilocode/cli` |
-| [Kimi](https://www.kimi.com/code/docs/en/kimi-cli/guides/getting-started.html) | ✅ Supported | `uv tool install --python 3.13 kimi-cli` |
-| [Kiro](https://kiro.dev/docs/cli/) | ✅ Supported | `curl -fsSL https://cli.kiro.dev/install | bash` |
-| [Mistral Vibe](https://github.com/mistralai/mistral-vibe) | ✅ Supported | `curl -LsSf https://mistral.ai/vibe/install.sh \| bash` |
-| [OpenCode](https://opencode.ai/docs/) | ✅ Supported | `npm install -g opencode-ai` |
-| [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) | ✅ Supported | `npm install -g @mariozechner/pi-coding-agent` |
-| [Qwen Code](https://github.com/QwenLM/qwen-code) | ✅ Supported | `npm install -g @qwen-code/qwen-code` |
-| [Rovo Dev](https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/) | ✅ Supported | `acli rovodev auth login` |
+## License
 
-### Issues
-
-Emdash allows you to pass tickets straight from Linear, GitHub, or Jira to your coding agent. 
-
-| Tool | Status | Authentication |
-| ----------- | ------ | ----------- |
-| [Linear](https://linear.app) | ✅ Supported | Connect with a Linear API key. |
-| [Jira](https://www.atlassian.com/software/jira) | ✅ Supported | Provide your site URL, email, and Atlassian API token. |
-| [GitHub Issues](https://docs.github.com/en/issues) | ✅ Supported | Authenticate via GitHub CLI (`gh auth login`). |
-
-# Contributing
-
-Contributions welcome! See the [Contributing Guide](CONTRIBUTING.md) to get started, and join our [Discord](https://discord.gg/f2fv7YxuR2) to discuss.
-
-# FAQ
-
-<details>
-<summary><b>What telemetry do you collect and can I disable it?</b></summary>
-
-> We send **anonymous, allow‑listed events** (app start/close, feature usage names, app/platform versions) to PostHog.  
-> We **do not** send code, file paths, repo names, prompts, or PII.
->
-> **Disable telemetry:**
->
-> - In the app: **Settings → General → Privacy & Telemetry** (toggle off)
-> - Or via env var before launch:
->
-> ```bash
-> TELEMETRY_ENABLED=false
-> ```
->
-> Full details: see `docs/telemetry.md`.
-</details>
-
-<details>
-<summary><b>Where is my data stored?</b></summary>
-
-> **App data is local‑first**. We store app state in a local **SQLite** database:
->
-> ```
-> macOS:  ~/Library/Application Support/emdash/emdash.db
-> Linux:  ~/.config/emdash/emdash.db
-> ```
->
-> **Privacy Note:** While Emdash itself stores data locally, **when you use any coding agent (Claude Code, Codex, Qwen, etc.), your code and prompts are sent to that provider's cloud API servers** for processing. Each provider has their own data handling and retention policies.
->
-> You can reset the local DB by deleting it (quit the app first). The file is recreated on next launch.
-</details>
-
-<details>
-<summary><b>Do I need GitHub CLI?</b></summary>
-
-> **Only if you want GitHub features** (open PRs from Emdash, fetch repo info, GitHub Issues integration).  
-> Install & sign in:
->
-> ```bash
-> gh auth login
-> ```
->
-> If you don’t use GitHub features, you can skip installing `gh`.
-</details>
-
-<details>
-<summary><b>How do I add a new provider?</b></summary>
-
-> Emdash is **provider‑agnostic** and built to add CLIs quickly.
->
-> - Open a PR following the **Contributing Guide** (`CONTRIBUTING.md`).
-> - Include: provider name, how it’s invoked (CLI command), auth notes, and minimal setup steps.
-> - We’ll add it to the **Integrations** matrix and wire up provider selection in the UI.
->
-> If you’re unsure where to start, open an issue with the CLI’s link and typical commands.
-</details>
-
-<details>
-<summary><b>I hit a native‑module crash (sqlite3 / node‑pty / keytar). What’s the fast fix?</b></summary>
-
-> This usually happens after switching Node/Electron versions.
->
-> 1) Rebuild native modules:
->
-> ```bash
-> npm run rebuild
-> ```
->
-> 2) If that fails, clean and reinstall:
->
-> ```bash
-> npm run reset
-> ```
->
-> (Resets `node_modules`, reinstalls, and re‑builds Electron native deps.)
-</details>
-
-<details>
-<summary><b>What permissions does Emdash need?</b></summary>
-
-> - **Filesystem/Git:** to read/write your repo and create **Git worktrees** for isolation.  
-> - **Network:** only for provider CLIs you choose to use (e.g., Codex, Claude) and optional GitHub actions.  
-> - **Local DB:** to store your app state in SQLite on your machine.
->
-> Emdash itself does **not** send your code or chats to any servers. Third‑party CLIs may transmit data per their policies.
-</details>
-
-
-<details>
-<summary><b>Can I work with remote projects over SSH?</b></summary>
-
-> **Yes!** Emdash supports remote development via SSH.
->
-> **Setup:**
-> 1. Go to **Settings → SSH Connections** and add your server details
-> 2. Choose authentication: SSH agent (recommended), private key, or password
-> 3. Add a remote project and specify the path on the server
->
-> **Requirements:**
-> - SSH access to the remote server
-> - Git installed on the remote server
-> - For agent auth: SSH agent running with your key loaded (`ssh-add -l`)
->
-> See [docs/ssh-setup.md](./docs/ssh-setup.md) for detailed setup instructions and [docs/ssh-architecture.md](./docs/ssh-architecture.md) for technical details.
-</details>
-
-[![Follow @rabanspiegel](https://img.shields.io/twitter/follow/rabanspiegel?style=social&label=Follow%20%40rabanspiegel)](https://x.com/rabanspiegel)
-[![Follow @arnestrickmann](https://img.shields.io/twitter/follow/arnestrickmann?style=social&label=Follow%20%40arnestrickmann)](https://x.com/arnestrickmann)
+See [`LICENSE.md`](LICENSE.md).

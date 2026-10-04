@@ -1,71 +1,49 @@
 # Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output
 dist/
-release/
+build/
+*.tsbuildinfo
+
+# Cloudflare / Wrangler local state
+.wrangler/
+.dev.vars
+.dev.vars.*
+wrangler.toml.bak
+
+# Local R2 / D1 / DO state (miniflare)
+.mf/
+.miniflare/
+*.sqlite
+*.sqlite-journal
+
+# Secrets / env — NEVER commit
+.env
+.env.*
+!.env.example
 
 # Logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
+# Test / coverage artifacts
 coverage/
+playwright-report/
+test-results/
+.playwright/
 
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-node_modules/
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE
+# Editor / OS
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
 
-# AI assistant instructions
+# Scratch
 .notes/
-.notes
-.claude/
-
-# Local generated worktrees for perf experiments
-worktrees/
-
-# Checkouts directory
-.checkouts/
-
-/container.md
-
-.env
-.cursor

@@ -1,0 +1,53 @@
+name = "deskl-ink-api"
+main = "src/index.ts"
+compatibility_date = "2025-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Keep the *.workers.dev URL live so the API is reachable before the custom
+# domain's zone is active (see cloudflare-native-provisioning doctrine).
+workers_dev = true
+
+[observability]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Bindings below are STAGED for Milestone 2. They are intentionally commented
+# out so the skeleton deploys with zero infrastructure. Uncomment + fill the
+# ids (via `wrangler d1/r2/... create`) as each lands. Do NOT hardcode account
+# ids here — Wrangler reads CLOUDFLARE_ACCOUNT_ID from the environment.
+# ---------------------------------------------------------------------------
+
+# --- D1: primary relational store (users, desktops, sessions, usage) ---
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "deskl-ink"
+# database_id = "TODO-run: wrangler d1 create deskl-ink"
+
+# --- R2: object storage buckets ---
+# [[r2_buckets]]
+# binding = "BACKUPS"          # persisted desktop home-volume snapshots
+# bucket_name = "deskl-ink-backups"
+# [[r2_buckets]]
+# binding = "RECORDINGS"       # session screen recordings
+# bucket_name = "deskl-ink-recordings"
+# [[r2_buckets]]
+# binding = "SCREENSHOTS"      # desktop thumbnails / previews
+# bucket_name = "deskl-ink-screenshots"
+# [[r2_buckets]]
+# binding = "ARTIFACTS"        # files agents/users produce inside a desktop
+# bucket_name = "deskl-ink-artifacts"
+
+# --- Durable Objects: one DesktopDO per live desktop (orchestrates container) ---
+# [[durable_objects.bindings]]
+# name = "DESKTOP_DO"
+# class_name = "DesktopDO"
+#
+# [[migrations]]
+# tag = "v1"
+# new_sqlite_classes = ["DesktopDO"]
+
+# --- Containers: the actual Linux workstation image, driven by DesktopDO ---
+# [[containers]]
+# class_name = "DesktopDO"
+# image = "./container/Dockerfile"
+# max_instances = 50

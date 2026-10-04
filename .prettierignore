@@ -1,19 +1,14 @@
-# ignore git and build dependencies
-**/.git
-**/node_modules
+# Dependencies & build output
+node_modules/
+dist/
+build/
+.wrangler/
 
-# ignore build outputs
-**/dist
-**/.next
-**/build
-**/.turbo
+# Lockfiles & generated
+pnpm-lock.yaml
+*.tsbuildinfo
 
-# ignore config files that shouldn't be formatted
-**/.env*
-**/pnpm-lock.yaml
-**/yarn.lock
-
-# ignore specific file types
-**/*.md
-**/*.yaml
-**/*.yml
+# Coverage & reports
+coverage/
+playwright-report/
+test-results/
