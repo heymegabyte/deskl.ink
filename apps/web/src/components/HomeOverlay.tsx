@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { DESKTOP_SIZES } from '@deskl/shared';
 import { AuthPanel } from './AuthPanel.js';
+import { Wordmark } from './Logo.js';
 
 // Lazy-load the WebGL/canvas hero so it stays out of the main bundle.
 const HeroCanvas = lazy(() => import('./HeroCanvas.js'));
@@ -45,6 +46,11 @@ export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
         className="pointer-events-none absolute inset-0 bg-[var(--color-black)]/35"
         aria-hidden="true"
       />
+
+      {/* Brand mark, top-left. */}
+      <div className="absolute left-6 top-5 z-10">
+        <Wordmark size={32} textClassName="text-xl" />
+      </div>
 
       <button
         type="button"

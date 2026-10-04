@@ -6,6 +6,7 @@ import {
   type DesktopStatus,
 } from '../../../../packages/shared/src/desktop-api';
 import { api, ApiError } from '../lib/api.js';
+import { Wordmark } from './Logo.js';
 
 /**
  * DesktopManager — the authenticated app surface revealed once the homepage
@@ -220,12 +221,7 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
     <div className="ds-nebula-fallback flex h-full flex-col">
       {/* Top bar */}
       <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-[var(--color-cyan)] to-[var(--color-violet)] font-display text-sm font-800 text-[var(--color-black)]">
-            d
-          </span>
-          <span className="font-display text-lg font-700 tracking-tight text-white">deskl.ink</span>
-        </div>
+        <Wordmark size={30} textClassName="text-lg" />
 
         <div className="flex items-center gap-3">
           <button

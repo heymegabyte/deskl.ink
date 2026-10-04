@@ -33,7 +33,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
 
   use: {
-    baseURL: process.env['DESKL_BASE_URL'] ?? 'http://localhost:5173',
+    // Prod-first (no-staging doctrine): default to the live custom domain. Override with
+    // DESKL_BASE_URL=http://localhost:5173 for local-dev runs.
+    baseURL: process.env['DESKL_BASE_URL'] ?? 'https://deskl.ink',
 
     /* Capture a screenshot on every failure + at explicit `page.screenshot()` calls. */
     screenshot: 'only-on-failure',
