@@ -4,9 +4,12 @@ import {
   DESKTOP_SIZES,
   type DesktopResource,
   type DesktopStatus,
+  type DistroId,
 } from '../../../../packages/shared/src/desktop-api';
 import { api, ApiError } from '../lib/api.js';
 import { Wordmark } from './Logo.js';
+import { OsPicker } from './OsPicker.js';
+import { DistroMark } from './DistroMark.js';
 
 /**
  * DesktopManager — the authenticated app surface revealed once the homepage
@@ -70,6 +73,7 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
@@ -132,29 +136,34 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
   }, [refresh]);
 
   /** Create an Everyday desktop, show it optimistically, poll until ready. */
-  const createComputer = useCallback(async () => {
-    if (creating) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const { desktop, vncTicket } = await api.createDesktop({
-        size: 'everyday',
-        disposable: false,
-      });
-      ticketsRef.current.set(desktop.id, vncTicket);
-      // Optimistic insert (dedupe if a poll already surfaced it).
-      setDesktops((prev) => {
-        if (prev.some((d) => d.id === desktop.id)) {
-          return prev.map((d) => (d.id === desktop.id ? desktop : d));
-        }
-        return [desktop, ...prev];
-      });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create a computer.');
-    } finally {
-      setCreating(false);
-    }
-  }, [creating]);
+  const createComputer = useCallback(
+    async (distro: DistroId = 'ubuntu') => {
+      if (creating) return;
+      setCreating(true);
+      setError(null);
+      try {
+        const { desktop, vncTicket } = await api.createDesktop({
+          size: 'everyday',
+          distro,
+          disposable: false,
+        });
+        ticketsRef.current.set(desktop.id, vncTicket);
+        // Optimistic insert (dedupe if a poll already surfaced it).
+        setDesktops((prev) => {
+          if (prev.some((d) => d.id === desktop.id)) {
+            return prev.map((d) => (d.id === desktop.id ? desktop : d));
+          }
+          return [desktop, ...prev];
+        });
+        setPickerOpen(false);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not create a computer.');
+      } finally {
+        setCreating(false);
+      }
+    },
+    [creating]
+  );
 
   /** Poll any individual desktop that is still settling, until it stabilizes. */
   useEffect(() => {
@@ -219,6 +228,13 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
 
   return (
     <div className="ds-nebula-fallback flex h-full flex-col">
+      {pickerOpen && (
+        <OsPicker
+          onCreate={(distro) => void createComputer(distro)}
+          onClose={() => setPickerOpen(false)}
+          creating={creating}
+        />
+      )}
       {/* Top bar */}
       <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
         <Wordmark size={30} textClassName="text-lg" />
@@ -227,7 +243,7 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
           <button
             type="button"
             data-testid={desktopTestIds.newComputerButton}
-            onClick={() => void createComputer()}
+            onClick={() => setPickerOpen(true)}
             disabled={creating}
             aria-label="Create a new computer"
             aria-busy={creating}
@@ -419,13 +435,20 @@ function DesktopTile({
     <li
       data-testid={desktopTestIds.tile}
       data-desktop-id={desktop.id}
+      data-distro={desktop.distro}
       className="ds-glass group flex flex-col justify-between rounded-xl p-5 transition-transform duration-200 ease-[var(--ease-standard)] hover:-translate-y-0.5 hover:border-[var(--color-cyan)]/40"
     >
       <div>
         <div className="flex items-start justify-between gap-3">
-          <h3 className="truncate font-display text-base font-700 text-white" title={desktop.name}>
-            {desktop.name}
-          </h3>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <DistroMark distro={desktop.distro} size={28} />
+            <h3
+              className="truncate font-display text-base font-700 text-white"
+              title={desktop.name}
+            >
+              {desktop.name}
+            </h3>
+          </div>
           <span
             data-testid={desktopTestIds.tileStatus}
             data-status={desktop.status}

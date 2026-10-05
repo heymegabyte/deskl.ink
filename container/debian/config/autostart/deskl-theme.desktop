@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=deskl.ink theme
+Comment=Re-assert the dark, on-brand Plasma look after plasmashell starts
+Exec=sh /home/desklink/.config/deskl-apply-theme.sh
+X-KDE-autostart-phase=2
+OnlyShowIn=KDE;
+NoDisplay=true
+Terminal=false

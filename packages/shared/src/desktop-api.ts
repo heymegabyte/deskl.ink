@@ -74,11 +74,62 @@ export const DESKTOP_SIZES: Readonly<Record<DesktopSizeId, DesktopSizeSpec>> = {
 
 export const DEFAULT_DESKTOP_OS = 'Ubuntu 24.04';
 
+/**
+ * Selectable Linux distributions (the OS picker). Ubuntu is the default. Each carries its
+ * signature brand colors for the picker's gradient orb — ORIGINAL stylized marks rendered
+ * from these colors, never reproductions of the distros' trademarked logos.
+ */
+export const DISTRO_IDS = ['ubuntu', 'fedora', 'debian'] as const;
+export const DistroIdSchema = z.enum(DISTRO_IDS);
+export type DistroId = z.infer<typeof DistroIdSchema>;
+
+export interface DistroSpec {
+  readonly id: DistroId;
+  readonly name: string;
+  readonly version: string;
+  /** Display OS string, e.g. "Ubuntu 24.04". */
+  readonly os: string;
+  readonly tagline: string;
+  /** Signature brand colors for the picker orb gradient. */
+  readonly color: string;
+  readonly color2: string;
+}
+export const DISTROS: Readonly<Record<DistroId, DistroSpec>> = {
+  ubuntu: {
+    id: 'ubuntu',
+    name: 'Ubuntu',
+    version: '24.04 LTS',
+    os: 'Ubuntu 24.04',
+    tagline: 'Rock-solid & familiar',
+    color: '#E95420',
+    color2: '#772953',
+  },
+  fedora: {
+    id: 'fedora',
+    name: 'Fedora',
+    version: '41',
+    os: 'Fedora 41',
+    tagline: 'Cutting-edge & clean',
+    color: '#3C6EB4',
+    color2: '#51A2DA',
+  },
+  debian: {
+    id: 'debian',
+    name: 'Debian',
+    version: '12',
+    os: 'Debian 12',
+    tagline: 'Stable & universal',
+    color: '#D70A53',
+    color2: '#A81D33',
+  },
+} as const;
+
 /** POST /api/v1/desktops — create a computer. */
 export const CreateDesktopRequestSchema = z
   .object({
     name: z.string().min(1).max(60).optional(),
     size: DesktopSizeIdSchema.default('everyday'),
+    distro: DistroIdSchema.default('ubuntu'),
     disposable: z.boolean().default(false),
   })
   .strict();
@@ -89,6 +140,7 @@ export const DesktopResourceSchema = z.object({
   id: z.string(),
   name: z.string(),
   os: z.string(),
+  distro: DistroIdSchema,
   size: DesktopSizeIdSchema,
   status: DesktopStatusSchema,
   createdAt: z.string(),
@@ -109,6 +161,7 @@ export type DesktopListResponse = z.infer<typeof DesktopListResponseSchema>;
  */
 export const VncTicketClaimsSchema = z.object({
   desktopId: z.string(),
+  distro: DistroIdSchema,
   exp: z.number(), // epoch seconds
 });
 export type VncTicketClaims = z.infer<typeof VncTicketClaimsSchema>;
@@ -119,6 +172,14 @@ export const CreateDesktopResponseSchema = z.object({
   vncTicket: z.string(),
 });
 export type CreateDesktopResponse = z.infer<typeof CreateDesktopResponseSchema>;
+
+/**
+ * Response of the mint-ticket endpoint. A VNC ticket is short-lived, so a client that opens a
+ * desktop WITHOUT a create-time ticket (page reload, reopening a running desktop) mints a fresh
+ * one on demand — otherwise the connect view would dead-end with no way to get a ticket.
+ */
+export const VncTicketResponseSchema = z.object({ vncTicket: z.string() });
+export type VncTicketResponse = z.infer<typeof VncTicketResponseSchema>;
 
 /** Container port websockify serves (noVNC HTML + ws proxy to local VNC) — see Dockerfile. */
 export const VNC_CONTAINER_PORT = 6080;
@@ -134,6 +195,8 @@ export const desktopApi = {
   start: (id: string) => `/api/v1/desktops/${id}/start`,
   stop: (id: string) => `/api/v1/desktops/${id}/stop`,
   destroy: (id: string) => `/api/v1/desktops/${id}`,
+  /** mint a fresh VNC ticket for a running desktop (self-heal when no create-time ticket). */
+  ticket: (id: string) => `/api/v1/desktops/${id}/ticket`,
   /** noVNC client entry (HTML served by websockify through the proxy). */
   vncClient: (id: string, ticket: string) =>
     `/api/v1/desktops/${id}/vnc/vnc.html?ticket=${encodeURIComponent(ticket)}&path=${encodeURIComponent(
@@ -149,6 +212,7 @@ export const desktopApi = {
  */
 export const desktopTestIds = {
   newComputerButton: 'new-computer-button',
+  distroOption: 'distro-option', // carries data-distro=<id>
   createConfirm: 'create-computer-confirm',
   tile: 'desktop-tile', // carries data-desktop-id
   tileStatus: 'desktop-status',

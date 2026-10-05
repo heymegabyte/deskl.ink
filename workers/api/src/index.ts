@@ -13,8 +13,13 @@ import desktops from './routes/desktops.js';
 
 // Container + registry Durable Objects must be exported from the Worker entry
 // so the runtime can instantiate them (classes referenced in wrangler.jsonc
-// durable_objects.bindings + migrations.new_sqlite_classes).
-export { DesktopContainer } from './containers/DesktopContainer.js';
+// durable_objects.bindings + migrations.new_sqlite_classes). FedoraDesktop /
+// DebianDesktop are per-distro subclasses bound to their own images.
+export {
+  DesktopContainer,
+  FedoraDesktop,
+  DebianDesktop,
+} from './containers/DesktopContainer.js';
 export { DesktopRegistry } from './containers/DesktopRegistry.js';
 
 /** API surface version — bump on breaking contract changes. */

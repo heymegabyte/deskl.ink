@@ -40,10 +40,24 @@ run_worker_first = ["/api/*"]
 # `wrangler secret put VNC_TICKET_SECRET` before production.
 # ---------------------------------------------------------------------------
 
-# --- Containers: the Linux workstation image, driven by DesktopContainer ---
+# --- Containers: the Linux workstation images, one per selectable distro ---
+# Ubuntu is the default/golden path (DesktopContainer). Fedora + Debian are
+# additive variants — distinct DO classes so each binds to its own image.
 [[containers]]
 class_name = "DesktopContainer"
 image = "../../container/ubuntu/Dockerfile"
+instance_type = "standard-1"
+max_instances = 25
+
+[[containers]]
+class_name = "FedoraDesktop"
+image = "../../container/fedora/Dockerfile"
+instance_type = "standard-1"
+max_instances = 25
+
+[[containers]]
+class_name = "DebianDesktop"
+image = "../../container/debian/Dockerfile"
 instance_type = "standard-1"
 max_instances = 25
 
@@ -53,6 +67,14 @@ name = "DESKTOP"
 class_name = "DesktopContainer"
 
 [[durable_objects.bindings]]
+name = "DESKTOP_FEDORA"
+class_name = "FedoraDesktop"
+
+[[durable_objects.bindings]]
+name = "DESKTOP_DEBIAN"
+class_name = "DebianDesktop"
+
+[[durable_objects.bindings]]
 name = "REGISTRY"
 class_name = "DesktopRegistry"
 
@@ -60,6 +82,11 @@ class_name = "DesktopRegistry"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["DesktopContainer", "DesktopRegistry"]
+
+# v2: the additive per-distro container DOs (Ubuntu's v1 class is untouched).
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["FedoraDesktop", "DebianDesktop"]
 
 # ---------------------------------------------------------------------------
 # Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill

@@ -20,11 +20,16 @@
 import { DurableObject } from 'cloudflare:workers';
 import {
   DEFAULT_DESKTOP_OS,
+  DISTROS,
   type DesktopResource,
   type DesktopSizeId,
   type DesktopStatus,
+  type DistroId,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
+
+/** Legacy rows predate the distro column — treat a missing/blank distro as Ubuntu. */
+const DEFAULT_DISTRO: DistroId = 'ubuntu';
 
 /**
  * Row shape as stored in SQLite (booleans are 0/1 integers in SQLite).
@@ -36,6 +41,8 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
   id: string;
   name: string;
   os: string;
+  /** Selectable distro ('ubuntu' | 'fedora' | 'debian'); NULL on legacy rows. */
+  distro: string | null;
   size: string;
   status: string;
   created_at: string;
@@ -48,6 +55,7 @@ export interface CreateDesktopRow {
   id: string;
   name: string;
   os?: string;
+  distro: DistroId;
   size: DesktopSizeId;
   status: DesktopStatus;
   persistent: boolean;
@@ -62,6 +70,7 @@ export class DesktopRegistry extends DurableObject<Env> {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         os TEXT NOT NULL,
+        distro TEXT,
         size TEXT NOT NULL,
         status TEXT NOT NULL,
         created_at TEXT NOT NULL,
@@ -69,22 +78,33 @@ export class DesktopRegistry extends DurableObject<Env> {
         persistent INTEGER NOT NULL DEFAULT 0
       );`
     );
+    // Additive migration for registries created before the distro column existed.
+    // `ADD COLUMN` throws "duplicate column" once it exists — swallow that so it
+    // stays idempotent across cold starts. Legacy rows get NULL → defaulted to
+    // Ubuntu on read, so the existing fleet keeps working unchanged.
+    try {
+      this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN distro TEXT;`);
+    } catch {
+      // column already present — expected on every start after the first.
+    }
   }
 
   /** Insert a new desktop row. Idempotent: re-creating the same id is a no-op upsert. */
   create(input: CreateDesktopRow): DesktopResource {
     const now = new Date().toISOString();
     this.ctx.storage.sql.exec(
-      `INSERT INTO desktops (id, name, os, size, status, created_at, last_active_at, persistent)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+      `INSERT INTO desktops (id, name, os, distro, size, status, created_at, last_active_at, persistent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          os = excluded.os,
+         distro = excluded.distro,
          size = excluded.size,
          status = excluded.status;`,
       input.id,
       input.name,
       input.os ?? DEFAULT_DESKTOP_OS,
+      input.distro,
       input.size,
       input.status,
       now,
@@ -144,6 +164,7 @@ function rowToResource(row: DesktopRow): DesktopResource {
     id: row.id,
     name: row.name,
     os: row.os,
+    distro: normalizeDistro(row.distro),
     size: row.size as DesktopSizeId,
     status: row.status as DesktopStatus,
     createdAt: row.created_at,
@@ -151,4 +172,9 @@ function rowToResource(row: DesktopRow): DesktopResource {
   };
   // Only attach the optional field when present — never set it to `undefined`.
   return row.last_active_at ? { ...base, lastActiveAt: row.last_active_at } : base;
+}
+
+/** Coerce a stored distro to a known id; NULL (legacy rows) or unknown → Ubuntu. */
+function normalizeDistro(value: string | null): DistroId {
+  return value && value in DISTROS ? (value as DistroId) : DEFAULT_DISTRO;
 }

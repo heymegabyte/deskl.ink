@@ -26,11 +26,13 @@ import { getContainer } from '@cloudflare/containers';
 import {
   CreateDesktopRequestSchema,
   CreateDesktopResponseSchema,
-  DEFAULT_DESKTOP_OS,
   DESKTOP_SIZES,
+  DISTROS,
   DesktopListResponseSchema,
   DesktopResponseSchema,
+  VncTicketResponseSchema,
   type DesktopResource,
+  type DistroId,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
@@ -61,22 +63,35 @@ interface DesktopContainerStub {
 }
 
 /**
- * Resolve a DesktopContainer stub narrowed to the lifecycle methods we use.
+ * Resolve a per-distro DesktopContainer stub narrowed to the lifecycle methods
+ * we use, routed by `distro`:
+ *   - `ubuntu` → `env.DESKTOP`        (DesktopContainer — the golden path)
+ *   - `fedora` → `env.DESKTOP_FEDORA` (FedoraDesktop)
+ *   - `debian` → `env.DESKTOP_DEBIAN` (DebianDesktop)
+ * Each distro's container lives in its OWN Durable Object namespace, so a given
+ * desktop id maps to the instance in the namespace for its distro.
  *
  * `getContainer(...)`'s full stub-proxy type expands recursively under
  * `exactOptionalPropertyTypes` (TS2589 at every call site). Narrowing to the
  * `DesktopContainerStub` surface breaks that deep inference once, here, without
- * changing runtime behavior (`getContainer` is called exactly as before).
+ * changing runtime behavior (`getContainer` is called exactly as before). An
+ * unknown distro falls back to Ubuntu so the golden path is never wedged.
  */
-function getDesktopContainer(env: Env, id: string): DesktopContainerStub {
+function getDesktopContainer(env: Env, id: string, distro: DistroId): DesktopContainerStub {
   // Cast the `getContainer` REFERENCE (not just its result) so TS never
   // instantiates its deep `DurableObjectStub<DesktopContainer>` proxy return
   // type — that recursive expansion is the TS2589 source. Runtime is unchanged.
   const resolve = getContainer as unknown as (
-    binding: Env['DESKTOP'],
+    binding: Env['DESKTOP'] | Env['DESKTOP_FEDORA'] | Env['DESKTOP_DEBIAN'],
     name: string
   ) => DesktopContainerStub;
-  return resolve(env.DESKTOP, id);
+  const binding =
+    distro === 'fedora'
+      ? env.DESKTOP_FEDORA
+      : distro === 'debian'
+        ? env.DESKTOP_DEBIAN
+        : env.DESKTOP;
+  return resolve(binding, id);
 }
 
 /** Generate a URL-safe desktop id (UUIDv4 — unpredictable, no info leak). */
@@ -103,14 +118,17 @@ app.post('/', async (c) => {
   if (!parsed.success) {
     return c.json({ ok: false, error: 'invalid_request', details: parsed.error.flatten() }, 400);
   }
-  const { name, size, disposable } = parsed.data;
+  const { name, size, distro, disposable } = parsed.data;
 
   const id = newDesktopId();
   const registry = getRegistry(c.env);
   const created: DesktopResource = await registry.create({
     id,
     name: name ?? defaultName(size),
-    os: DEFAULT_DESKTOP_OS,
+    // OS string is derived from the chosen distro (e.g. "Fedora 41") so the
+    // registry's `os` field always matches the distro the container runs.
+    os: DISTROS[distro].os,
+    distro,
     size,
     status: 'starting',
     persistent: !disposable,
@@ -119,16 +137,18 @@ app.post('/', async (c) => {
   // Auto-start so `+ New computer` yields a booting→ready desktop in ONE action
   // (embarrassingly-easy UX). `.start()` is non-blocking + idempotent; the first VNC
   // request blocks on websockify readiness, so `ready` here means "boot accepted".
+  // Route to the container namespace matching the chosen distro.
   let desktop = created;
   try {
-    await getDesktopContainer(c.env, id).start();
+    await getDesktopContainer(c.env, id, distro).start();
     desktop = (await registry.updateStatus(id, 'ready')) ?? created;
   } catch (err) {
     console.error('[deskl.ink desktops] auto-start on create failed', id, err);
     desktop = (await registry.updateStatus(id, 'failed')) ?? created;
   }
 
-  const vncTicket = await mintVncTicket(id, c.env.VNC_TICKET_SECRET);
+  // Ticket carries the distro so the VNC proxy routes to the right container.
+  const vncTicket = await mintVncTicket(id, distro, c.env.VNC_TICKET_SECRET);
 
   const body = CreateDesktopResponseSchema.parse({ desktop, vncTicket });
   return c.json(body, 201);
@@ -158,12 +178,14 @@ app.get('/:id', async (c) => {
 app.post('/:id/start', async (c) => {
   const id = c.req.param('id');
   const registry = getRegistry(c.env);
-  if (!(await registry.get(id))) return c.json({ ok: false, error: 'not_found' }, 404);
+  const existing = await registry.get(id);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   await registry.updateStatus(id, 'starting');
   try {
     // `.start()` is non-blocking + idempotent (safe on an already-running instance).
-    await getDesktopContainer(c.env, id).start();
+    // Route to the container namespace for this desktop's distro.
+    await getDesktopContainer(c.env, id, existing.distro).start();
   } catch (err) {
     console.error('[deskl.ink desktops] start failed', id, err);
     const failed = await registry.updateStatus(id, 'failed');
@@ -177,17 +199,47 @@ app.post('/:id/start', async (c) => {
 });
 
 /**
+ * POST /api/v1/desktops/:id/ticket — mint a fresh, short-lived VNC ticket for a desktop.
+ * The create response carries a ticket, but a client that opens a desktop WITHOUT one (page
+ * reload, reopening a running desktop) needs a way to get a connection — otherwise the connect
+ * view dead-ends on a spinner. Ensures the container is running, then mints a distro-scoped
+ * ticket. Idempotent + safe to call repeatedly. 404 for an unknown desktop.
+ */
+app.post('/:id/ticket', async (c) => {
+  const id = c.req.param('id');
+  const registry = getRegistry(c.env);
+  const existing = await registry.get(id);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  try {
+    // `.start()` is non-blocking + idempotent — guarantees the instance is up before we hand
+    // out a ticket (covers "ticket for a stopped desktop" too).
+    await getDesktopContainer(c.env, id, existing.distro).start();
+  } catch (err) {
+    console.error('[deskl.ink desktops] ticket start failed', id, err);
+    return c.json({ ok: false, error: 'start_failed' }, 502);
+  }
+  await registry.updateStatus(id, 'ready');
+
+  const vncTicket = await mintVncTicket(id, existing.distro, c.env.VNC_TICKET_SECRET);
+  const body = VncTicketResponseSchema.parse({ vncTicket });
+  return c.json(body);
+});
+
+/**
  * POST /api/v1/desktops/:id/stop — stop the container (SIGTERM).
  * Idempotent: `.stop()` is a no-op if not running. Sets status `stopped`.
  */
 app.post('/:id/stop', async (c) => {
   const id = c.req.param('id');
   const registry = getRegistry(c.env);
-  if (!(await registry.get(id))) return c.json({ ok: false, error: 'not_found' }, 404);
+  const existing = await registry.get(id);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   await registry.updateStatus(id, 'stopping');
   try {
-    await getDesktopContainer(c.env, id).stop();
+    // Route to the container namespace for this desktop's distro.
+    await getDesktopContainer(c.env, id, existing.distro).stop();
   } catch (err) {
     // A stop failure shouldn't wedge the record — log, still mark stopped.
     console.error('[deskl.ink desktops] stop failed', id, err);
@@ -207,10 +259,16 @@ app.post('/:id/stop', async (c) => {
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
   const registry = getRegistry(c.env);
-  try {
-    await getDesktopContainer(c.env, id).destroy();
-  } catch (err) {
-    console.error('[deskl.ink desktops] destroy failed', id, err);
+  // Look up the distro so we destroy the instance in the RIGHT namespace. An
+  // unknown desktop has no live container in any namespace — skip the destroy
+  // and just ensure the (already-absent) row is removed, keeping this idempotent.
+  const existing = await registry.get(id);
+  if (existing) {
+    try {
+      await getDesktopContainer(c.env, id, existing.distro).destroy();
+    } catch (err) {
+      console.error('[deskl.ink desktops] destroy failed', id, err);
+    }
   }
   await registry.remove(id);
   return c.json({ ok: true, id });
@@ -240,7 +298,9 @@ app.all('/:id/vnc/*', async (c) => {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  const container = getDesktopContainer(c.env, id);
+  // The verified ticket carries the distro → route to the matching container
+  // namespace without re-reading the registry on this hot path.
+  const container = getDesktopContainer(c.env, id, verdict.claims.distro);
 
   // WebSocket upgrades: pass the ORIGINAL request straight to the container's defaultPort
   // (VNC_CONTAINER_PORT = websockify). NO switchPort / NO `new Request` — both reconstruct

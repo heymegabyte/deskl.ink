@@ -1,0 +1,10 @@
+# deskl.ink — screen locker OFF (pre-baked)
+# -----------------------------------------------------------------------------
+# A headless, Worker-authenticated desktop has nothing to lock, and a lock
+# screen over VNC can strand the user (no password was ever set). Disable auto
+# lock and lock-on-resume outright.
+# -----------------------------------------------------------------------------
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0

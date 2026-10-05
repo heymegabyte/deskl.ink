@@ -1,0 +1,88 @@
+#!/bin/sh
+# -----------------------------------------------------------------------------
+# deskl.ink — TigerVNC xstartup (runs inside the X server on display :1, Fedora)
+# -----------------------------------------------------------------------------
+# Xvnc execs this script once the X server is up. Its job: establish the
+# environment KDE Plasma needs, dress the root window in deskl.ink near-black,
+# quiet X power-management, and hand off to a FULL Plasma session via
+# startplasma-x11. Keep it POSIX sh (xstartup is invoked via /bin/sh).
+#
+# Identical in approach to the Ubuntu image — Plasma 6's X11 session launcher is
+# STILL `startplasma-x11` (provided here by plasma-workspace-x11), so this file
+# is unchanged apart from these comments.
+#
+# Plasma-over-Xvnc gotchas handled here (verified against Fedora 41 / Plasma 6):
+#   1. Plasma MUST have its own D-Bus session bus, or plasmashell segfaults on
+#      connect ("Plasma closed unexpectedly"). We launch the whole session under
+#      `dbus-run-session`, which spins up a fresh bus AND exports
+#      DBUS_SESSION_BUS_ADDRESS for every child (fixes tray icons + notifications
+#      too). We first UNSET any inherited bus/session so nothing attaches to a
+#      stale host bus.
+#   2. XDG_RUNTIME_DIR must exist with 0700 perms — Plasma/KWin write sockets
+#      there. The container has no systemd/elogind to create /run/user/<uid>, so
+#      we provision /tmp/runtime-desklink ourselves.
+#   3. XDG_SESSION_TYPE=x11 (NOT wayland) so Plasma starts the X11 session, and
+#      XDG_CURRENT_DESKTOP=KDE so apps/portals identify the DE correctly. This is
+#      doubly important on Fedora, whose Plasma 6 defaults to Wayland — forcing
+#      x11 here guarantees the startplasma-x11 path.
+#   4. The WM is kwin_x11 — startplasma-x11 launches it automatically; the
+#      pre-baked ~/.config/kwinrc pins it and disables compositing (critical for
+#      software VNC: no GPU to accelerate blur/shadow effects → tearing + CPU).
+# -----------------------------------------------------------------------------
+set -e
+
+# Make sure the session agrees on which display it is painting.
+export DISPLAY="${DISPLAY:-:1}"
+
+# --- Fresh D-Bus: drop anything inherited so Plasma starts its OWN bus. --------
+# A stale/host session bus is the classic cause of a blank screen or a
+# plasmashell crash ("Failed to connect to session bus").
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+# --- XDG runtime dir (0700) — Plasma/KWin need a private socket dir. -----------
+# No systemd/elogind here to create /run/user/<uid>, so provision it ourselves.
+XDG_RUNTIME_DIR="/tmp/runtime-desklink"
+export XDG_RUNTIME_DIR
+mkdir -p "${XDG_RUNTIME_DIR}"
+chmod 700 "${XDG_RUNTIME_DIR}"
+
+# --- Tell Plasma this is an X11 KDE session (not Wayland). ---------------------
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+# Legacy toggle some stacks still read; harmless, avoids an xmodmap hiccup.
+export XKL_XMODMAP_DISABLE=1
+# Force software GL for any stray GL client — there is no GPU in the container.
+export LIBGL_ALWAYS_SOFTWARE=1
+export KWIN_COMPOSE=N
+
+# --- deskl.ink backdrop floor: solid near-black (#05060A). --------------------
+# Plasma's desktop (plasmashell) repaints this once up — the pre-baked
+# appletsrc sets the same solid color — but this covers the brief pre-paint
+# window and any no-DE fallback.
+if command -v xsetroot >/dev/null 2>&1; then
+  xsetroot -solid "#05060A"
+fi
+
+# --- Headless display hygiene: never blank / power-save (no physical monitor). -
+if command -v xset >/dev/null 2>&1; then
+  xset s off || true        # no screensaver
+  xset -dpms || true        # no DPMS power-management blanking
+  xset s noblank || true    # never blank the framebuffer
+fi
+
+# --- Hand off to a full Plasma X11 session under a fresh D-Bus session. --------
+# `exec` so the session becomes this script's process — when Plasma exits, Xvnc
+# tears the display down. `dbus-run-session` provisions the private bus Plasma
+# requires and runs startplasma-x11 as its child.
+if command -v dbus-run-session >/dev/null 2>&1; then
+  exec dbus-run-session -- startplasma-x11
+else
+  # Fallback for images without dbus-run-session: eval a dbus-launch bus into
+  # the environment, then start Plasma directly.
+  eval "$(dbus-launch --sh-syntax)"
+  export DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
+  exec startplasma-x11
+fi

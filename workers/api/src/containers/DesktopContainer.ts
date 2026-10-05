@@ -47,3 +47,22 @@ export class DesktopContainer extends Container<Env> {
     console.log('[deskl.ink DesktopContainer] stopped');
   }
 }
+
+/**
+ * FedoraDesktop — the Fedora variant of {@link DesktopContainer}.
+ *
+ * Identical config/behavior (inherits everything); it exists as a DISTINCT
+ * class name only so wrangler can bind it to its own image
+ * (`container/fedora/Dockerfile`) via a separate `[[containers]]` block + the
+ * `DESKTOP_FEDORA` Durable Object binding. Routing lives in `routes/desktops.ts`.
+ */
+export class FedoraDesktop extends DesktopContainer {}
+
+/**
+ * DebianDesktop — the Debian variant of {@link DesktopContainer}.
+ *
+ * Identical config/behavior (inherits everything); distinct class name only so
+ * wrangler binds it to `container/debian/Dockerfile` via its own `[[containers]]`
+ * block + the `DESKTOP_DEBIAN` Durable Object binding.
+ */
+export class DebianDesktop extends DesktopContainer {}

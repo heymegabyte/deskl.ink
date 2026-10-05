@@ -19,6 +19,7 @@ import {
   CreateDesktopResponseSchema,
   DesktopListResponseSchema,
   DesktopResponseSchema,
+  VncTicketResponseSchema,
   type CreateDesktopRequest,
   type CreateDesktopResponse,
   type DesktopListResponse,
@@ -165,6 +166,19 @@ export const api = {
       signal,
     });
     return desktop;
+  },
+
+  /**
+   * POST /api/v1/desktops/:id/ticket — mint a fresh VNC ticket for a running desktop.
+   * Used when opening a desktop without a create-time ticket (reload, reopen) so the
+   * fullscreen view can always obtain a connection instead of dead-ending on a spinner.
+   */
+  async mintTicket(id: string, signal?: AbortSignal): Promise<string> {
+    const { vncTicket } = await request(desktopApi.ticket(id), VncTicketResponseSchema, {
+      method: 'POST',
+      signal,
+    });
+    return vncTicket;
   },
 
   /** POST /api/v1/desktops/:id/stop — persist + power down a running desktop. */

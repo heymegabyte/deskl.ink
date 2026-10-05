@@ -1,0 +1,135 @@
+# deskl.ink — KDE global theme (pre-baked into ~/.config/kdeglobals)
+# -----------------------------------------------------------------------------
+# Opens the desktop DARK + on-brand on first boot, with NO trip through System
+# Settings. KDE applies a color scheme by copying the scheme's .colors file into
+# kdeglobals — so the full Breeze Dark [Colors:*] groups are inlined below
+# (sourced from /usr/share/color-schemes/BreezeDark.colors on noble, Plasma
+# 5.27). The deskl.ink cyan (#00E5FF = 0,229,255) is applied as the accent and
+# as the selection/hover highlight so the dark surface reads intentional, not
+# default-gray.
+# -----------------------------------------------------------------------------
+
+[General]
+ColorScheme=BreezeDark
+# deskl.ink cyan accent. (Noble's Plasma 5.27 honours AccentColor when a scheme
+# is active; harmless where ignored — the explicit DecorationFocus/Hover and
+# Selection colors below carry the cyan regardless.)
+AccentColor=0,229,255
+LookAndFeelPackage=org.kde.breezedark.desktop
+Name=deskl.ink Dark
+shadeSortColumn=true
+# Dark, crisp default fonts (Noto ships in the image).
+font=Noto Sans,10,-1,5,50,0,0,0,0,0
+fixed=Noto Sans Mono,10,-1,5,50,0,0,0,0,0
+menuFont=Noto Sans,10,-1,5,50,0,0,0,0,0
+smallestReadableFont=Noto Sans,8,-1,5,50,0,0,0,0,0
+toolBarFont=Noto Sans,10,-1,5,50,0,0,0,0,0
+
+[KDE]
+# Widget style. Breeze is installed with Plasma; dark colors come from the
+# scheme groups below. SingleClick=false → desktop users expect double-click.
+widgetStyle=Breeze
+SingleClick=false
+contrast=4
+AnimationDurationFactor=0
+
+[Icons]
+Theme=breeze-dark
+
+[ColorEffects:Disabled]
+Color=56,56,56
+ColorAmount=0
+ColorEffect=0
+ContrastAmount=0.65
+ContrastEffect=1
+IntensityAmount=0.1
+IntensityEffect=2
+
+[ColorEffects:Inactive]
+ChangeSelectionColor=true
+Color=112,111,110
+ColorAmount=0.025
+ColorEffect=2
+ContrastAmount=0.1
+ContrastEffect=2
+Enable=false
+IntensityAmount=0
+IntensityEffect=0
+
+[Colors:Button]
+BackgroundAlternate=30,87,116
+BackgroundNormal=49,54,59
+DecorationFocus=0,229,255
+DecorationHover=0,229,255
+ForegroundActive=0,229,255
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Selection]
+BackgroundAlternate=0,160,180
+BackgroundNormal=0,150,170
+DecorationFocus=0,229,255
+DecorationHover=0,229,255
+ForegroundActive=252,252,252
+ForegroundInactive=239,240,241
+ForegroundLink=253,188,75
+ForegroundNegative=176,55,69
+ForegroundNeutral=198,92,0
+ForegroundNormal=252,252,252
+ForegroundPositive=23,104,57
+ForegroundVisited=155,89,182
+
+[Colors:Tooltip]
+BackgroundAlternate=77,77,77
+BackgroundNormal=49,54,59
+DecorationFocus=0,229,255
+DecorationHover=0,229,255
+ForegroundActive=0,229,255
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:View]
+BackgroundAlternate=35,38,41
+BackgroundNormal=27,30,32
+DecorationFocus=0,229,255
+DecorationHover=0,229,255
+ForegroundActive=0,229,255
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Window]
+BackgroundAlternate=49,54,59
+BackgroundNormal=42,46,50
+DecorationFocus=0,229,255
+DecorationHover=0,229,255
+ForegroundActive=0,229,255
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[WM]
+activeBackground=49,54,59
+activeBlend=252,252,252
+activeForeground=252,252,252
+inactiveBackground=42,46,50
+inactiveBlend=161,169,177
+inactiveForeground=161,169,177

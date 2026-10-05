@@ -52,12 +52,14 @@ function statusDot(status: DesktopStatus): { color: string; label: string; live:
 
 export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreenProps) {
   const [current, setCurrent] = useState<DesktopResource>(desktop);
-  // The VNC ticket is minted at create time and passed in; it does not change
-  // while the view is mounted (start does not re-issue a ticket in this contract).
-  const vncTicket = ticket;
+  // The VNC ticket is minted at create time and passed in. If we arrived WITHOUT one
+  // (page reload, reopening an already-running desktop), we mint a fresh ticket on demand
+  // so the connect view can NEVER dead-end on a spinner — hence state, not a fixed prop.
+  const [vncTicket, setVncTicket] = useState<string | undefined>(ticket);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [minting, setMinting] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { color, label, live } = statusDot(current.status);
@@ -89,27 +91,44 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
     return () => window.removeEventListener('keydown', onKey);
   }, [onExit]);
 
-  // If we arrived without a ticket (e.g. opening an already-running desktop),
-  // start it to mint a connection, then poll until it's ready.
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const ensureConnection = async () => {
-      if (!vncTicket && current.status !== 'ready' && current.status !== 'active') {
-        try {
-          const fresh = await api.startDesktop(current.id, controller.signal);
-          if (!controller.signal.aborted) setCurrent(fresh);
-        } catch (err) {
-          if (!controller.signal.aborted) {
-            setError(err instanceof ApiError ? err.message : 'Could not start this computer.');
-          }
+  // Guarantee we hold a VNC ticket. The mint endpoint also (idempotently) starts the
+  // container, so this single call covers "no ticket", "reopened running desktop", AND
+  // "stopped desktop" — previously a ready desktop with no ticket spun on "CONNECTED…"
+  // forever with no recovery.
+  const acquireTicket = useCallback(
+    async (signal?: AbortSignal) => {
+      setMinting(true);
+      setError(null);
+      try {
+        const fresh = await api.mintTicket(current.id, signal);
+        if (!signal?.aborted) {
+          setVncTicket(fresh);
+          setCurrent((d) =>
+            d.status === 'ready' || d.status === 'active' ? d : { ...d, status: 'ready' },
+          );
         }
+      } catch (err) {
+        if (!signal?.aborted) {
+          setError(
+            err instanceof ApiError ? err.message : 'Could not open a connection to this computer.',
+          );
+        }
+      } finally {
+        if (!signal?.aborted) setMinting(false);
       }
-    };
-    void ensureConnection();
+    },
+    [current.id],
+  );
+
+  // On mount (and whenever we lack a ticket), mint one. Runs exactly once per missing
+  // ticket: on success `vncTicket` is set so it won't re-fire; on failure it surfaces a
+  // retry rather than looping.
+  useEffect(() => {
+    if (vncTicket) return;
+    const controller = new AbortController();
+    void acquireTicket(controller.signal);
     return () => controller.abort();
-    // Only on mount — subsequent state changes are handled by the poll below.
-  }, []);
+  }, [vncTicket, acquireTicket]);
 
   // Poll until ready while the desktop is still settling.
   useEffect(() => {
@@ -157,11 +176,20 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
           allow="clipboard-read; clipboard-write; fullscreen"
         />
       ) : (
-        <ConnectingState name={current.name} label={label} failed={current.status === 'failed'} />
+        <ConnectingState
+          name={current.name}
+          // While minting a ticket the honest state is "connecting", not the desktop's
+          // "Connected" status label (which would read as a misleading "CONNECTED…").
+          label={minting ? 'Connecting' : label}
+          failed={current.status === 'failed' || !!error}
+          error={error}
+          onRetry={() => void acquireTicket()}
+        />
       )}
 
-      {/* Error toast (quiet, top-center). */}
-      {error && (
+      {/* Error toast — only while the desktop IS mounted (e.g. a stop error); pre-connect
+          errors are shown WITH a retry inside ConnectingState, so don't duplicate them. */}
+      {error && ready && vncTicket && (
         <div
           role="alert"
           className="ds-glass absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-lg border-[var(--color-danger)]/40 px-4 py-2 text-sm text-[var(--color-danger)]"
@@ -242,15 +270,20 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
   );
 }
 
-/** Pre-connection placeholder: a quiet status while the desktop boots. */
+/** Pre-connection placeholder: a quiet status while the desktop boots — or, on failure, a
+ *  clear message + a Try-again button so the view is never a dead, unrecoverable spinner. */
 function ConnectingState({
   name,
   label,
   failed,
+  error,
+  onRetry,
 }: {
   name: string;
   label: string;
   failed: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }) {
   return (
     <div className="ds-nebula-fallback absolute inset-0 flex flex-col items-center justify-center text-center">
@@ -266,7 +299,16 @@ function ConnectingState({
       >
         {failed ? 'Connection failed' : `${label}…`}
       </p>
-      <p className="mt-2 text-sm text-[var(--color-muted)]">{name}</p>
+      <p className="mt-2 text-sm text-[var(--color-muted)]">{error ?? name}</p>
+      {failed && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-5 rounded-lg bg-[var(--color-cyan)] px-5 py-2.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+        >
+          Try again
+        </button>
+      )}
     </div>
   );
 }
