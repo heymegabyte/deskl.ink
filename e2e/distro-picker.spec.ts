@@ -228,6 +228,15 @@ test.describe.serial('Distro picker', () => {
           const confirm = page.getByTestId(T.deleteConfirm);
           if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click();
           await expect(tile).toHaveCount(0, { timeout: 15_000 });
+          // Verify the backend resource is actually destroyed (the tile is removed
+          // optimistically before the DELETE round-trips) — the real "then destroyed" proof.
+          await expect
+            .poll(
+              async () =>
+                (await (request as APIRequestContext).get(`/api/v1/desktops/${desktopId}`)).status(),
+              { timeout: 15_000 },
+            )
+            .toBe(404);
           desktopId = '';
         });
 

@@ -144,7 +144,7 @@ test.describe('Golden path', () => {
     if (desktopId) await request.delete(`/api/v1/desktops/${desktopId}`).catch(() => undefined);
   });
 
-  test('spin up → VNC → visually confirm desktop → delete', async ({ page }) => {
+  test('spin up → VNC → visually confirm desktop → delete', async ({ page, request }) => {
     const consoleErrors: string[] = [];
     page.on('console', (m) => {
       if (m.type() === 'error' && !BENIGN_CONSOLE.test(m.text())) consoleErrors.push(m.text());
@@ -216,8 +216,17 @@ test.describe('Golden path', () => {
 
       // The resource is gone → its tile disappears.
       await expect(tile).toHaveCount(0, { timeout: 15_000 });
+      // Verify the DESTROY leg FOR REAL: the UI removes the tile optimistically BEFORE the
+      // DELETE round-trips, so assert the backend resource is actually gone (404). This also
+      // keeps the page alive until the delete completes — otherwise the request aborts on
+      // teardown and the backstop sweep masks whether the UI delete truly destroyed it.
+      await expect
+        .poll(async () => (await request.get(`/api/v1/desktops/${desktopId}`)).status(), {
+          timeout: 15_000,
+        })
+        .toBe(404);
       await page.screenshot({ path: path.join(SHOT_DIR, '03-deleted.png') });
-      desktopId = ''; // deleted — nothing for afterEach to clean up.
+      desktopId = ''; // destroyed + confirmed gone — nothing for afterEach to clean up.
     });
 
     expect(consoleErrors, `unexpected console errors:\n${consoleErrors.join('\n')}`).toEqual([]);
