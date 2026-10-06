@@ -199,8 +199,10 @@ test.describe('Golden path', () => {
       // PAINT its framebuffer (non-uniform pixels) — not just create the canvas — which is
       // the honest proof that the Linux desktop rendered on the website.
       await waitForVncPaint(page, T.vncViewport, DESKTOP_PAINT_TIMEOUT_MS);
-      // Let KDE's boot splash settle into the themed desktop before the proof screenshot.
-      await settleDesktop(page, T.vncViewport, 60_000);
+      // Paint above IS the pass gate (desktop rendered). The settle below only prettifies the
+      // screenshot by waiting for KDE's splash → panel; it's best-effort, so cap it low (25s)
+      // so a slow-to-settle desktop doesn't burn a minute of monitor wall-time every 15-min fire.
+      await settleDesktop(page, T.vncViewport, 25_000);
 
       await page.screenshot({ path: path.join(SHOT_DIR, '02-desktop.png') });
     });
