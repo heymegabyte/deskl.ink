@@ -223,9 +223,12 @@ test.describe('Golden path', () => {
       // DELETE round-trips, so assert the backend resource is actually gone (404). This also
       // keeps the page alive until the delete completes — otherwise the request aborts on
       // teardown and the backstop sweep masks whether the UI delete truly destroyed it.
+      // 30s (not 15s): the DELETE handler awaits container.destroy() before removing the row
+      // (correct — avoids orphaning the container), and CF container teardown is occasionally
+      // slow; 15s was too tight and flaked once in ~180 fires.
       await expect
         .poll(async () => (await request.get(`/api/v1/desktops/${desktopId}`)).status(), {
-          timeout: 15_000,
+          timeout: 30_000,
         })
         .toBe(404);
       await page.screenshot({ path: path.join(SHOT_DIR, '03-deleted.png') });

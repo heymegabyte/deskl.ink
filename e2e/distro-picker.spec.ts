@@ -234,7 +234,7 @@ test.describe.serial('Distro picker', () => {
             .poll(
               async () =>
                 (await (request as APIRequestContext).get(`/api/v1/desktops/${desktopId}`)).status(),
-              { timeout: 15_000 },
+              { timeout: 30_000 }, // CF container destroy is occasionally slow; tolerate it
             )
             .toBe(404);
           desktopId = '';
