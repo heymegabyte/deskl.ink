@@ -5,6 +5,7 @@ import {
   type DesktopResource,
   type DesktopStatus,
   type DistroId,
+  type DesktopSizeId,
 } from '../../../../packages/shared/src/desktop-api';
 import { api, ApiError } from '../lib/api.js';
 import { Wordmark } from './Logo.js';
@@ -137,13 +138,13 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
 
   /** Create an Everyday desktop, show it optimistically, poll until ready. */
   const createComputer = useCallback(
-    async (distro: DistroId = 'ubuntu') => {
+    async (distro: DistroId = 'ubuntu', size: DesktopSizeId = 'everyday') => {
       if (creating) return;
       setCreating(true);
       setError(null);
       try {
         const { desktop, vncTicket } = await api.createDesktop({
-          size: 'everyday',
+          size,
           distro,
           disposable: false,
         });
@@ -230,7 +231,7 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
     <div className="ds-nebula-fallback flex h-full flex-col">
       {pickerOpen && (
         <OsPicker
-          onCreate={(distro) => void createComputer(distro)}
+          onCreate={(distro, size) => void createComputer(distro, size)}
           onClose={() => setPickerOpen(false)}
           creating={creating}
         />

@@ -61,6 +61,58 @@ image = "../../container/debian/Dockerfile"
 instance_type = "standard-1"
 max_instances = 25
 
+# --- Per-SIZE containers: same 3 images, larger instance_types ---
+# developer = standard-2 (6 GiB) · power = standard-3 (8 GiB) · heavy = standard-4 (12 GiB).
+# Same Dockerfile per distro → same image digest as the everyday row (no extra build/push);
+# a distinct class_name is required only because instance_type is fixed per class.
+[[containers]]
+class_name = "UbuntuDeveloper"
+image = "../../container/ubuntu/Dockerfile"
+instance_type = "standard-2"
+max_instances = 10
+[[containers]]
+class_name = "UbuntuPower"
+image = "../../container/ubuntu/Dockerfile"
+instance_type = "standard-3"
+max_instances = 6
+[[containers]]
+class_name = "UbuntuHeavy"
+image = "../../container/ubuntu/Dockerfile"
+instance_type = "standard-4"
+max_instances = 4
+
+[[containers]]
+class_name = "FedoraDeveloper"
+image = "../../container/fedora/Dockerfile"
+instance_type = "standard-2"
+max_instances = 10
+[[containers]]
+class_name = "FedoraPower"
+image = "../../container/fedora/Dockerfile"
+instance_type = "standard-3"
+max_instances = 6
+[[containers]]
+class_name = "FedoraHeavy"
+image = "../../container/fedora/Dockerfile"
+instance_type = "standard-4"
+max_instances = 4
+
+[[containers]]
+class_name = "DebianDeveloper"
+image = "../../container/debian/Dockerfile"
+instance_type = "standard-2"
+max_instances = 10
+[[containers]]
+class_name = "DebianPower"
+image = "../../container/debian/Dockerfile"
+instance_type = "standard-3"
+max_instances = 6
+[[containers]]
+class_name = "DebianHeavy"
+image = "../../container/debian/Dockerfile"
+instance_type = "standard-4"
+max_instances = 4
+
 # --- Durable Objects ---
 [[durable_objects.bindings]]
 name = "DESKTOP"
@@ -78,6 +130,35 @@ class_name = "DebianDesktop"
 name = "REGISTRY"
 class_name = "DesktopRegistry"
 
+# Per-size DO bindings (developer/power/heavy × each distro).
+[[durable_objects.bindings]]
+name = "DESKTOP_UBUNTU_DEVELOPER"
+class_name = "UbuntuDeveloper"
+[[durable_objects.bindings]]
+name = "DESKTOP_UBUNTU_POWER"
+class_name = "UbuntuPower"
+[[durable_objects.bindings]]
+name = "DESKTOP_UBUNTU_HEAVY"
+class_name = "UbuntuHeavy"
+[[durable_objects.bindings]]
+name = "DESKTOP_FEDORA_DEVELOPER"
+class_name = "FedoraDeveloper"
+[[durable_objects.bindings]]
+name = "DESKTOP_FEDORA_POWER"
+class_name = "FedoraPower"
+[[durable_objects.bindings]]
+name = "DESKTOP_FEDORA_HEAVY"
+class_name = "FedoraHeavy"
+[[durable_objects.bindings]]
+name = "DESKTOP_DEBIAN_DEVELOPER"
+class_name = "DebianDeveloper"
+[[durable_objects.bindings]]
+name = "DESKTOP_DEBIAN_POWER"
+class_name = "DebianPower"
+[[durable_objects.bindings]]
+name = "DESKTOP_DEBIAN_HEAVY"
+class_name = "DebianHeavy"
+
 # --- Migrations: container DOs + the registry both require SQLite storage ---
 [[migrations]]
 tag = "v1"
@@ -87,6 +168,23 @@ new_sqlite_classes = ["DesktopContainer", "DesktopRegistry"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["FedoraDesktop", "DebianDesktop"]
+
+# v3: the additive per-SIZE container DOs (developer/power/heavy × each distro).
+# Purely additive — the everyday v1/v2 classes are untouched, so the golden path
+# (ubuntu/everyday) is unaffected.
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = [
+  "UbuntuDeveloper",
+  "UbuntuPower",
+  "UbuntuHeavy",
+  "FedoraDeveloper",
+  "FedoraPower",
+  "FedoraHeavy",
+  "DebianDeveloper",
+  "DebianPower",
+  "DebianHeavy",
+]
 
 # ---------------------------------------------------------------------------
 # Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill

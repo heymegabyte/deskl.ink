@@ -14,7 +14,12 @@
  * real `wrangler secret put VNC_TICKET_SECRET` before production (M2).
  */
 
-import { VncTicketClaimsSchema, type DistroId, type VncTicketClaims } from '@deskl/shared';
+import {
+  VncTicketClaimsSchema,
+  type DistroId,
+  type DesktopSizeId,
+  type VncTicketClaims,
+} from '@deskl/shared';
 
 /** Minutes a freshly minted ticket stays valid. */
 const TICKET_TTL_MINUTES = 15;
@@ -77,17 +82,21 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
  * @param desktopId - the desktop the ticket authorizes.
  * @param distro - the desktop's distro, carried in the claims so the VNC proxy
  *   can route to the matching container without re-reading the registry.
+ * @param size - the desktop's size; combined with `distro` it selects the exact
+ *   (distro × size) container namespace to proxy to.
  * @param secret - `env.VNC_TICKET_SECRET` (dev fallback used when unset).
  * @returns an opaque `claims.signature` string for the client's VNC URL.
  */
 export async function mintVncTicket(
   desktopId: string,
   distro: DistroId,
+  size: DesktopSizeId,
   secret: string | undefined
 ): Promise<string> {
   const claims: VncTicketClaims = {
     desktopId,
     distro,
+    size,
     exp: Math.floor(Date.now() / 1000) + TICKET_TTL_MINUTES * 60,
   };
   const payload = base64UrlEncode(encoder.encode(JSON.stringify(claims)));

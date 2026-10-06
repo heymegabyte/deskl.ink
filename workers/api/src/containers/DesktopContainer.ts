@@ -66,3 +66,33 @@ export class FedoraDesktop extends DesktopContainer {}
  * block + the `DESKTOP_DEBIAN` Durable Object binding.
  */
 export class DebianDesktop extends DesktopContainer {}
+
+/**
+ * Per-SIZE container classes.
+ *
+ * Cloudflare sets a container's RAM/vCPU via its `instance_type`, and
+ * `instance_type` is fixed per container class in wrangler config (there is no
+ * per-instance override). So each selectable VM size needs its OWN class bound
+ * to the right `instance_type`:
+ *
+ *   everyday  → standard-1 (4 GiB)   ← the 3 classes above (one per distro)
+ *   developer → standard-2 (6 GiB)
+ *   power     → standard-3 (8 GiB)
+ *   heavy     → standard-4 (12 GiB)
+ *
+ * Crossed with the 3 distros (image), that's a 3 × 4 matrix. The classes below
+ * are the 9 non-`everyday` cells — identical behavior (they inherit everything),
+ * distinct class names only so wrangler can bind each to its distro's Dockerfile
+ * at the size's `instance_type`. Routing lives in `routes/desktops.ts`.
+ */
+export class UbuntuDeveloper extends DesktopContainer {}
+export class UbuntuPower extends DesktopContainer {}
+export class UbuntuHeavy extends DesktopContainer {}
+
+export class FedoraDeveloper extends DesktopContainer {}
+export class FedoraPower extends DesktopContainer {}
+export class FedoraHeavy extends DesktopContainer {}
+
+export class DebianDeveloper extends DesktopContainer {}
+export class DebianPower extends DesktopContainer {}
+export class DebianHeavy extends DesktopContainer {}

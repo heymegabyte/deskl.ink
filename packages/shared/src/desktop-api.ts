@@ -162,6 +162,10 @@ export type DesktopListResponse = z.infer<typeof DesktopListResponseSchema>;
 export const VncTicketClaimsSchema = z.object({
   desktopId: z.string(),
   distro: DistroIdSchema,
+  // Carried so the VNC proxy routes to the right (distro × size) container namespace
+  // without re-reading the registry. Each size maps to a distinct Cloudflare
+  // `instance_type` (RAM), hence a distinct Durable Object class.
+  size: DesktopSizeIdSchema,
   exp: z.number(), // epoch seconds
 });
 export type VncTicketClaims = z.infer<typeof VncTicketClaimsSchema>;
@@ -213,6 +217,7 @@ export const desktopApi = {
 export const desktopTestIds = {
   newComputerButton: 'new-computer-button',
   distroOption: 'distro-option', // carries data-distro=<id>
+  sizeOption: 'size-option', // carries data-size=<id>
   createConfirm: 'create-computer-confirm',
   tile: 'desktop-tile', // carries data-desktop-id
   tileStatus: 'desktop-status',

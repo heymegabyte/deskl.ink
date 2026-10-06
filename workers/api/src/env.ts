@@ -16,6 +16,15 @@ import type {
   DesktopContainer,
   FedoraDesktop,
   DebianDesktop,
+  UbuntuDeveloper,
+  UbuntuPower,
+  UbuntuHeavy,
+  FedoraDeveloper,
+  FedoraPower,
+  FedoraHeavy,
+  DebianDeveloper,
+  DebianPower,
+  DebianHeavy,
 } from './containers/DesktopContainer.js';
 import type { DesktopRegistry } from './containers/DesktopRegistry.js';
 
@@ -45,6 +54,19 @@ export interface Env {
 
   /** Per-distro container DO for `debian` desktops (Debian image). */
   DESKTOP_DEBIAN: DurableObjectNamespace<DebianDesktop>;
+
+  // Per-SIZE namespaces: the `everyday` row is the 3 bindings above (standard-1,
+  // 4 GiB). These 9 are developer/power/heavy (standard-2/3/4 = 6/8/12 GiB), each
+  // bound to its distro's image at that instance_type. See routes/desktops.ts.
+  DESKTOP_UBUNTU_DEVELOPER: DurableObjectNamespace<UbuntuDeveloper>;
+  DESKTOP_UBUNTU_POWER: DurableObjectNamespace<UbuntuPower>;
+  DESKTOP_UBUNTU_HEAVY: DurableObjectNamespace<UbuntuHeavy>;
+  DESKTOP_FEDORA_DEVELOPER: DurableObjectNamespace<FedoraDeveloper>;
+  DESKTOP_FEDORA_POWER: DurableObjectNamespace<FedoraPower>;
+  DESKTOP_FEDORA_HEAVY: DurableObjectNamespace<FedoraHeavy>;
+  DESKTOP_DEBIAN_DEVELOPER: DurableObjectNamespace<DebianDeveloper>;
+  DESKTOP_DEBIAN_POWER: DurableObjectNamespace<DebianPower>;
+  DESKTOP_DEBIAN_HEAVY: DurableObjectNamespace<DebianHeavy>;
 
   /** Single SQLite DO holding the authoritative desktop list (M2: per-user). */
   REGISTRY: DurableObjectNamespace<DesktopRegistry>;

@@ -18,6 +18,7 @@ import path from 'path';
 
 const T = {
   newComputerButton: 'new-computer-button',
+  sizeOption: 'size-option',
   createConfirm: 'create-computer-confirm',
   tile: 'desktop-tile',
   tileStatus: 'desktop-status',
@@ -232,5 +233,39 @@ test.describe('Golden path', () => {
     });
 
     expect(consoleErrors, `unexpected console errors:\n${consoleErrors.join('\n')}`).toEqual([]);
+  });
+});
+
+/**
+ * The OS picker exposes BOTH distro and size in one popup. This asserts the size selector
+ * renders all four sizes and that choosing one updates the selection + the create CTA — a
+ * cheap UI check (it spins NO container; it closes without creating), so it's safe to run on
+ * every monitor fire alongside the full golden loop. The size→real-RAM provisioning is
+ * proven separately (the backend binds each size to a distinct Cloudflare instance_type).
+ */
+test.describe('OS picker — size selector', () => {
+  test('all four sizes selectable; the create CTA reflects the chosen RAM', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#root')).not.toBeEmpty();
+    await dismissOverlay(page);
+    await page.getByTestId(T.newComputerButton).click();
+
+    const sizes = page.getByTestId(T.sizeOption);
+    await expect(sizes).toHaveCount(4); // Everyday · Developer · Power · Heavy
+
+    // Everyday is the default → CTA shows 4 GiB.
+    await expect(page.getByTestId(T.createConfirm)).toContainText('4 GiB');
+
+    // Pick Power (8 GiB) → it becomes pressed and the CTA updates.
+    const power = page.locator(`[data-testid="${T.sizeOption}"][data-size="power"]`);
+    await power.click();
+    await expect(power).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId(T.createConfirm)).toContainText('8 GiB');
+
+    // Close WITHOUT creating — no container is provisioned by this test.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
+      timeout: 10_000,
+    });
   });
 });

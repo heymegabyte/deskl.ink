@@ -19,6 +19,16 @@ export {
   DesktopContainer,
   FedoraDesktop,
   DebianDesktop,
+  // Per-size classes (developer/power/heavy × each distro) — distinct instance_type.
+  UbuntuDeveloper,
+  UbuntuPower,
+  UbuntuHeavy,
+  FedoraDeveloper,
+  FedoraPower,
+  FedoraHeavy,
+  DebianDeveloper,
+  DebianPower,
+  DebianHeavy,
 } from './containers/DesktopContainer.js';
 export { DesktopRegistry } from './containers/DesktopRegistry.js';
 
