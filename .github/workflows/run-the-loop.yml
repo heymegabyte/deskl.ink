@@ -1,0 +1,24 @@
+name: Run the Loop
+
+on:
+  schedule:
+    - cron: '2,17,32,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      objective:
+        description: Optional focus for this one loop
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  loop:
+    uses: heymegabyte/agent-skills/.github/workflows/run-the-loop.yml@670a13e54f178e0c21ce94055a6a6c823e99a4e7
+    with:
+      project: heymegabyte/deskl.ink
+      shared-revision: 670a13e54f178e0c21ce94055a6a6c823e99a4e7
+      runner-labels: '["self-hosted","linux","ubuntu","persistent","proxmox-vm","agent","codex"]'
+      objective: ${{ inputs.objective || '' }}
