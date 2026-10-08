@@ -31,6 +31,7 @@ VNC_DISPLAY="${VNC_DISPLAY:-:1}"                # X display number
 VNC_PORT="${VNC_PORT:-5901}"                    # Xtigervnc RFB port (= 5900 + :1)
 NOVNC_PORT="${NOVNC_PORT:-6080}"                # browser-facing websockify port
 NOVNC_WEB="${NOVNC_WEB:-/usr/share/novnc}"      # noVNC HTML web root
+TTYD_PORT="${TTYD_PORT:-7681}"                  # browser terminal (ttyd) port
 HOME_DIR="${HOME:-/home/desklink}"
 export HOME="${HOME_DIR}"
 export DISPLAY="${VNC_DISPLAY}"
@@ -90,11 +91,15 @@ rm -f "${VNC_DIR}/"*.pid "${VNC_DIR}/"*.log 2>/dev/null || true
 #    desktop state (restic → R2) so a restarted container resumes where it left
 #    off. Deferred to a later ROADMAP fire; see README.md § Roadmap. ──
 WEBSOCKIFY_PID=""
+TTYD_PID=""
 # shellcheck disable=SC2329  # invoked indirectly via `trap` below
 shutdown() {
   log "received shutdown signal — stopping desktop session"
   # Kill the VNC server for this display (ignore if already gone).
   tigervncserver -kill "${VNC_DISPLAY}" >/dev/null 2>&1 || true
+  if [ -n "${TTYD_PID}" ]; then
+    kill -TERM "${TTYD_PID}" 2>/dev/null || true
+  fi
   if [ -n "${WEBSOCKIFY_PID}" ]; then
     kill -TERM "${WEBSOCKIFY_PID}" 2>/dev/null || true
     wait "${WEBSOCKIFY_PID}" 2>/dev/null || true
@@ -135,6 +140,24 @@ for _ in $(seq 1 30); do
   fi
   sleep 1
 done
+
+# ----------------------------- start ttyd (browser terminal) -----------------
+# A browser terminal (xterm.js over WS) on :7681, running an interactive login
+# shell as the desktop user. Bound 0.0.0.0 so the deskl.ink Worker can proxy it
+# via getTcpPort/containerFetch — the container is never publicly exposed, and the
+# Worker gates every connection with the SAME signed ticket as VNC. ttyd uses
+# relative asset/ws paths, so it works behind the Worker's /term/* subpath proxy.
+# Backgrounded + NON-FATAL: a ttyd failure must never take down the desktop
+# (websockify/VNC remain the foreground workload). `--writable` = interactive.
+if command -v ttyd >/dev/null 2>&1; then
+  log "starting ttyd (browser terminal) on 0.0.0.0:${TTYD_PORT}"
+  ttyd --writable --port "${TTYD_PORT}" --interface 0.0.0.0 \
+    --client-option 'fontSize=14' --client-option 'fontFamily=JetBrains Mono, monospace' \
+    bash -l &
+  TTYD_PID=$!
+else
+  log "ttyd not present — browser terminal disabled for this image"
+fi
 
 # ----------------------------- start noVNC/websockify ------------------------
 # websockify serves the noVNC HTML (so /vnc.html and / both work via the

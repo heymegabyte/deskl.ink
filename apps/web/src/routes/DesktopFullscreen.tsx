@@ -65,9 +65,9 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
 
   const { color, label, live } = statusDot(current.status);
   const ready = current.status === 'ready' || current.status === 'active';
-  // The browser terminal (ttyd) ships for Ubuntu first; reuse the desktop-scoped VNC ticket (it
-  // authorizes this desktop's /term proxy too). Other distros don't offer the toggle yet.
-  const canTerminal = ready && !!vncTicket && current.distro === 'ubuntu';
+  // The browser terminal (ttyd) now ships in every desktop image (Ubuntu/Fedora/Debian); reuse the
+  // desktop-scoped VNC ticket (it authorizes this desktop's /term proxy too).
+  const canTerminal = ready && !!vncTicket;
 
   // Auto-hide the control surface after idle; reveal on pointer/key activity.
   useEffect(() => {
