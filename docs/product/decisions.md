@@ -9,6 +9,26 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D22 — Mobile: audited at 375px; header actions collapse to icons; permanent mobile E2E
+- **Decision:** Audit every key surface at 375px and add standing mobile E2E coverage. The one real
+  issue — the manager header overflowing — is fixed by collapsing the New-computer + Sign-out buttons
+  to icon-only on mobile (labels return at `sm:`), so the wordmark shows in full.
+- **Alternatives:** (a) a hamburger menu for the header actions (overkill for two buttons); (b) shrink
+  the wordmark on mobile (hurts the brand); (c) leave it (the wordmark truncated to "deskl…" + buttons
+  wrapped — unacceptable).
+- **Rationale:** The app had only ever been verified at 1280px; the doctrine mandates real responsive
+  support. Overlay / picker / empty-state were already responsive (single-column collapse, zero
+  horizontal overflow) — only the header needed work. Icon-only actions are a standard mobile pattern
+  and keep the aria-labels intact.
+- **Evidence:** Verified live (`deskl.ink`): 375px header fits with full wordmark + icon actions
+  (screenshot); 1280px unchanged with full labels (screenshot); no horizontal overflow on any surface;
+  `mobile` spec 2/2 (overlay + manager: no-overflow + axe-clean @375) + full suite green (no desktop
+  regression).
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** the header gains more actions (a shared store / account menu) → consider an
+  overflow menu; or richer mobile flows are needed (e.g. a mobile affordance to open the ⌘K palette,
+  which is currently keyboard-only).
+
 ### D21 — Resilience: a top-level error boundary + honest auth (no dead no-op stubs)
 - **Decision:** Wrap the app in a branded error boundary (blank-white-screen → "Something went wrong"
   + reload + a structured `ui_crash` log). Replace the overlay's dead `noopAuth` buttons with a
