@@ -94,6 +94,7 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [confirmStopAll, setConfirmStopAll] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
@@ -260,6 +261,25 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
     [desktops, onDeleted]
   );
 
+  /** Rename a computer (metadata only). Optimistic → reconcile; revert + surface on failure. */
+  const renameComputer = useCallback(
+    async (id: string, name: string) => {
+      setRenaming(null);
+      const trimmed = name.trim();
+      const current = desktops.find((d) => d.id === id);
+      if (!current || !trimmed || trimmed === current.name) return; // no-op on empty / unchanged
+      setDesktops((prev) => prev.map((d) => (d.id === id ? { ...d, name: trimmed } : d)));
+      try {
+        const fresh = await api.renameDesktop(id, trimmed);
+        setDesktops((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not rename the computer.');
+        setDesktops((prev) => prev.map((d) => (d.id === id ? current : d))); // revert
+      }
+    },
+    [desktops]
+  );
+
   const isEmpty = !loading && desktops.length === 0;
   const runningCount = desktops.filter((d) => RUNNING_STATUSES.has(d.status)).length;
 
@@ -385,6 +405,10 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
                 onConfirmDelete={() => void deleteComputer(desktop.id)}
                 onCancelDelete={() => setPendingDelete(null)}
                 confirming={pendingDelete === desktop.id}
+                onRename={(name) => void renameComputer(desktop.id, name)}
+                editing={renaming === desktop.id}
+                onEditStart={() => setRenaming(desktop.id)}
+                onEditCancel={() => setRenaming(null)}
               />
             ))}
           </ul>
@@ -540,6 +564,12 @@ interface DesktopTileProps {
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
   confirming: boolean;
+  /** Commit a new name (empty / unchanged is a no-op upstream). */
+  onRename: (name: string) => void;
+  /** Whether this tile's name is in inline-edit mode. */
+  editing: boolean;
+  onEditStart: () => void;
+  onEditCancel: () => void;
 }
 
 /** One desktop tile — name/os/size/status + per-tile actions. */
@@ -551,10 +581,17 @@ function DesktopTile({
   onConfirmDelete,
   onCancelDelete,
   confirming,
+  onRename,
+  editing,
+  onEditStart,
+  onEditCancel,
 }: DesktopTileProps) {
   // `desktop.size` is a DesktopSizeId so the lookup is always present; the
   // `?? everyday` keeps TS happy under noUncheckedIndexedAccess.
   const size = DESKTOP_SIZES[desktop.size] ?? DESKTOP_SIZES.everyday;
+  // Inline-rename cancel flag: Enter / click-away commit via onBlur; Escape sets this so the same
+  // onBlur cancels instead. One blur path → exactly one of commit/cancel fires per edit session.
+  const renameCancelledRef = useRef(false);
   const { color, label, live } = statusPresentation(desktop.status);
   const openable = desktop.status === 'ready' || desktop.status === 'active';
   const stoppable = live || desktop.status === 'starting' || desktop.status === 'restoring';
@@ -570,12 +607,69 @@ function DesktopTile({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <DistroMark distro={desktop.distro} size={28} />
-            <h3
-              className="truncate font-display text-base font-700 text-white"
-              title={desktop.name}
-            >
-              {desktop.name}
-            </h3>
+            {editing ? (
+              <input
+                data-testid={desktopTestIds.renameInput}
+                defaultValue={desktop.name}
+                autoFocus
+                maxLength={60}
+                aria-label={`Rename ${desktop.name}`}
+                onFocus={(e) => {
+                  renameCancelledRef.current = false;
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.currentTarget.blur(); // commit via onBlur
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    renameCancelledRef.current = true;
+                    e.currentTarget.blur(); // cancel via onBlur
+                  }
+                }}
+                onBlur={(e) => {
+                  if (renameCancelledRef.current) {
+                    renameCancelledRef.current = false;
+                    onEditCancel();
+                  } else {
+                    onRename(e.currentTarget.value);
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-md border border-[var(--color-cyan)]/50 bg-[var(--color-black)]/60 px-2 py-0.5 font-display text-base font-700 text-white outline-none focus-visible:border-[var(--color-cyan)]"
+              />
+            ) : (
+              <>
+                <h3
+                  className="truncate font-display text-base font-700 text-white"
+                  title={desktop.name}
+                >
+                  {desktop.name}
+                </h3>
+                <button
+                  type="button"
+                  data-testid={desktopTestIds.renameButton}
+                  onClick={onEditStart}
+                  aria-label={`Rename ${desktop.name}`}
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-cyan)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] group-hover:opacity-100"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="13"
+                    height="13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
           <span
             data-testid={desktopTestIds.tileStatus}

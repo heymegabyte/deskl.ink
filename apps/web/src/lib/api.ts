@@ -17,6 +17,7 @@ import {
   desktopApi,
   CreateDesktopRequestSchema,
   CreateDesktopResponseSchema,
+  UpdateDesktopRequestSchema,
   DesktopListResponseSchema,
   DesktopResponseSchema,
   VncTicketResponseSchema,
@@ -187,6 +188,18 @@ export const api = {
   async stopDesktop(id: string, signal?: AbortSignal): Promise<DesktopResource> {
     const { desktop } = await request(desktopApi.stop(id), DesktopResponseSchema, {
       method: 'POST',
+      signal,
+    });
+    return desktop;
+  },
+
+  /** PATCH /api/v1/desktops/:id — rename a computer (metadata only). Returns the updated desktop. */
+  async renameDesktop(id: string, name: string, signal?: AbortSignal): Promise<DesktopResource> {
+    // Validate our own request against the contract before it leaves the client (trims + bounds).
+    const payload = UpdateDesktopRequestSchema.parse({ name });
+    const { desktop } = await request(desktopApi.update(id), DesktopResponseSchema, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
       signal,
     });
     return desktop;

@@ -26,6 +26,7 @@ import { getContainer } from '@cloudflare/containers';
 import {
   CreateDesktopRequestSchema,
   CreateDesktopResponseSchema,
+  UpdateDesktopRequestSchema,
   DESKTOP_SIZES,
   DISTROS,
   DesktopListResponseSchema,
@@ -321,6 +322,34 @@ app.get('/:id', async (c) => {
   const registry = getRegistry(c.env);
   const id = c.req.param('id');
   const desktop = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
+  const body = DesktopResponseSchema.parse({ desktop });
+  return c.json(body);
+});
+
+/**
+ * PATCH /api/v1/desktops/:id — rename a computer (metadata only; allowed in any lifecycle state,
+ * never touches the container). Authorizes FIRST (404 for unknown OR not-owned, indistinguishable),
+ * then Zod-validates `{ name }`. Owner-scoped update; admins may rename across owners (ops).
+ */
+app.patch('/:id', async (c) => {
+  const { id: principalId, admin } = await principalOf(c);
+  const registry = getRegistry(c.env);
+  const id = c.req.param('id');
+
+  // Authorize before reading the body so a bad body can't distinguish own/foreign/unknown ids.
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  const raw = await c.req.json().catch(() => undefined);
+  const parsed = UpdateDesktopRequestSchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    return c.json({ ok: false, error: 'invalid_request', details: parsed.error.flatten() }, 400);
+  }
+
+  const desktop = admin
+    ? await registry.rename(id, parsed.data.name) // unscoped (ops)
+    : await registry.rename(id, parsed.data.name, principalId); // owner-scoped
   if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
   const body = DesktopResponseSchema.parse({ desktop });
   return c.json(body);

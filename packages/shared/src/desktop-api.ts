@@ -190,6 +190,17 @@ export const CreateDesktopRequestSchema = z
   .strict();
 export type CreateDesktopRequest = z.infer<typeof CreateDesktopRequestSchema>;
 
+/**
+ * PATCH /api/v1/desktops/:id — rename a computer (metadata only; allowed in any lifecycle state).
+ * `name` is trimmed then length-checked, so an all-whitespace name is rejected (400).
+ */
+export const UpdateDesktopRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60),
+  })
+  .strict();
+export type UpdateDesktopRequest = z.infer<typeof UpdateDesktopRequestSchema>;
+
 /** A desktop as returned by the API. */
 export const DesktopResourceSchema = z.object({
   id: z.string(),
@@ -256,6 +267,8 @@ export const desktopApi = {
   list: () => '/api/v1/desktops',
   create: () => '/api/v1/desktops',
   get: (id: string) => `/api/v1/desktops/${id}`,
+  /** PATCH — rename a computer (metadata only). Same path as get/destroy; method distinguishes. */
+  update: (id: string) => `/api/v1/desktops/${id}`,
   start: (id: string) => `/api/v1/desktops/${id}/start`,
   stop: (id: string) => `/api/v1/desktops/${id}/stop`,
   destroy: (id: string) => `/api/v1/desktops/${id}`,
@@ -300,6 +313,8 @@ export const desktopTestIds = {
   stopButton: 'desktop-stop',
   deleteButton: 'desktop-delete',
   deleteConfirm: 'desktop-delete-confirm',
+  renameButton: 'desktop-rename', // pencil affordance on a tile → inline name edit
+  renameInput: 'desktop-rename-input', // the inline rename text field
   vncViewport: 'vnc-viewport', // wraps the noVNC canvas/iframe in the fullscreen route
   controlSurface: 'desktop-control-surface',
   exitFullscreen: 'desktop-exit-fullscreen',

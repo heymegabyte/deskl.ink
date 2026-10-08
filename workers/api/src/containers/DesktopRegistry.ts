@@ -243,6 +243,26 @@ export class DesktopRegistry extends DurableObject<Env> {
     return this.get(id);
   }
 
+  /**
+   * Rename a desktop (metadata only). Owner-scoped by default: the `AND owner = ?` clause means a
+   * foreign/unknown id affects 0 rows and `getOwned` then returns undefined — so a non-owner can't
+   * rename (or even confirm the existence of) another principal's computer. Passing no `owner`
+   * (admin/ops) updates unscoped. Returns the updated resource, or undefined when nothing matched.
+   */
+  rename(id: string, name: string, owner?: string): DesktopResource | undefined {
+    if (owner === undefined) {
+      this.ctx.storage.sql.exec(`UPDATE desktops SET name = ? WHERE id = ?;`, name, id);
+      return this.get(id);
+    }
+    this.ctx.storage.sql.exec(
+      `UPDATE desktops SET name = ? WHERE id = ? AND owner = ?;`,
+      name,
+      id,
+      owner
+    );
+    return this.getOwned(id, owner);
+  }
+
   /** Delete a desktop row. Idempotent — removing an unknown id is a no-op. */
   remove(id: string): void {
     this.ctx.storage.sql.exec(`DELETE FROM desktops WHERE id = ?;`, id);
