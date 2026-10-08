@@ -169,8 +169,9 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
   }, [current.id, onExit, stopping]);
 
   return (
-    <div className="fixed inset-0 z-[60] bg-[var(--color-black)]">
-      {/* The VNC surface fills the viewport. */}
+    // Fills everything UNDER the tab strip (§38) — top-9 clears the fixed 36px strip.
+    <div className="fixed inset-x-0 bottom-0 top-9 z-[60] bg-[var(--color-black)]">
+      {/* The VNC surface fills the view. */}
       {ready && vncTicket ? (
         <iframe
           data-testid={desktopTestIds.vncViewport}

@@ -34,6 +34,9 @@ const T = {
   terminalClose: 'desktop-terminal-close',
   financialBar: 'financial-bar',
   financialBarRunning: 'financial-bar-running',
+  tabStrip: 'tab-strip',
+  tab: 'tab',
+  tabHome: 'tab-home',
 } as const;
 
 // Container cold-start (image pull + KDE Plasma/VNC boot) + noVNC connect can be slow.
@@ -198,6 +201,12 @@ test.describe('Golden path', () => {
     await test.step('4 · open VNC + visually confirm the Linux desktop', async () => {
       await tile.getByTestId(T.openButton).click();
       await expect(page.getByTestId(T.controlSurface)).toBeVisible({ timeout: 15_000 });
+
+      // Opening a computer adds+selects its TAB (spec §33): the strip + this computer's tab appear.
+      await expect(page.getByTestId(T.tabStrip)).toBeVisible();
+      await expect(
+        page.locator(`[data-testid="${T.tab}"][data-tab-id="${desktopId}"]`),
+      ).toBeVisible();
 
       // The viewport iframe mounts only AFTER deskl.ink's own branded "CONNECTED…" phase,
       // so give it generous headroom (a tight 15s races that transition).

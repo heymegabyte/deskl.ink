@@ -77,13 +77,15 @@ function statusPresentation(status: DesktopStatus): {
 }
 
 interface DesktopManagerProps {
-  /** Open a desktop in the fullscreen VNC view. `ticket` is the freshest known. */
+  /** Open a desktop as a tab. `ticket` is the freshest known. */
   onOpen: (desktop: DesktopResource, ticket?: string) => void;
   /** Sign out / return to the homepage overlay. */
   onSignOut: () => void;
+  /** A computer was destroyed → close its tab if open. */
+  onDeleted?: (id: string) => void;
 }
 
-export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
+export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerProps) {
   const [desktops, setDesktops] = useState<DesktopResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -230,13 +232,14 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
       ticketsRef.current.delete(id);
       try {
         await api.deleteDesktop(id);
+        onDeleted?.(id); // close its tab if open (view follows the resource)
       } catch (err) {
         // Roll back the optimistic removal on failure.
         setError(err instanceof ApiError ? err.message : 'Could not delete the computer.');
         setDesktops(prevList);
       }
     },
-    [desktops]
+    [desktops, onDeleted]
   );
 
   const isEmpty = !loading && desktops.length === 0;

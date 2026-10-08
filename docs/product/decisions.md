@@ -9,6 +9,25 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D11 — Tabs = the primary workspace; "Home" is the grid; close ≠ stop
+- **Decision:** Adopt the spec-§33 model — every OPEN computer is a tab in a persistent top strip;
+  "Home" (leftmost) is the manager grid. The active tab's desktop fills everything under the strip
+  (§38). Closing a tab removes the VIEW only (never Stop/Destroy, §35); deleting a computer
+  auto-closes its tab. Implemented by lifting open-tab state to `App` + offsetting the existing
+  `DesktopFullscreen` below the strip (reuse, not rewrite).
+- **Alternatives:** (a) keep the single-fullscreen-overlay model (can't hold multiple computers —
+  contradicts the product's core mental model); (b) a full window-manager (splits/detach/groups) now
+  (over-built — §36 says architect-for, don't build-all); (c) mount every open tab's VNC live
+  (resource blowup, §118) — current impl mounts only the active desktop (switching re-opens).
+- **Rationale:** "All your computers become tabs" (§33/§144) is the product's spine; every later
+  surface (server tabs, joined machines, per-tab cost/AI/recording) hangs off it. Reusing
+  DesktopFullscreen kept the monitor-critical desktop view + all testids intact.
+- **Evidence:** Golden-path E2E green with the new navigation (Open→tab→desktop-under-strip→exit→
+  Home→delete→tab auto-closes); visual check shows the strip + KDE desktop below it, on-brand.
+- **Date:** 2026-10-07 · **Status:** active (core) · **Confidence:** high
+- **Reconsider when:** adding cross-reload restore (needs re-fetch of tab ids), background-tab
+  display pausing (§34), or splits/detach (§36) — all additive to this model.
+
 ### D10 — Live cost = estimate from CF's real rate card (no fictional rates; wallet needs Stripe)
 - **Decision:** Ship the mandated global financial bar (§39) NOW as an ESTIMATE computed from
   Cloudflare's published Containers rate card (`CF_CONTAINER_RATES`) × each running computer's

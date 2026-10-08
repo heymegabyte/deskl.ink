@@ -280,4 +280,10 @@ export const desktopTestIds = {
   terminalClose: 'desktop-terminal-close',
   financialBar: 'financial-bar', // global running-count + estimated burn/spend
   financialBarRunning: 'financial-bar-running', // the "N running" count
+  // Tab workspace (spec §33): every open computer is a tab; Home = the manager grid.
+  tabStrip: 'tab-strip',
+  tab: 'tab', // carries data-tab-id=<computer id>
+  tabHome: 'tab-home',
+  tabClose: 'tab-close', // per-tab close (does NOT stop/destroy)
+  tabNew: 'tab-new',
 } as const;
