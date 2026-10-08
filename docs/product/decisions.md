@@ -9,6 +9,25 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D21 — Resilience: a top-level error boundary + honest auth (no dead no-op stubs)
+- **Decision:** Wrap the app in a branded error boundary (blank-white-screen → "Something went wrong"
+  + reload + a structured `ui_crash` log). Replace the overlay's dead `noopAuth` buttons with a
+  WORKING primary "Start now — it's free" (enters the anonymous-session workspace) + GitHub/Google
+  shown as explicit coming-soon (disabled + "Soon" pill).
+- **Alternatives:** (a) no error boundary (status quo — a render error = blank screen); (b) keep the
+  OAuth buttons as no-ops "until M2" (a zero-stubs violation — they look clickable but do nothing);
+  (c) wire the OAuth buttons to "continue as guest" (misleading — implies real GitHub/Google auth);
+  (d) hide account options entirely (loses the signal that accounts are coming).
+- **Rationale:** Both are production-readiness gaps that don't need credentials. The app genuinely
+  works without an account, so "Start now" is the honest primary; disabled+"Soon" is honest about M2
+  without pretending. The boundary's structured log is Sentry-ready (D14 shape).
+- **Evidence:** Verified live (`deskl.ink`): the gated `?__selftest=crash` trips the boundary → branded
+  fallback (screenshot); auth panel honest + polished (screenshot) + axe-clean; `resilience` spec 2/2
+  + full 14-test suite green (incl. golden-path).
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** M2 (Better Auth) lands → wire the OAuth/email buttons for real + drop the
+  coming-soon treatment; add Sentry capture in `componentDidCatch` once the DSN is set.
+
 ### D20 — Discovery layer = real robots/sitemap/llms static files + accurate JSON-LD
 - **Decision:** Ship real `robots.txt` / `sitemap.xml` / `llms.txt` static files + a homepage canonical
   + accurate `WebSite`/`SoftwareApplication` JSON-LD. JSON-LD is an inline `application/ld+json` data
