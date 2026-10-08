@@ -20,7 +20,7 @@
 ## Build Tooling
 
 - `electron.vite.config.ts` — electron-vite config for main, preload, and renderer builds.
-- `vitest.config.ts` — Vitest config with two test projects: `node` (main + renderer unit tests) and `browser` (Playwright-backed renderer tests).
+- `vitest.config.ts` — Vitest projects for unit, database integration, fixture generation, migration, and Playwright-backed renderer tests; see `../workflows/testing.md` for commands.
 - Single `tsconfig.json` for all targets.
 
 ## Read Next

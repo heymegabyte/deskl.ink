@@ -40,7 +40,9 @@ class TaskViewStore {
   }
 
   setTab(tab: 'active' | 'archived') {
+    if (this.tab === tab) return;
     this.tab = tab;
+    this.setSelectedIds(new Set());
   }
 
   setSearchQuery(query: string) {
