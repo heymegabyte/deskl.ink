@@ -58,8 +58,10 @@ interface ServerErrorBody {
 function errorMessageFrom(body: unknown, fallback: string): string {
   if (body && typeof body === 'object') {
     const b = body as ServerErrorBody;
-    if (typeof b.error === 'string' && b.error) return b.error;
+    // Prefer a human-readable `message` (e.g. the rate-limit sentence); fall back to the short
+    // `error` code only when no message is present (keeps older code-only responses working).
     if (typeof b.message === 'string' && b.message) return b.message;
+    if (typeof b.error === 'string' && b.error) return b.error;
   }
   return fallback;
 }

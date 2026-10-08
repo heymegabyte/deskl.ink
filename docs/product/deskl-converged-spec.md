@@ -85,6 +85,11 @@ These hold now and must keep holding as capabilities land:
   A memorable slug/handle is NOT a credential. (Today the honest gap is #1: there is no *user*
   identity yet — closing it is the top priority; until then the deployment is a dogfood/preview, not
   a multi-tenant service.)
+- **Interim cost-abuse guard (shipped 2026-10-07).** Until auth lands, `POST /api/v1/desktops` is
+  rate-limited in the registry DO — per client IP (6/min) AND globally (30/min) — returning `429` +
+  `Retry-After` BEFORE any container spins up, so an unauthenticated caller can't run up unbounded
+  billable containers. Counts every POST attempt (incl. malformed). A backstop, not a substitute
+  for auth.
 - **VNC is never public.** HMAC ticket (signature + expiry + desktopId) + path-scoped HttpOnly
   cookie; no shared VNC password, no open port. (See [[vnc-canvas-render-verification]] for how we
   *prove* a desktop actually rendered, vs a blank canvas.)

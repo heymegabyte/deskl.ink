@@ -191,6 +191,28 @@ const app = new Hono<{ Bindings: Env }>();
  * started. Idempotent at the registry layer (upsert by id).
  */
 app.post('/', async (c) => {
+  const registry = getRegistry(c.env);
+
+  // Cost-abuse guard (runs BEFORE body-parse + any container spin-up): there is no auth boundary
+  // yet, so cap create attempts per client IP AND globally so an unauthenticated caller can't spin
+  // up unbounded billable containers. Counts EVERY POST attempt (incl. malformed) — this is abuse
+  // protection, not request validation. See docs/product/deskl-converged-spec.md § security. The
+  // standing monitor creates ~1/fire, far under these limits.
+  const ip = c.req.header('cf-connecting-ip') ?? 'anon';
+  const ipGate = await registry.checkRate(`create:ip:${ip}`, 6, 60_000);
+  const gate = ipGate.allowed ? await registry.checkRate('create:global', 30, 60_000) : ipGate;
+  if (!gate.allowed) {
+    c.header('Retry-After', String(gate.retryAfterSec));
+    return c.json(
+      {
+        ok: false,
+        error: 'rate_limited',
+        message: 'Too many new computers too quickly — wait a few seconds and try again.',
+      },
+      429
+    );
+  }
+
   const raw = await c.req.json().catch(() => undefined);
   const parsed = CreateDesktopRequestSchema.safeParse(raw ?? {});
   if (!parsed.success) {
@@ -199,7 +221,6 @@ app.post('/', async (c) => {
   const { name, size, distro, disposable } = parsed.data;
 
   const id = newDesktopId();
-  const registry = getRegistry(c.env);
   const created: DesktopResource = await registry.create({
     id,
     name: name ?? defaultName(size),

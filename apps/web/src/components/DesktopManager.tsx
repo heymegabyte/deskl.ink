@@ -32,6 +32,19 @@ const TRANSIENT_STATUSES: ReadonlySet<DesktopStatus> = new Set<DesktopStatus>([
   'persisting',
 ]);
 
+/** Compact relative time ("just now" / "4m ago" / "2h ago" / "3d ago") for tile metadata. */
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return '';
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (secs < 45) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
 /** Map a lifecycle status to a dot color token + a human label. */
 function statusPresentation(status: DesktopStatus): {
   color: string;
@@ -476,6 +489,22 @@ function DesktopTile({
             <dt className="sr-only">Size</dt>
             <dd className="font-mono">
               {size.friendlyName} · {size.ramGiB} GiB
+            </dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Created</dt>
+            <dd title={new Date(desktop.createdAt).toLocaleString()}>
+              Created {relativeTime(desktop.createdAt)}
+            </dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Persistence</dt>
+            <dd
+              className={
+                desktop.persistent ? 'text-[var(--color-cyan)]/80' : 'text-[var(--color-muted)]'
+              }
+            >
+              {desktop.persistent ? 'Persistent' : 'Disposable'}
             </dd>
           </div>
         </dl>

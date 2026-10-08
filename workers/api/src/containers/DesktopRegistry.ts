@@ -50,6 +50,12 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
   persistent: number;
 }
 
+/** Rate-limit counter row (fixed window). Satisfies the `exec<T>` SqlStorageValue constraint. */
+interface RateRow extends Record<string, SqlStorageValue> {
+  window_start: number;
+  count: number;
+}
+
 /** Fields the control-plane supplies on create; the rest are derived here. */
 export interface CreateDesktopRow {
   id: string;
@@ -87,6 +93,51 @@ export class DesktopRegistry extends DurableObject<Env> {
     } catch {
       // column already present — expected on every start after the first.
     }
+    // Fixed-window rate-limit counters (cost-abuse guard on create). Keyed by an
+    // arbitrary bucket string (e.g. per-IP or global). Idempotent create.
+    this.ctx.storage.sql.exec(
+      `CREATE TABLE IF NOT EXISTS rate_limits (
+        bucket TEXT PRIMARY KEY,
+        window_start INTEGER NOT NULL,
+        count INTEGER NOT NULL
+      );`
+    );
+  }
+
+  /**
+   * Fixed-window rate check for a bucket key — the cost-abuse guard on create (no auth yet, so an
+   * unauthenticated caller must not be able to spin up unbounded billable containers). Returns
+   * whether this hit is allowed and, when blocked, seconds until the window resets. Increments the
+   * counter on an allowed hit. Serialized through this single global DO, so counts are consistent.
+   */
+  checkRate(
+    key: string,
+    limit: number,
+    windowMs: number
+  ): { allowed: boolean; retryAfterSec: number } {
+    const now = Date.now();
+    const windowStart = now - (now % windowMs);
+    const row = this.ctx.storage.sql
+      .exec<RateRow>(`SELECT window_start, count FROM rate_limits WHERE bucket = ? LIMIT 1;`, key)
+      .toArray()[0];
+    // New bucket or a rolled-over window → reset to 1 and allow.
+    if (!row || row.window_start !== windowStart) {
+      this.ctx.storage.sql.exec(
+        `INSERT INTO rate_limits (bucket, window_start, count) VALUES (?, ?, 1)
+         ON CONFLICT(bucket) DO UPDATE SET window_start = excluded.window_start, count = 1;`,
+        key,
+        windowStart
+      );
+      return { allowed: true, retryAfterSec: 0 };
+    }
+    if (row.count >= limit) {
+      return {
+        allowed: false,
+        retryAfterSec: Math.max(1, Math.ceil((windowStart + windowMs - now) / 1000)),
+      };
+    }
+    this.ctx.storage.sql.exec(`UPDATE rate_limits SET count = count + 1 WHERE bucket = ?;`, key);
+    return { allowed: true, retryAfterSec: 0 };
   }
 
   /** Insert a new desktop row. Idempotent: re-creating the same id is a no-op upsert. */
