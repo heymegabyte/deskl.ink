@@ -9,6 +9,26 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D25 — Lighthouse verified 4×100 + perf vitals; fixed llms.txt + Label-in-Name
+- **Decision:** Run a Lighthouse pass (prod) as the perf/quality verification. It scored
+  Accessibility / Best-Practices / SEO 100 but **Agentic Browsing 67** with 2 failures — both fixed
+  to reach **4×100, 0 failed audits**. Also captured Core Web Vitals via a trace.
+- **Fixes:** (1) `llms.txt` used a bare URL; the llmstxt.org spec wants markdown links ("File does
+  not appear to contain any links") → proper `[text](url)` links (agentic-browsing 67→100). (2) The
+  coming-soon OAuth buttons had `aria-label="Continue with X (coming soon)"` while their visible
+  content is "Continue with X" + a "Soon" pill, so the visible text wasn't contained in the
+  accessible name (WCAG 2.5.3 Label-in-Name) → dropped the redundant aria-label (content is the name;
+  `disabled` conveys unavailability).
+- **Alternatives considered:** adopt **WebMCP** (register browser tools for AI agents) to further the
+  agentic-browsing story — genuinely on-brand ("a computer for your AI") but an experimental Chrome
+  API; noted as a future AI-native direction, not adopted now.
+- **Evidence:** Verified live (`deskl.ink`): Lighthouse **A11y 100 · Best-Practices 100 · SEO 100 ·
+  Agentic Browsing 100, 0 failed**; performance trace **LCP 238 ms / CLS 0.04** (both well under the
+  ≤2.0s / ≤0.05 targets), no render-blocking; resilience + a11y E2E green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** CrUX field data appears (currently lab-only); or WebMCP matures → expose
+  agent tools (create/stop/open a computer) for first-class AI-agent browsing.
+
 ### D24 — Screen-reader status announcements for lifecycle actions (WCAG 4.1.3)
 - **Decision:** A single sr-only `role="status" aria-live="polite"` region in the manager announces
   successful lifecycle outcomes (created / stopped / stop-all / deleted / renamed). Errors keep using
