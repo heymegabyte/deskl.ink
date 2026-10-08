@@ -8,7 +8,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env } from './env.js';
+import { requestLogger, type AppContext } from './observability.js';
 import desktops from './routes/desktops.js';
 
 // Container + registry Durable Objects must be exported from the Worker entry
@@ -43,7 +43,11 @@ const API_VERSION = 'v1' as const;
 /** Package/service version, mirrors the Worker release. */
 const SERVICE_VERSION = '0.0.0' as const;
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<AppContext>();
+
+// Correlation id + structured request logging. Mounted FIRST so it wraps every other middleware
+// and the handler (total request time + status). See observability.ts.
+app.use('*', requestLogger());
 
 app.use('*', cors());
 

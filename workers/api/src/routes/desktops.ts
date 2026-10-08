@@ -37,6 +37,7 @@ import {
   type DesktopSizeId,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
+import type { AppContext } from '../observability.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
 import { imageKeyFor, instanceFor } from '../compute/catalog.js';
 import { resolvePrincipal, principalCookie, isAdmin } from '../auth/principal.js';
@@ -47,9 +48,10 @@ import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
  * freshly minted (so the browser gets a stable identity on its first API call). Every ownership
  * check in this control-plane keys off `id`. See auth/principal.ts.
  */
-async function principalOf(c: Context<{ Bindings: Env }>): Promise<{ id: string; admin: boolean }> {
+async function principalOf(c: Context<AppContext>): Promise<{ id: string; admin: boolean }> {
   const p = await resolvePrincipal(c, c.env.VNC_TICKET_SECRET);
   if (p.fresh) c.header('Set-Cookie', await principalCookie(p.id, c.env.VNC_TICKET_SECRET));
+  c.set('ownerId', p.id); // thread the owner into structured request logs (observability.ts)
   return { id: p.id, admin: isAdmin(c, c.env.ADMIN_TOKEN) };
 }
 
@@ -229,7 +231,7 @@ function defaultName(size: keyof typeof DESKTOP_SIZES, form: ComputerForm): stri
   return `${DESKTOP_SIZES[size].friendlyName} ${form}`;
 }
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<AppContext>();
 
 /**
  * POST /api/v1/desktops — create a desktop.
