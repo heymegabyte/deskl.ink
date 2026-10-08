@@ -9,6 +9,24 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D23 — Modal focus management = a reusable focus-trap hook (trap + restore)
+- **Decision:** A `useFocusTrap` hook (move focus in on open, contain Tab/Shift+Tab, restore focus to
+  the opener on close) applied to the OS picker + ⌘K command palette. Dropped the palette input's
+  `autoFocus` so the trap captures the true opener before focusing the input.
+- **Alternatives:** (a) a library (`focus-trap-react`) — a dependency for ~40 lines of auditable code;
+  (b) rely on `inert` alone (the palette already inerts the manager, but that doesn't cover the tab
+  strip / fullscreen behind it, and gives no focus-restore); (c) do nothing (the gap — keyboard/SR
+  users could Tab behind the picker; neither modal restored focus).
+- **Rationale:** A WCAG 2.4.3 / ARIA-dialog-pattern requirement the STATIC axe scan can't catch —
+  found only via a manual keyboard audit. A reusable hook keeps both modals (and future ones)
+  consistent. The `active` param handles the palette's always-mounted-toggles-null shape.
+- **Evidence:** Verified live (`deskl.ink`): `focus` spec 2/2 — picker (focus-in + Tab contained +
+  restore to "New computer") + palette (input focus + restore to opener); command-palette spec still
+  green (the trap focuses the input after autoFocus removal); a11y 3/3 + mobile 2/2 + golden-path green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** a new modal is added → apply the hook; or the overlay/HomeOverlay wants the same
+  (currently relies on the inert manager for containment).
+
 ### D22 — Mobile: audited at 375px; header actions collapse to icons; permanent mobile E2E
 - **Decision:** Audit every key surface at 375px and add standing mobile E2E coverage. The one real
   issue — the manager header overflowing — is fixed by collapsing the New-computer + Sign-out buttons
