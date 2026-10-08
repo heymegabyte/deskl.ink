@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#05060A" />
+    <title>Offline — deskl.ink</title>
+    <!-- Self-contained: inline <style> (allowed by CSP style-src 'unsafe-inline'), a plain link for
+         retry (no inline JS — script-src is 'self'), and the brand mark inline. No external deps so
+         it renders when the SW serves it offline. -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        text-align: center;
+        background: radial-gradient(circle at 50% 28%, #0a0c12, #05060a 72%);
+        color: #f5f7fa;
+        font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      .mark {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 1.6rem;
+        filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.25));
+      }
+      h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .cyan {
+        color: #00e5ff;
+      }
+      p {
+        margin: 0.85rem auto 0;
+        max-width: 34ch;
+        line-height: 1.55;
+        color: #8a93a6;
+        font-size: 0.95rem;
+      }
+      a.retry {
+        display: inline-block;
+        margin-top: 1.9rem;
+        padding: 0.72rem 1.5rem;
+        border-radius: 0.65rem;
+        background: #00e5ff;
+        color: #05060a;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-decoration: none;
+        box-shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="mark" viewBox="0 0 32 32" role="img" aria-label="deskl.ink">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#00E5FF" />
+            <stop offset="1" stop-color="#7C3AED" />
+          </linearGradient>
+        </defs>
+        <rect x="1.5" y="2.5" width="29" height="27" rx="7" fill="#0A0C12" stroke="url(#g)" stroke-width="2.5" />
+        <path d="M9.5 11.8 L14.5 16 L9.5 20.2" fill="none" stroke="#00E5FF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M16.5 20.2 H23.5" stroke="#00E5FF" stroke-width="2.6" stroke-linecap="round" />
+      </svg>
+      <h1>You're <span class="cyan">offline</span></h1>
+      <p>
+        deskl.ink needs a connection to reach your cloud workstations. Your computers are safe —
+        reconnect to pick up right where you left off.
+      </p>
+      <a class="retry" href="/">Try again</a>
+    </main>
+  </body>
+</html>
