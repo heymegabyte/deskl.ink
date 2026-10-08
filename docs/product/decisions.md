@@ -9,6 +9,31 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D19 — Offline service worker = conservative, control-plane-safe (network-first + never cache /api)
+- **Decision:** A hand-rolled `public/sw.js`: network-first for navigations (fresh shell online,
+  cached shell / branded `/offline` page when unreachable), cache-first ONLY for immutable
+  fingerprinted `/assets`+`/fonts`+icons, and `/api/*` (incl. `/vnc`+`/term`) NEVER cached. skipWaiting
+  + clients.claim + old-cache cleanup. Registered non-blocking from main.tsx.
+- **Alternatives:** (a) Workbox/vite-plugin-pwa with a precache manifest — more build machinery + a
+  generated SW that's harder to reason about than ~70 lines of explicit, auditable strategy; (b) a
+  cache-first shell — risks serving a stale app ("stuck on old version"); (c) no SW (D18 state) —
+  leaves the PWA non-functional offline.
+- **Rationale:** Completes the installable PWA (the shell loads on flaky/no network). The strategy is
+  deliberately conservative so it CAN'T break the product: a throwing handler degrades to normal
+  network; network-first means online is always fresh; and never-touching `/api` keeps the control
+  plane + live desktop streams entirely on the network. On a staging-less prod, that safety margin is
+  the whole point.
+- **Evidence:** Verified live (`deskl.ink`): SW activated + controlling at root scope; caches hold
+  ONLY the shell + `/offline`, **zero `/api` entries**; offline-reload renders the shell from cache
+  (`offline` spec); and the FULL 10-test suite — including golden-path (create→VNC→delete, all `/api`)
+  — stays green with the SW active, proving it never intercepts the control plane.
+- **Lesson:** Workers Assets 307-redirects `/x.html` → `/x`; precache the CANONICAL extensionless URL,
+  because a cached *redirected* Response throws "redirections" when served for a navigation.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** richer offline is wanted (queue mutations, offline computer list) → a more
+  involved strategy; or a SW bug appears → ship a self-unregistering kill-switch SW (network-first
+  already limits blast radius).
+
 ### D18 — Installable PWA = manifest-only, SVG icons (no service worker, no raster generation)
 - **Decision:** Ship a web app manifest (standalone display, theme/bg `#05060A`, any+maskable icons,
   a "New computer" shortcut → `/?new=1`) to make deskl.ink installable. No service worker. Icons are
