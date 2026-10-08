@@ -9,6 +9,32 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D14 — Observability: request correlation id + structured JSON logging (Sentry-ready foundation)
+- **Decision:** A `requestLogger()` Hono middleware mints/propagates an `x-request-id` (honor a sane
+  bounded inbound token, else a fresh UUID), threads it through the context, echoes it on the
+  response, and emits ONE structured JSON line per request (`ts/level/msg/requestId/ray/method/path/
+  status/durationMs/owner/desktop/environment`). `principalOf` stashes the resolved owner id so logs
+  carry it. Mounted first so it times the full request.
+- **Alternatives:** (a) pull in `@sentry/cloudflare` now (the estate baseline) — needs a `SENTRY_DSN`
+  (creds-blocked), and correlation-id logging is the layer Sentry would *enrich* anyway, so build it
+  first; (b) rely on `cf-ray` alone (no app-level owner/desktop correlation, no inbound trace
+  propagation); (c) a logging lib (unneeded weight for one JSON line).
+- **Rationale:** The control plane had only an unstructured `console.error` in `onError` — the
+  `drift-detection` doctrine flags "logs without correlation IDs" as drift to fix immediately. A paid
+  per-container control plane needs request→owner→desktop traceability. `cf-ray` in each line ties
+  app logs to Cloudflare's own.
+- **Safety:** the noVNC `/vnc/*` + ttyd `/term/*` WS tunnels are skipped from response mutation +
+  per-request logging (a header on a `101` upgrade breaks the socket; a long-lived tunnel shouldn't
+  log per frame). The id is still minted for them. All logging is `try/catch`ed so it can never break
+  a response.
+- **Evidence:** Verified live (`deskl.ink`): `x-request-id` minted / honored-inbound / replaced-when-
+  unsafe / unique-per-request; real structured lines observed via `wrangler tail` with `owner` +
+  `cf-ray` populated; golden-path E2E green (the middleware wraps every request).
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** `SENTRY_DSN` lands → add `@sentry/cloudflare` and feed it this correlation
+  context; or a log pipeline (Logpush → R2/Axiom) needs a fixed schema → promote `RequestLog` to a
+  shared Zod contract.
+
 ### D13 — Browser security headers: enforcing CSP via `_headers`, JSON-scoped headers in the Worker
 - **Decision:** Ship an **enforcing** Content-Security-Policy (not report-only) on the SPA document +
   static assets through a Workers-Assets `_headers` file (`apps/web/public/_headers`), plus HSTS,
