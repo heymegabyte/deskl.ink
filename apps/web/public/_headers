@@ -20,7 +20,10 @@
   #   Stripe   → script-src + frame-src https://js.stripe.com ; connect-src https://api.stripe.com
   #   PostHog  → script-src + connect-src <your-posthog-ingest-host>  (self-hosted or *.posthog.com)
   #   (Sentry is server-side @sentry/cloudflare only — no browser SDK, so no CSP change needed.)
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  # report-to (modern, via Reporting-Endpoints below) + report-uri (legacy) send violations to the
+  # Worker's /api/v1/csp-report, which logs them (Sentry-ready) — so a too-strict rule surfaces.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; report-uri /api/v1/csp-report; report-to csp-endpoint
+  Reporting-Endpoints: csp-endpoint="https://deskl.ink/api/v1/csp-report"
   # --- Transport + sniffing + referrer + powerful-feature policy ---------------------
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff

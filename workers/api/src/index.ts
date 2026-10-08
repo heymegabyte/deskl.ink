@@ -88,6 +88,44 @@ app.get('/api/v1/version', (c) =>
   })
 );
 
+/**
+ * CSP violation sink (the `report-uri` / `report-to` target from apps/web/public/_headers).
+ *
+ * Accepts both the legacy `application/csp-report` shape (`{ "csp-report": {...} }`) and the modern
+ * Reporting API batch (`[{ type: "csp-violation", body: {...} }]`), drops browser-extension noise,
+ * and emits one structured `csp_violation` log per real report (same shape as observability.ts — so
+ * the @sentry/cloudflare baseline picks it up once its DSN lands). Always 204: a report sink must
+ * never fail the browser's fire-and-forget POST.
+ */
+app.post('/api/v1/csp-report', async (c) => {
+  try {
+    const body = await c.req.json<unknown>().catch(() => null);
+    const list = Array.isArray(body) ? body : body ? [body] : [];
+    for (const entry of list) {
+      const e = entry as Record<string, unknown>;
+      // report-uri wraps in { "csp-report": {...} }; report-to wraps in { body: {...} }.
+      const r = ((e['csp-report'] ?? e['body'] ?? e) ?? {}) as Record<string, unknown>;
+      const blocked = String(r['blocked-uri'] ?? r['blockedURL'] ?? '');
+      if (/^(chrome|moz|safari|webkit)-extension:/i.test(blocked)) continue; // extension noise
+      console.log(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          msg: 'csp_violation',
+          requestId: c.get('requestId'),
+          blocked,
+          directive: r['effectiveDirective'] ?? r['effective-directive'] ?? r['violated-directive'],
+          documentUri: r['documentURL'] ?? r['document-uri'],
+          sourceFile: r['sourceFile'] ?? r['source-file'],
+        })
+      );
+    }
+  } catch {
+    /* a report sink must never throw back at the browser */
+  }
+  return c.body(null, 204);
+});
+
 // Desktop control-plane: create/list/get/start/stop/destroy + ticketed VNC proxy.
 app.route('/api/v1/desktops', desktops);
 
