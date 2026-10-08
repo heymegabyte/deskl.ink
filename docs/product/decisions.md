@@ -9,6 +9,28 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D17 — Self-host webfonts (no Google origin) → tighter CSP
+- **Decision:** Serve Sora / Space Grotesk / JetBrains Mono as same-origin woff2 from `/fonts/*`
+  (`src/fonts.css` @font-face, latin subset, `font-display: swap`) instead of the Google Fonts
+  `<link>`. Drop ALL google/gstatic allowances from the CSP (`style-src`/`font-src`/`connect-src`
+  back to `'self'`).
+- **Alternatives:** (a) keep Google Fonts + just widen `connect-src` (the D13 band-aid — leaves a
+  third-party dependency + privacy leak + the connect quirk); (b) a font-subsetting build step
+  (more moving parts than 10 static files for a fixed set of weights); (c) `fontsource` npm packages
+  (an extra dependency vs. copying Google's own verbatim faces).
+- **Rationale:** Removes a third-party dependency on the critical render path — privacy (no Google
+  tracking of users), performance (no extra DNS/TLS to two origins; served with our immutable cache),
+  offline-resilience, and a strictly tighter CSP. Copying Google's exact `unicode-range` keeps glyph
+  coverage identical (latin range covers —, …, ·, ↑↓, curly quotes; the only non-latin glyph in the
+  app, ⌘, is comment-only). Supersedes the D13 connect-src font band-aid.
+- **Evidence:** Verified live (`deskl.ink`): CSP carries no google origin; fonts fetched from
+  `/fonts/*` (same-origin, immutable), ZERO Google requests (`performance` resource entries);
+  `document.fonts` loaded + `h1` → Space Grotesk; screenshot = identical typography; 0 console errors;
+  golden-path 2/2 + a11y 3/3 + command-palette + rename green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** a new weight/family is added (fetch + drop in `/fonts/` + a face in
+  `fonts.css`) or non-latin UI copy appears (add the latin-ext / needed subset faces).
+
 ### D16 — Command palette = a decoupled, App-owned ⌘K overlay (not a manager feature)
 - **Decision:** A `⌘K`/`Ctrl+K` command palette that fetches its OWN owner-scoped computer list and
   invokes App's existing `openDesktop`/`goHome`/`reopenOverlay` — so it touches none of the
@@ -105,8 +127,9 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
   connection to `fonts.googleapis.com` the browser classifies under connect-src (the console-gated
   command-palette E2E caught it; the manual check missed it because the font CSS was already cached).
   Fonts still rendered (via the stylesheet, allowed by style-src), so it was console noise, not a
-  visual break. Added the two font origins to `connect-src`. Proper fix: self-host fonts and drop all
-  google/gstatic allowances (follow-up). Lesson: verify CSP in a FRESH, cache-less context.
+  visual break. Added the two font origins to `connect-src` as a stopgap — **superseded same day by
+  D17** (self-hosted fonts; all google/gstatic allowances dropped). Lesson: verify CSP in a FRESH,
+  cache-less context.
 - **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
 - **Reconsider when:** Stripe/PostHog/other 3rd-party origins land → widen the directives (the exact
   additions are documented inline in `_headers`); or the SPA gains inline scripts → move to
