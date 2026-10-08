@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 import { desktopTestIds, type DesktopResource } from '../../../../packages/shared/src/desktop-api';
 import { DistroMark } from './DistroMark.js';
 
@@ -43,6 +44,10 @@ export function CommandPalette({
   const [desktops, setDesktops] = useState<DesktopResource[]>([]);
   const [highlight, setHighlight] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
+  // Modal focus management: contain Tab within the palette + restore focus to the opener on close.
+  // (The input's autoFocus keeps initial focus; this adds containment + restore.)
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   // Each time the palette opens: reset, and refresh the computer list (owner-scoped via the cookie).
   useEffect(() => {
@@ -165,6 +170,7 @@ export function CommandPalette({
       />
 
       <div
+        ref={dialogRef}
         data-testid={desktopTestIds.commandPalette}
         className="ds-glass relative w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--color-border)] shadow-[0_0_70px_rgba(0,229,255,0.14)] [animation:ds-pop_160ms_var(--ease-expressive)]"
         style={{ animationName: 'ds-pop' }}
@@ -187,7 +193,6 @@ export function CommandPalette({
           </svg>
           <input
             data-testid={desktopTestIds.commandInput}
-            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}

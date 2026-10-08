@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 import {
   DISTROS,
   DISTRO_IDS,
@@ -40,6 +41,9 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
   const [form, setForm] = useState<ComputerForm>('desktop');
   const [distro, setDistro] = useState<DistroId>('ubuntu');
   const [size, setSize] = useState<DesktopSizeId>('everyday');
+  // Modal focus management (ARIA dialog): contain Tab within the dialog + restore focus on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
 
   // Server form is Ubuntu · Everyday (headless) for v1 — pin those when it's chosen so the stored
   // distro/size match what actually boots (more server distros/sizes are coming).
@@ -76,6 +80,7 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
       />
 
       <div
+        ref={dialogRef}
         className="ds-glass relative w-full max-w-2xl rounded-2xl border border-[var(--color-border)] p-7 shadow-[0_0_70px_rgba(0,229,255,0.12)] [animation:ds-pop_180ms_var(--ease-expressive)]"
         style={{ animationName: 'ds-pop' }}
       >
