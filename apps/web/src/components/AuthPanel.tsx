@@ -68,7 +68,6 @@ export function AuthPanel({ onStart }: { onStart: () => void }) {
         <button
           type="button"
           disabled
-          aria-label="Continue with GitHub (coming soon)"
           className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-[var(--color-white)]/70 opacity-70"
         >
           <GithubGlyph />
@@ -79,7 +78,6 @@ export function AuthPanel({ onStart }: { onStart: () => void }) {
         <button
           type="button"
           disabled
-          aria-label="Continue with Google (coming soon)"
           className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-[var(--color-white)]/70 opacity-70"
         >
           <GoogleGlyph />

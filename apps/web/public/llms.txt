@@ -4,25 +4,21 @@
 > workstations operable by a human, an AI agent, many cooperating agents, or a human and AI
 > together. Cloudflare-native — a workstation boots in seconds and scales to zero when idle.
 
-## What it is
-
-- Cloud Linux workstations you open in a browser — no local install, no infrastructure to configure.
-- Distributions: Ubuntu, Fedora, Debian. Sizes: Everyday (4 GiB), Developer (6), Power (8), Heavy (12) — real RAM, not cosmetic tiers.
-- Two forms: a **Desktop** (full graphical environment streamed over VNC) or a headless **Server** (terminal-native — a dev box with git, Node, Python, ripgrep, tmux, and a browser terminal).
-- Designed to be driven by people and by AI agents through the same control plane.
-
-## What you can do today
-
-- Create a computer and connect to it in seconds; every open computer is a tab in one workspace.
-- A ⌘K command palette for fast keyboard navigation; rename computers inline; a live cost estimate and a one-click "stop everything running".
-- An in-session browser terminal on every distribution.
-- Install deskl.ink as an app (PWA); the shell works offline.
+deskl.ink gives you cloud Linux workstations (Ubuntu, Fedora, Debian) in your browser — no local
+install, no infrastructure to configure. Pick a size (Everyday 4 GiB · Developer 6 · Power 8 ·
+Heavy 12) and a form: a **Desktop** (full graphical environment streamed over VNC) or a headless
+**Server** (terminal-native — git, Node, Python, ripgrep, tmux, and a browser terminal). Every open
+computer is a tab in one workspace; a ⌘K command palette, inline rename, live cost estimates, and a
+one-click "stop everything running" keep it fast. Installable as an app, and the shell works
+offline. It is built to be operated by people and by AI agents through the same control plane.
 
 ## Links
 
-- Home: https://deskl.ink/
+- [deskl.ink](https://deskl.ink/): the product — open a cloud Linux workstation in your browser.
+- [Sitemap](https://deskl.ink/sitemap.xml): the public pages, machine-readable.
 
 ## Notes for AI agents
 
 - deskl.ink is built to be operated by AI as a first-class user, not only by humans.
-- The product owns its own workstation runtime, UI, and agent-control plane; it is a standalone product, not a plugin of another app.
+- It is a standalone product that owns its own workstation runtime, UI, and agent-control plane — not
+  a plugin of another app.
