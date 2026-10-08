@@ -14,7 +14,7 @@
  *
  * Testid values mirror `@deskl/shared` desktopTestIds.
  */
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import path from 'path';
 
 const T = {
@@ -143,7 +143,7 @@ test.describe.serial('Distro picker', () => {
   let pickerShot = false;
 
   for (const { distro, os } of CASES) {
-    test(`pick ${distro} → it spins up → VNC desktop → delete`, async ({ page, request }) => {
+    test(`pick ${distro} → it spins up → VNC desktop → delete`, async ({ page }) => {
       const consoleErrors: string[] = [];
       page.on('console', (m) => {
         if (m.type() === 'error' && !BENIGN_CONSOLE.test(m.text())) consoleErrors.push(m.text());
@@ -188,7 +188,7 @@ test.describe.serial('Distro picker', () => {
 
         await test.step(`API reports distro=${distro}`, async () => {
           // Authoritative: the backend stored + routed to the chosen distro.
-          const res = await (request as APIRequestContext).get(`/api/v1/desktops/${desktopId}`);
+          const res = await page.request.get(`/api/v1/desktops/${desktopId}`);
           expect(res.ok(), `GET desktop ${desktopId} ok`).toBeTruthy();
           // The API wraps the resource under `desktop` (POST also returns a sibling vncTicket).
           const body = (await res.json()) as { desktop?: { distro?: string; os?: string } };
@@ -244,9 +244,7 @@ test.describe.serial('Distro picker', () => {
       } finally {
         // Never leak a container if an assertion bailed mid-flow.
         if (desktopId) {
-          await (request as APIRequestContext)
-            .delete(`/api/v1/desktops/${desktopId}`)
-            .catch(() => undefined);
+          await page.request.delete(`/api/v1/desktops/${desktopId}`).catch(() => undefined);
         }
       }
     });

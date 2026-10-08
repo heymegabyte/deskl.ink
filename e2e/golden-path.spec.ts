@@ -144,11 +144,13 @@ test.describe('Golden path', () => {
   let desktopId = '';
 
   // Best-effort cleanup: if the test bails before the delete step, don't leak a desktop.
-  test.afterEach(async ({ request }) => {
-    if (desktopId) await request.delete(`/api/v1/desktops/${desktopId}`).catch(() => undefined);
+  // Use `page.request` (shares the page's cookie jar → same signed session principal that OWNS the
+  // desktop) — the separate `request` fixture is a different principal and would 404 on it.
+  test.afterEach(async ({ page }) => {
+    if (desktopId) await page.request.delete(`/api/v1/desktops/${desktopId}`).catch(() => undefined);
   });
 
-  test('spin up → VNC → visually confirm desktop → delete', async ({ page, request }) => {
+  test('spin up → VNC → visually confirm desktop → delete', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (m) => {
       if (m.type() === 'error' && !BENIGN_CONSOLE.test(m.text())) consoleErrors.push(m.text());
@@ -246,7 +248,7 @@ test.describe('Golden path', () => {
       // (correct — avoids orphaning the container), and CF container teardown is occasionally
       // slow; 15s was too tight and flaked once in ~180 fires.
       await expect
-        .poll(async () => (await request.get(`/api/v1/desktops/${desktopId}`)).status(), {
+        .poll(async () => (await page.request.get(`/api/v1/desktops/${desktopId}`)).status(), {
           timeout: 30_000,
         })
         .toBe(404);

@@ -7,17 +7,25 @@
  * Defaults to the live custom domain (matching playwright.config's prod-first baseURL) so
  * a monitor run that relies on the config default still sweeps deskl.ink, not localhost.
  *
- * Safe TODAY because there is no auth yet and every desktop is a test artifact.
- * TODO(M2-auth): scope to the test user's desktops once desktops belong to real users.
+ * Ownership note: desktops now belong to a signed session principal, and list/DELETE are
+ * owner-scoped — so the golden-path test is naturally isolated (its `page` principal only ever
+ * sees its own computer) and this cross-run sweep is no longer required for correctness. It still
+ * reaps ORPHANS (computers left by expired anonymous principals) when an operator token is present:
+ * set `DESKL_ADMIN_TOKEN` (matching the Worker's `ADMIN_TOKEN`) and the sweep lists/deletes across
+ * owners via `x-deskl-admin`. Without the token it harmlessly no-ops (sees only its own, empty, set).
  */
 export async function sweepDesktops(label: string): Promise<void> {
   const base = process.env['DESKL_BASE_URL'] ?? 'https://deskl.ink';
+  const adminToken = process.env['DESKL_ADMIN_TOKEN'];
+  const headers: Record<string, string> = adminToken ? { 'x-deskl-admin': adminToken } : {};
   try {
-    const res = await fetch(`${base}/api/v1/desktops`);
+    const res = await fetch(`${base}/api/v1/desktops`, { headers });
     if (!res.ok) return;
     const { desktops } = (await res.json()) as { desktops: Array<{ id: string }> };
     await Promise.allSettled(
-      desktops.map((d) => fetch(`${base}/api/v1/desktops/${d.id}`, { method: 'DELETE' }))
+      desktops.map((d) =>
+        fetch(`${base}/api/v1/desktops/${d.id}`, { method: 'DELETE', headers })
+      )
     );
     if (desktops.length > 0) {
       console.log(`[golden-path ${label}] destroyed ${desktops.length} desktop(s)`);

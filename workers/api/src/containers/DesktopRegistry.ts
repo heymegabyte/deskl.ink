@@ -48,6 +48,8 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
   created_at: string;
   last_active_at: string | null;
   persistent: number;
+  /** Owning principal id (see auth/principal.ts); NULL on pre-auth legacy rows (admin-only). */
+  owner: string | null;
 }
 
 /** Rate-limit counter row (fixed window). Satisfies the `exec<T>` SqlStorageValue constraint. */
@@ -65,6 +67,8 @@ export interface CreateDesktopRow {
   size: DesktopSizeId;
   status: DesktopStatus;
   persistent: boolean;
+  /** Owning principal id — the ownership boundary enforced by the control-plane. */
+  owner: string;
 }
 
 export class DesktopRegistry extends DurableObject<Env> {
@@ -81,15 +85,21 @@ export class DesktopRegistry extends DurableObject<Env> {
         status TEXT NOT NULL,
         created_at TEXT NOT NULL,
         last_active_at TEXT,
-        persistent INTEGER NOT NULL DEFAULT 0
+        persistent INTEGER NOT NULL DEFAULT 0,
+        owner TEXT
       );`
     );
-    // Additive migration for registries created before the distro column existed.
-    // `ADD COLUMN` throws "duplicate column" once it exists — swallow that so it
-    // stays idempotent across cold starts. Legacy rows get NULL → defaulted to
-    // Ubuntu on read, so the existing fleet keeps working unchanged.
+    // Additive migrations for registries created before a column existed. `ADD COLUMN` throws
+    // "duplicate column" once present — swallow it so this stays idempotent across cold starts.
+    // Legacy `distro` NULL → defaulted to Ubuntu on read; legacy `owner` NULL → admin-only
+    // (unreachable by normal principals), so pre-auth rows become inert orphans, not a leak.
     try {
       this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN distro TEXT;`);
+    } catch {
+      // column already present — expected on every start after the first.
+    }
+    try {
+      this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN owner TEXT;`);
     } catch {
       // column already present — expected on every start after the first.
     }
@@ -144,14 +154,15 @@ export class DesktopRegistry extends DurableObject<Env> {
   create(input: CreateDesktopRow): DesktopResource {
     const now = new Date().toISOString();
     this.ctx.storage.sql.exec(
-      `INSERT INTO desktops (id, name, os, distro, size, status, created_at, last_active_at, persistent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
+      `INSERT INTO desktops (id, name, os, distro, size, status, created_at, last_active_at, persistent, owner)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          os = excluded.os,
          distro = excluded.distro,
          size = excluded.size,
-         status = excluded.status;`,
+         status = excluded.status,
+         owner = excluded.owner;`,
       input.id,
       input.name,
       input.os ?? DEFAULT_DESKTOP_OS,
@@ -159,25 +170,48 @@ export class DesktopRegistry extends DurableObject<Env> {
       input.size,
       input.status,
       now,
-      input.persistent ? 1 : 0
+      input.persistent ? 1 : 0,
+      input.owner
     );
     const row = this.getRow(input.id);
     if (!row) throw new Error(`failed to persist desktop ${input.id}`);
     return rowToResource(row);
   }
 
-  /** Every desktop, newest first. */
-  list(): DesktopResource[] {
-    const rows = this.ctx.storage.sql
-      .exec<DesktopRow>(`SELECT * FROM desktops ORDER BY created_at DESC;`)
-      .toArray();
+  /**
+   * Desktops newest first. With an `owner`, returns only that principal's computers (the normal,
+   * ownership-scoped path). With no `owner` (admin/ops only), returns EVERY computer across owners.
+   */
+  list(owner?: string): DesktopResource[] {
+    const rows =
+      owner === undefined
+        ? this.ctx.storage.sql
+            .exec<DesktopRow>(`SELECT * FROM desktops ORDER BY created_at DESC;`)
+            .toArray()
+        : this.ctx.storage.sql
+            .exec<DesktopRow>(
+              `SELECT * FROM desktops WHERE owner = ? ORDER BY created_at DESC;`,
+              owner
+            )
+            .toArray();
     return rows.map(rowToResource);
   }
 
-  /** One desktop by id, or `undefined` if unknown. */
+  /** One desktop by id, or `undefined` if unknown. ADMIN/ops path — bypasses ownership. */
   get(id: string): DesktopResource | undefined {
     const row = this.getRow(id);
     return row ? rowToResource(row) : undefined;
+  }
+
+  /**
+   * One desktop by id ONLY if owned by `owner` — else `undefined` (indistinguishable from
+   * not-found, so a principal can't even probe whether another principal's computer exists). This
+   * is the authorization primitive the control-plane calls for every per-id action.
+   */
+  getOwned(id: string, owner: string): DesktopResource | undefined {
+    const row = this.getRow(id);
+    if (!row || row.owner !== owner) return undefined;
+    return rowToResource(row);
   }
 
   /**

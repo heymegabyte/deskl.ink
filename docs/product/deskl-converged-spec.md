@@ -51,7 +51,7 @@ Everything else is **capabilities + data**, not new classes:
 | # | Capability | Status | Where / exact next step |
 |---|------------|--------|--------------------------|
 | **P0** | | | |
-| 1 | **Authentication boundary** | **Blocked** | **No user identity exists yet.** The registry is a single global DO; the control-plane API is unauthenticated. VNC is *not* public (HMAC ticket + expiry + path-scoped cookie), but **anyone who can reach `/api/v1/desktops` can create/list/destroy computers.** This is the #1 gate. Blocked on external OAuth apps (GitHub/Google) + email sending (magic link). Next: Better Auth on Workers+D1, per-user registry (`getByName(REGISTRY, userId)`), server-side ownership check on every route. See ROADMAP M2 + the 5-min SSO threshold. |
+| 1 | **Auth boundary** | **Authorization ✅ · identity deferred** | **Server-side OWNERSHIP now enforced (2026-10-07).** Every request resolves a signed, HttpOnly session **principal** (`deskl_sid`, HMAC — unforgeable); registry rows carry an `owner`; list is owner-scoped and get/start/stop/ticket/**destroy** authorize actor→resource (cross-principal access → **404**, verified live: principal B gets 404 on A's computer for read AND destroy). This **closes the pre-auth hole** (anyone controlling any computer). STILL DEFERRED: real user **identity** — Google/GitHub OAuth + email magic link (Better Auth) to UPGRADE the anonymous principal into an account — blocked on external OAuth apps + email creds. Optional `ADMIN_TOKEN` + `x-deskl-admin` = ops bypass (off by default). ROADMAP M2 + the 5-min SSO threshold. |
 | 2 | Universal `Computer` DO (runtime image/size) | **Foundation** (flag-gated off) | `Computer.ts` + `catalog.ts` + `durable_object` wrangler app + `COMPUTER` binding — all deployed. Verified live up to container launch; **blocked**: `start({image,instance})` returns Ok but launches 0 instances (ADR-0002 § Blocker). Live path stays the 12-class fleet; flip `COMPUTER_DO=1` to re-test once the launch API is confirmed. |
 | 3 | New Computer (one action → booting desktop) | **Implemented** | `POST /api/v1/desktops` auto-configures + starts; OS picker modal. |
 | 4 | Desktop **vs Server** form | **Foundation** | `form` in catalog + `imageKeyFor(distro, form)`. Next: build `container/<distro>-server` (no X/VNC, just sshd + shell), add `*-server` wrangler image keys, expose form in the picker + create request. |
@@ -82,9 +82,11 @@ Everything else is **capabilities + data**, not new classes:
 These hold now and must keep holding as capabilities land:
 
 - **Authorization is server-side, at every boundary.** Hiding a React control is NOT authorization.
-  A memorable slug/handle is NOT a credential. (Today the honest gap is #1: there is no *user*
-  identity yet — closing it is the top priority; until then the deployment is a dogfood/preview, not
-  a multi-tenant service.)
+  A memorable slug/handle is NOT a credential. **Enforced now:** a signed session principal owns its
+  computers and every control-plane route authorizes actor→resource (cross-principal → 404). The
+  remaining gap is *identity* (anonymous principal, not yet a real account) — so this is a
+  single-user-per-browser preview until OAuth/magic-link upgrades the principal, but it is NO LONGER
+  an open multi-tenant hole.
 - **Interim cost-abuse guard (shipped 2026-10-07).** Until auth lands, `POST /api/v1/desktops` is
   rate-limited in the registry DO — per client IP (6/min) AND globally (30/min) — returning `429` +
   `Retry-After` BEFORE any container spins up, so an unauthenticated caller can't run up unbounded
@@ -117,9 +119,11 @@ These hold now and must keep holding as capabilities land:
 
 ## 5. Immediate P0 sequence (what to drain next, in order)
 
-1. **Auth boundary (M2)** — the single most important gate. Better Auth on Workers+D1, per-user
-   registry, server-side ownership checks, 5-minute SSO threshold. *Blocked on OAuth apps + email;
-   isolate that dependency, stub the provider cleanly, build everything else.*
+1. **Auth boundary (M2)** — ✅ authorization/ownership DONE (signed principal + owner-scoped
+   routes). **Remaining: identity** — Better Auth on Workers+D1 to UPGRADE the anonymous principal
+   via Google/GitHub OAuth + email magic link, + the 5-minute SSO threshold. *Blocked on external
+   OAuth apps + email creds; the principal seam is already in place so this is an upgrade, not a
+   rebuild.*
 2. **Persistence foundation (M6)** — use `snapshotContainer()` + R2 so a computer survives
    container replacement. This is the "never destroy user work" promise; it gates trust.
 3. **Browser terminal (P0 #9)** — `getTcpPort` makes the proxy trivial; unblocks OpenCode + a

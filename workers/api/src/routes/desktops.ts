@@ -20,7 +20,7 @@
  * Mounted at `/api/v1/desktops` in `../index.ts`.
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { getContainer } from '@cloudflare/containers';
 import {
@@ -38,7 +38,19 @@ import {
 import type { Env } from '../env.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
 import { imageKeyFor, instanceFor } from '../compute/catalog.js';
+import { resolvePrincipal, principalCookie, isAdmin } from '../auth/principal.js';
 import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
+
+/**
+ * Resolve the caller's owning principal + admin flag, and set the signed session cookie when it's
+ * freshly minted (so the browser gets a stable identity on its first API call). Every ownership
+ * check in this control-plane keys off `id`. See auth/principal.ts.
+ */
+async function principalOf(c: Context<{ Bindings: Env }>): Promise<{ id: string; admin: boolean }> {
+  const p = await resolvePrincipal(c, c.env.VNC_TICKET_SECRET);
+  if (p.fresh) c.header('Set-Cookie', await principalCookie(p.id, c.env.VNC_TICKET_SECRET));
+  return { id: p.id, admin: isAdmin(c, c.env.ADMIN_TOKEN) };
+}
 
 /**
  * Resolve the (currently global) desktop registry DO stub.
@@ -204,6 +216,7 @@ const app = new Hono<{ Bindings: Env }>();
  * started. Idempotent at the registry layer (upsert by id).
  */
 app.post('/', async (c) => {
+  const { id: principalId } = await principalOf(c);
   const registry = getRegistry(c.env);
 
   // Cost-abuse guard (runs BEFORE body-parse + any container spin-up): there is no auth boundary
@@ -244,6 +257,7 @@ app.post('/', async (c) => {
     size,
     status: 'starting',
     persistent: !disposable,
+    owner: principalId,
   });
 
   // Auto-start so `+ New computer` yields a booting→ready desktop in ONE action
@@ -268,16 +282,20 @@ app.post('/', async (c) => {
   return c.json(body, 201);
 });
 
-/** GET /api/v1/desktops — list every desktop (newest first). */
+/** GET /api/v1/desktops — list the CALLER'S desktops (newest first); admin sees all. */
 app.get('/', async (c) => {
-  const desktops = await getRegistry(c.env).list();
+  const { id: principalId, admin } = await principalOf(c);
+  const desktops = await getRegistry(c.env).list(admin ? undefined : principalId);
   const body = DesktopListResponseSchema.parse({ desktops });
   return c.json(body);
 });
 
-/** GET /api/v1/desktops/:id — fetch one desktop; 404 when unknown. */
+/** GET /api/v1/desktops/:id — fetch one desktop the caller owns; 404 when unknown OR not owned. */
 app.get('/:id', async (c) => {
-  const desktop = await getRegistry(c.env).get(c.req.param('id'));
+  const { id: principalId, admin } = await principalOf(c);
+  const registry = getRegistry(c.env);
+  const id = c.req.param('id');
+  const desktop = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
   const body = DesktopResponseSchema.parse({ desktop });
   return c.json(body);
@@ -291,8 +309,9 @@ app.get('/:id', async (c) => {
  */
 app.post('/:id/start', async (c) => {
   const id = c.req.param('id');
+  const { id: principalId, admin } = await principalOf(c);
   const registry = getRegistry(c.env);
-  const existing = await registry.get(id);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   await registry.updateStatus(id, 'starting');
@@ -320,8 +339,9 @@ app.post('/:id/start', async (c) => {
  */
 app.post('/:id/ticket', async (c) => {
   const id = c.req.param('id');
+  const { id: principalId, admin } = await principalOf(c);
   const registry = getRegistry(c.env);
-  const existing = await registry.get(id);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   try {
@@ -345,8 +365,9 @@ app.post('/:id/ticket', async (c) => {
  */
 app.post('/:id/stop', async (c) => {
   const id = c.req.param('id');
+  const { id: principalId, admin } = await principalOf(c);
   const registry = getRegistry(c.env);
-  const existing = await registry.get(id);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   await registry.updateStatus(id, 'stopping');
@@ -370,18 +391,17 @@ app.post('/:id/stop', async (c) => {
  */
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
+  const { id: principalId, admin } = await principalOf(c);
   const registry = getRegistry(c.env);
-  // One Computer DO per id — destroy it directly (no namespace routing needed). An unknown
-  // desktop has no live container, and `destroyComputer` is idempotent, so a destroy on a
-  // never-started / already-gone id is a safe no-op. We await the destroy BEFORE removing the
-  // row so a GET during teardown still 404s only once the container is actually gone.
-  const existing = await registry.get(id);
-  if (existing) {
-    try {
-      await lifecycleFor(c.env, id, existing.distro, existing.size).destroy();
-    } catch (err) {
-      console.error('[deskl.ink desktops] destroy failed', id, err);
-    }
+  // Authorize: only the OWNER (or admin) may destroy. Unknown OR not-owned → 404 (no cross-owner
+  // destroy, and no existence-probing of another principal's computer). Destroy BEFORE removing
+  // the row so a GET during teardown 404s only once the container is actually gone.
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+  try {
+    await lifecycleFor(c.env, id, existing.distro, existing.size).destroy();
+  } catch (err) {
+    console.error('[deskl.ink desktops] destroy failed', id, err);
   }
   await registry.remove(id);
   return c.json({ ok: true, id });

@@ -82,8 +82,15 @@ export interface Env {
   /** Single SQLite DO holding the authoritative desktop list (M2: per-user). */
   REGISTRY: DurableObjectNamespace<DesktopRegistry>;
 
-  /** HMAC secret for signing/verifying short-lived VNC connection tickets. */
+  /** HMAC secret for signing/verifying short-lived VNC connection tickets + session principals. */
   VNC_TICKET_SECRET?: string;
+
+  /**
+   * Optional operator token. When set, a request carrying `x-deskl-admin: <ADMIN_TOKEN>` may list
+   * / act across owners (ops cleanup of orphaned computers, the E2E monitor sweep). Unset = no
+   * admin bypass (ownership is absolute). Never exposed to clients.
+   */
+  ADMIN_TOKEN?: string;
 
   /**
    * Feature flag (default off): when `'1'`, route compute through the universal `Computer` DO

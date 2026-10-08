@@ -9,6 +9,26 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D9 — Auth boundary: anonymous signed-session principal + per-owner authorization (identity later)
+- **Decision:** Enforce server-side ownership NOW via an anonymous, HMAC-signed session principal
+  (`deskl_sid` HttpOnly cookie); every computer has an `owner`; list is owner-scoped and every
+  per-id route authorizes actor→resource. Defer real user IDENTITY (OAuth/magic-link) to an upgrade
+  of that principal. Optional `ADMIN_TOKEN` + `x-deskl-admin` for ops bypass.
+- **Alternatives:** (a) wait for full OAuth before any authz (leaves the open-tenant hole until
+  external creds exist — unacceptable); (b) per-principal registry DO instead of an owner column
+  (cleaner isolation but breaks the monitor sweep's enumeration — rejected); (c) no auth + rely on
+  rate-limit only (doesn't stop cross-tenant access).
+- **Rationale:** The biggest security gap was authZ (anyone controlling any computer), not authN.
+  AuthZ is unblocked without external creds; a signed anonymous principal is a real ownership
+  boundary and the exact seam OAuth later upgrades. Ships value now, de-risks later.
+- **Evidence:** Verified live — principal B gets 404 on principal A's computer for GET AND DELETE;
+  A controls its own; golden-path E2E green with `page.request` (shared principal). Monitor-safe:
+  per-owner scoping makes the test naturally isolated.
+- **Date:** 2026-10-07 · **Status:** active (authz) / deferred (identity) · **Confidence:** high
+- **Reconsider when:** OAuth/magic-link lands → the principal gains a real account id (same owner
+  model); consider per-principal registry sharding only if the single global registry DO becomes a
+  hotspot at scale.
+
 ### D8 — Browser terminal via ttyd, subpath-proxied, Ubuntu first
 - **Decision:** Ship an in-session browser terminal using the `ttyd` static binary (xterm.js over
   HTTP+WS on container port 7681), proxied by the Worker under `/api/v1/desktops/:id/term/*` with
