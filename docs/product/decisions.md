@@ -9,6 +9,25 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D26 — Hero = a living "network of workstations" in 2D canvas (not a Three.js rebuild)
+- **Decision:** Deliver the spec's hero metaphor ("floating luminous workstations connected by cyan
+  pathways, cursors/agents moving between nodes") as an enhancement to the EXISTING 2D-canvas
+  HeroCanvas — drifting nodes + proximity pathways + travelling pulses over the nebula/starfield —
+  rather than a full WebGL/Three.js rebuild.
+- **Alternatives:** (a) full Three.js cinematic scene (the literal spec) — large, iterative, needs a
+  dedicated session + AI-vision QA, and would risk regressing a homepage now at Lighthouse 100 / LCP
+  238ms; (b) leave the generic starfield (misses the product metaphor); (c) a WebGL layer behind the
+  same mount contract — deferred (the 2D version already reads as the network, zero-dep, lazy).
+- **Rationale:** Gets ~80% of the visual intent (the network IS the product metaphor) at ~5% of the
+  risk/scope: same zero-dep 2D canvas, lazy-loaded (LCP untouched), reduced-motion-gated,
+  visibility-paused. Subtle opacities keep the foreground copy fully readable.
+- **Evidence:** Verified live (`deskl.ink`): screenshot shows the network reading clearly while the
+  hero text + auth panel stay crisp; chunk 1.94→3.72KB (gz 1.67KB), still lazy; 0 console errors;
+  a11y 3/3 (canvas is `aria-hidden`) + mobile + resilience + golden-path green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** a dedicated session tackles a full WebGL scene (floating 3D workstation panels,
+  parallax, cursor-reactive) behind the same mount contract — this 2D version is the safe interim.
+
 ### D25 — Lighthouse verified 4×100 + perf vitals; fixed llms.txt + Label-in-Name
 - **Decision:** Run a Lighthouse pass (prod) as the perf/quality verification. It scored
   Accessibility / Best-Practices / SEO 100 but **Agentic Browsing 67** with 2 failures — both fixed
