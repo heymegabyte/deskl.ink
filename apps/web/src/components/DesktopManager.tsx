@@ -84,9 +84,16 @@ interface DesktopManagerProps {
   onSignOut: () => void;
   /** A computer was destroyed → close its tab if open. */
   onDeleted?: (id: string) => void;
+  /** Bumped by the command palette to request opening the New-computer picker. */
+  openPickerSignal?: number;
 }
 
-export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerProps) {
+export function DesktopManager({
+  onOpen,
+  onSignOut,
+  onDeleted,
+  openPickerSignal,
+}: DesktopManagerProps) {
   const [desktops, setDesktops] = useState<DesktopResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -99,6 +106,11 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
   const ticketsRef = useRef<Map<string, string>>(new Map());
+
+  // The command palette (via App) requests the New-computer picker by bumping this signal.
+  useEffect(() => {
+    if (openPickerSignal) setPickerOpen(true);
+  }, [openPickerSignal]);
 
   /** Pull the full desktop list and reconcile into state. */
   const refresh = useCallback(async (signal?: AbortSignal) => {

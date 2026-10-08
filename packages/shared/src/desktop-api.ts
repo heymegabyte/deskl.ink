@@ -333,4 +333,8 @@ export const desktopTestIds = {
   stopAllConfirm: 'stop-all-confirm',
   serverWorkspace: 'server-workspace', // headless server tab (terminal-native)
   serverTerminal: 'server-terminal', // the ttyd iframe in a server tab
+  // Command palette (⌘K / Ctrl+K) — fast keyboard nav to any computer + quick actions (§87).
+  commandPalette: 'command-palette',
+  commandInput: 'command-input',
+  commandOption: 'command-option', // carries data-command=<id>
 } as const;

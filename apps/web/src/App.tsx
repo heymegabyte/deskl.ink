@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { HomeOverlay } from './components/HomeOverlay.js';
 import { DesktopManager } from './components/DesktopManager.js';
+import { CommandPalette } from './components/CommandPalette.js';
 import { DistroMark } from './components/DistroMark.js';
 import { api } from './lib/api.js';
 import {
@@ -57,6 +58,9 @@ export function App() {
   const [dismissed, setDismissed] = useState<boolean>(readDismissed);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null); // null = Home (the grid)
+  const [paletteOpen, setPaletteOpen] = useState(false); // ⌘K command palette (§87)
+  // Bumping this asks the manager to open its New-computer picker (from the palette / shortcut).
+  const [pickerNonce, setPickerNonce] = useState(0);
 
   // Capture the previously-open tab ids ONCE at first render — before any effect runs, so the
   // persist effect's empty-state `removeItem` can't wipe them before restore reads them.
@@ -111,6 +115,12 @@ export function App() {
   /** Return to Home (the grid) while keeping every tab open. */
   const goHome = useCallback(() => setActiveId(null), []);
 
+  /** From the palette: go Home (where creation lives) AND ask the manager to open its picker. */
+  const requestNewComputer = useCallback(() => {
+    setActiveId(null);
+    setPickerNonce((n) => n + 1);
+  }, []);
+
   /** Reorder tabs by moving `draggedId` to `targetId`'s position (drag-and-drop, §35). The persist
    *  effect saves ids in this order, so a reordered strip survives reload. */
   const reorderTab = useCallback((draggedId: string, targetId: string) => {
@@ -125,6 +135,20 @@ export function App() {
       return next;
     });
   }, []);
+
+  // ⌘K / Ctrl+K toggles the command palette — but only inside the app (the homepage overlay is the
+  // gate; the palette is an in-app tool). ⌘K is used deliberately (⌘N/⌘W/⌘1-9 collide with browser).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        if (!dismissed) return;
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dismissed]);
 
   // Lock background scroll while the overlay is up.
   useEffect(() => {
@@ -173,8 +197,9 @@ export function App() {
 
   const active = tabs.find((t) => t.desktop.id === activeId) ?? null;
   const hasTabs = tabs.length > 0;
-  // The manager grid sits below the strip when tabs exist, and is inert while a desktop covers it.
-  const managerInert = !dismissed || active !== null;
+  // The manager grid sits below the strip when tabs exist, and is inert while a desktop covers it
+  // OR the command palette is open (so focus can't escape behind the modal).
+  const managerInert = !dismissed || active !== null || paletteOpen;
 
   return (
     <div className="relative h-full">
@@ -195,10 +220,27 @@ export function App() {
         aria-hidden={managerInert}
         {...(managerInert ? { inert: true } : {})}
       >
-        <DesktopManager onOpen={openDesktop} onSignOut={reopenOverlay} onDeleted={closeTab} />
+        <DesktopManager
+          onOpen={openDesktop}
+          onSignOut={reopenOverlay}
+          onDeleted={closeTab}
+          openPickerSignal={pickerNonce}
+        />
       </div>
 
       {!dismissed && <HomeOverlay onDismiss={dismiss} />}
+
+      {/* ⌘K command palette — in-app only, above every surface (z-90). */}
+      {dismissed && (
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onOpenDesktop={openDesktop}
+          onGoHome={goHome}
+          onNewComputer={requestNewComputer}
+          onSignOut={reopenOverlay}
+        />
+      )}
 
       {/* The active tab's workspace (lazy chunk), filling everything UNDER the tab strip (§38):
           a remote desktop for `desktop` computers, a terminal-native workspace for `server`. */}
