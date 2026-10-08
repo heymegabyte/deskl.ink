@@ -9,6 +9,23 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D24 — Screen-reader status announcements for lifecycle actions (WCAG 4.1.3)
+- **Decision:** A single sr-only `role="status" aria-live="polite"` region in the manager announces
+  successful lifecycle outcomes (created / stopped / stop-all / deleted / renamed). Errors keep using
+  the separate `role="alert"` banner.
+- **Alternatives:** (a) a toast system (heavier; the manager already surfaces state visually — only the
+  SR-announcement was missing); (b) `aria-live` on each tile's status (noisy — every poll transition
+  would announce); (c) nothing (the gap — SR users got no confirmation an action worked).
+- **Rationale:** Errors were already announced, but SUCCESS was silent — a WCAG 4.1.3 Status Messages
+  gap. One polite region keyed to user-initiated outcomes is the minimal correct fix; `aria-atomic`
+  reads the whole message.
+- **Evidence:** Verified live (`deskl.ink`): the `rename` spec asserts the announcer carries the new
+  name after a real rename; a11y 3/3 (the sr-only region is clean) + focus + golden-path green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** announcements need to be visible too (a toast layer) → promote the region into a
+  shared notification component; or lifecycle READY transitions should announce (currently only the
+  user-initiated action is).
+
 ### D23 — Modal focus management = a reusable focus-trap hook (trap + restore)
 - **Decision:** A `useFocusTrap` hook (move focus in on open, contain Tab/Shift+Tab, restore focus to
   the opener on close) applied to the OS picker + ⌘K command palette. Dropped the palette input's
