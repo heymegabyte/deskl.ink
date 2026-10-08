@@ -102,6 +102,9 @@ export function DesktopManager({
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [confirmStopAll, setConfirmStopAll] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Polite screen-reader announcements for successful lifecycle actions (WCAG 4.1.3 Status
+  // Messages). Errors are announced separately via the role="alert" error banner below.
+  const [announcement, setAnnouncement] = useState('');
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
@@ -193,6 +196,7 @@ export function DesktopManager({
           return [desktop, ...prev];
         });
         setPickerOpen(false);
+        setAnnouncement(`${desktop.name} created and starting.`);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not create a computer.');
       } finally {
@@ -235,6 +239,7 @@ export function DesktopManager({
       try {
         const fresh = await api.stopDesktop(id);
         setDesktops((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+        setAnnouncement(`${fresh.name} stopped.`);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not stop the computer.');
         void refresh();
@@ -249,6 +254,7 @@ export function DesktopManager({
     const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
     if (running.length === 0) return;
     const ids = new Set(running.map((d) => d.id));
+    setAnnouncement(`Stopping ${running.length} computer${running.length === 1 ? '' : 's'}.`);
     setDesktops((prev) => prev.map((d) => (ids.has(d.id) ? { ...d, status: 'stopping' } : d)));
     await Promise.allSettled(running.map((d) => api.stopDesktop(d.id)));
     void refresh();
@@ -259,10 +265,12 @@ export function DesktopManager({
     async (id: string) => {
       setPendingDelete(null);
       const prevList = desktops;
+      const removedName = desktops.find((d) => d.id === id)?.name ?? 'Computer';
       setDesktops((prev) => prev.filter((d) => d.id !== id));
       ticketsRef.current.delete(id);
       try {
         await api.deleteDesktop(id);
+        setAnnouncement(`${removedName} deleted.`);
         onDeleted?.(id); // close its tab if open (view follows the resource)
       } catch (err) {
         // Roll back the optimistic removal on failure.
@@ -284,6 +292,7 @@ export function DesktopManager({
       try {
         const fresh = await api.renameDesktop(id, trimmed);
         setDesktops((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+        setAnnouncement(`Renamed to ${fresh.name}.`);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not rename the computer.');
         setDesktops((prev) => prev.map((d) => (d.id === id ? current : d))); // revert
@@ -299,6 +308,16 @@ export function DesktopManager({
     <div className="ds-nebula-fallback flex h-full flex-col">
       {/* Page heading for assistive tech (the visible brand is the Wordmark logo). */}
       <h1 className="sr-only">Your computers</h1>
+      {/* Polite status announcer (WCAG 4.1.3) — created/stopped/deleted/renamed outcomes for SR users. */}
+      <div
+        data-testid={desktopTestIds.statusAnnouncer}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </div>
       {pickerOpen && (
         <OsPicker
           onCreate={(distro, size, form) => void createComputer(distro, size, form)}

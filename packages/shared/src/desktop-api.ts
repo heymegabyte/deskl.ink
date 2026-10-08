@@ -315,6 +315,7 @@ export const desktopTestIds = {
   deleteConfirm: 'desktop-delete-confirm',
   renameButton: 'desktop-rename', // pencil affordance on a tile → inline name edit
   renameInput: 'desktop-rename-input', // the inline rename text field
+  statusAnnouncer: 'status-announcer', // sr-only aria-live region for lifecycle outcomes (WCAG 4.1.3)
   vncViewport: 'vnc-viewport', // wraps the noVNC canvas/iframe in the fullscreen route
   controlSurface: 'desktop-control-surface',
   exitFullscreen: 'desktop-exit-fullscreen',

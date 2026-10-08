@@ -77,6 +77,9 @@ test.describe('Rename a computer', () => {
       // The committed name shows immediately; the input is gone.
       await expect(tile.getByRole('heading', { level: 3 })).toHaveText(newName, { timeout: 10_000 });
       await expect(input).toHaveCount(0);
+
+      // The outcome is announced to screen readers (WCAG 4.1.3 status message).
+      await expect(page.getByTestId('status-announcer')).toContainText(newName);
     });
 
     await test.step('reload → the new name persisted server-side', async () => {
