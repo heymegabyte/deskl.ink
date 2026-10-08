@@ -121,6 +121,7 @@ export function ServerWorkspace({
       data-testid={desktopTestIds.serverWorkspace}
       className="fixed inset-x-0 bottom-0 top-9 z-[60] flex flex-col bg-[var(--color-black)]"
     >
+      <h1 className="sr-only">{current.name} — server terminal</h1>
       {/* Thin server header: identity + session controls. Dominant surface stays the terminal. */}
       <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-1.5">
         <span className="flex min-w-0 items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-[var(--color-cyan)]">

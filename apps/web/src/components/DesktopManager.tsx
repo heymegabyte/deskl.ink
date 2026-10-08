@@ -265,6 +265,8 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
 
   return (
     <div className="ds-nebula-fallback flex h-full flex-col">
+      {/* Page heading for assistive tech (the visible brand is the Wordmark logo). */}
+      <h1 className="sr-only">Your computers</h1>
       {pickerOpen && (
         <OsPicker
           onCreate={(distro, size, form) => void createComputer(distro, size, form)}
@@ -506,7 +508,6 @@ function EmptyLaunchpad({ creating, onCreate }: { creating: boolean; onCreate: (
         type="button"
         onClick={onCreate}
         disabled={creating}
-        aria-label="Create your first computer"
         className="mt-7 inline-flex items-center gap-2 rounded-lg bg-[var(--color-cyan)] px-5 py-3 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {creating ? (
