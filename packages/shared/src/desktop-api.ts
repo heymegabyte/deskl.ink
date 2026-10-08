@@ -75,6 +75,41 @@ export const DESKTOP_SIZES: Readonly<Record<DesktopSizeId, DesktopSizeSpec>> = {
 export const DEFAULT_DESKTOP_OS = 'Ubuntu 24.04';
 
 /**
+ * Cloudflare Containers billing rates (Workers Paid), normalized to $/unit-HOUR.
+ * SOURCE: Cloudflare Containers pricing — developers.cloudflare.com/containers/platform/pricing
+ * (verified 2026-10): $0.0000025/GiB-s memory, $0.000020/vCPU-s CPU, $0.00000007/GB-s disk.
+ *
+ * Memory + disk accrue for the FULL allocation every second a container RUNS; CPU is billed only
+ * for ACTIVE vCPU usage — so real cost sits in [baseline (mem+disk), baseline + full-CPU]. These
+ * are PROVIDER (infrastructure) rates — not a customer price — and feed ESTIMATES, never a metered
+ * or finalized invoice (that needs the usage ledger, M3). The monthly Workers-Paid included
+ * allotments are ignored here (a per-computer estimate can't know account-wide usage).
+ */
+export const CF_CONTAINER_RATES = {
+  memoryUsdPerGiBHour: 0.0000025 * 3600, // 0.009
+  diskUsdPerGBHour: 0.00000007 * 3600, // 0.000252
+  cpuUsdPerVcpuHour: 0.00002 * 3600, // 0.072 (full active)
+  source: 'developers.cloudflare.com/containers/platform/pricing (2026-10)',
+} as const;
+
+/**
+ * Estimated PROVIDER cost of a running desktop of the given size. `baselineUsdPerHour` = memory +
+ * disk (accrues whenever it runs, regardless of activity); `maxUsdPerHour` = baseline + fully-active
+ * CPU. Real cost lands in between. An ESTIMATE from the CF rate card × the size's allocation —
+ * clearly not a finalized bill (see `CF_CONTAINER_RATES`).
+ */
+export function estimateDesktopCost(size: DesktopSizeId): {
+  baselineUsdPerHour: number;
+  maxUsdPerHour: number;
+} {
+  const s = DESKTOP_SIZES[size] ?? DESKTOP_SIZES.everyday;
+  const baseline =
+    s.ramGiB * CF_CONTAINER_RATES.memoryUsdPerGiBHour +
+    s.diskGB * CF_CONTAINER_RATES.diskUsdPerGBHour;
+  return { baselineUsdPerHour: baseline, maxUsdPerHour: baseline + s.vcpu * CF_CONTAINER_RATES.cpuUsdPerVcpuHour };
+}
+
+/**
  * Selectable Linux distributions (the OS picker). Ubuntu is the default. Each carries its
  * signature brand colors for the picker's gradient orb — ORIGINAL stylized marks rendered
  * from these colors, never reproductions of the distros' trademarked logos.
@@ -243,4 +278,6 @@ export const desktopTestIds = {
   terminalToggle: 'desktop-terminal-toggle', // opens the in-session browser terminal
   terminalPanel: 'desktop-terminal-panel', // the docked ttyd iframe panel
   terminalClose: 'desktop-terminal-close',
+  financialBar: 'financial-bar', // global running-count + estimated burn/spend
+  financialBarRunning: 'financial-bar-running', // the "N running" count
 } as const;

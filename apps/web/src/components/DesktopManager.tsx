@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   desktopTestIds,
   DESKTOP_SIZES,
+  estimateDesktopCost,
   type DesktopResource,
   type DesktopStatus,
   type DistroId,
@@ -254,6 +255,7 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
         <Wordmark size={30} textClassName="text-lg" />
 
         <div className="flex items-center gap-3">
+          <FinancialBar desktops={desktops} />
           <button
             type="button"
             data-testid={desktopTestIds.newComputerButton}
@@ -328,6 +330,59 @@ export function DesktopManager({ onOpen, onSignOut }: DesktopManagerProps) {
           </ul>
         )}
       </main>
+    </div>
+  );
+}
+
+/** Statuses where a container is actually running → accruing cost. */
+const RUNNING_STATUSES: ReadonlySet<DesktopStatus> = new Set<DesktopStatus>(['ready', 'active']);
+
+/**
+ * Global financial bar (spec §39) — the always-visible answer to "what is costing money right now?".
+ * Computed from the already-polled desktop list: running count, estimated hourly burn, and estimated
+ * session spend. Every figure is an ESTIMATE from Cloudflare's published rate card
+ * (`estimateDesktopCost`) × each running computer's uptime — NOT a finalized invoice (the metered
+ * ledger is M3). Wallet balance arrives with Stripe (M3); until then this shows the honest live
+ * burn, never a fabricated balance. Hidden when the user has no computers.
+ */
+function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
+  if (desktops.length === 0) return null;
+  const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
+  const now = Date.now();
+  let burn = 0;
+  let burnMax = 0;
+  let sessionEst = 0;
+  for (const d of running) {
+    const { baselineUsdPerHour, maxUsdPerHour } = estimateDesktopCost(d.size);
+    burn += baselineUsdPerHour;
+    burnMax += maxUsdPerHour;
+    sessionEst += baselineUsdPerHour * Math.max(0, (now - new Date(d.createdAt).getTime()) / 3_600_000);
+  }
+  const live = running.length > 0;
+  const title =
+    `Estimated from Cloudflare's rate card (memory + disk baseline; active CPU adds up to ~$${burnMax.toFixed(2)}/hr). ` +
+    `An estimate, not a finalized bill — metered billing + wallet arrive with Stripe.`;
+  return (
+    <div
+      data-testid={desktopTestIds.financialBar}
+      title={title}
+      className="hidden items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-black)]/40 px-3 py-1.5 font-mono text-xs text-[var(--color-muted)] sm:inline-flex"
+    >
+      <span data-testid={desktopTestIds.financialBarRunning} className="flex items-center gap-1.5">
+        <span
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={{
+            backgroundColor: live ? 'var(--color-success)' : 'var(--color-muted)',
+            boxShadow: live ? '0 0 8px var(--color-success)' : undefined,
+          }}
+          aria-hidden="true"
+        />
+        {`${running.length} running`}
+      </span>
+      <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
+      <span className="text-[var(--color-white)]">{`~$${burn.toFixed(2)}/hr`}</span>
+      <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
+      <span title="estimated spend this session">{`~$${sessionEst.toFixed(2)} est`}</span>
     </div>
   );
 }

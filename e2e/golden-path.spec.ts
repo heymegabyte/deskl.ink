@@ -32,6 +32,8 @@ const T = {
   terminalToggle: 'desktop-terminal-toggle',
   terminalPanel: 'desktop-terminal-panel',
   terminalClose: 'desktop-terminal-close',
+  financialBar: 'financial-bar',
+  financialBarRunning: 'financial-bar-running',
 } as const;
 
 // Container cold-start (image pull + KDE Plasma/VNC boot) + noVNC connect can be slow.
@@ -186,6 +188,10 @@ test.describe('Golden path', () => {
       await expect(tile.getByTestId(T.tileStatus)).toHaveAttribute('data-status', 'ready', {
         timeout: READY_TIMEOUT_MS,
       });
+      // Global financial bar (spec §39) reflects the running computer: an honest estimated burn,
+      // no fabricated wallet balance.
+      await expect(page.getByTestId(T.financialBar)).toBeVisible();
+      await expect(page.getByTestId(T.financialBarRunning)).toContainText('1 running');
       await page.screenshot({ path: path.join(SHOT_DIR, '01-ready.png') });
     });
 

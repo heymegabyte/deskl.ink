@@ -9,6 +9,24 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D10 — Live cost = estimate from CF's real rate card (no fictional rates; wallet needs Stripe)
+- **Decision:** Ship the mandated global financial bar (§39) NOW as an ESTIMATE computed from
+  Cloudflare's published Containers rate card (`CF_CONTAINER_RATES`) × each running computer's
+  allocation + uptime (`estimateDesktopCost`). Show running count + hourly burn + session estimate;
+  do NOT show a wallet balance (needs Stripe) — an absent number beats a fabricated one.
+- **Alternatives:** (a) wait for Stripe + a metered ledger before showing any cost (leaves the
+  mandatory §39 bar empty indefinitely); (b) hard-code per-size dollar rates (violates §42
+  "no fictional values"); (c) show only resource facts, no $ (less useful; the rates ARE knowable).
+- **Rationale:** §42 forbids fictional rates, but the CF per-unit rates ARE public, so an honest
+  estimate is buildable today. Baseline (memory+disk) accrues deterministically while running; CPU
+  is activity-dependent, shown as an "up to" band — truthful per §43 (Estimated state).
+- **Evidence:** Rates from developers.cloudflare.com/containers/platform/pricing (2026-10). Live:
+  standard-1 → ~$0.04/hr baseline. Golden-path E2E asserts the bar shows "1 running".
+- **Date:** 2026-10-07 · **Status:** active (estimate) / wallet+ledger deferred · **Confidence:**
+  high (baseline math) / medium (CPU utilization unknown → shown as a band, not a point).
+- **Reconsider when:** the usage ledger + CF usage telemetry land (M3) → replace the estimate with
+  metered → reconciled → finalized states (§43); add wallet balance once Stripe is wired.
+
 ### D9 — Auth boundary: anonymous signed-session principal + per-owner authorization (identity later)
 - **Decision:** Enforce server-side ownership NOW via an anonymous, HMAC-signed session principal
   (`deskl_sid` HttpOnly cookie); every computer has an `owner`; list is owner-scoped and every
