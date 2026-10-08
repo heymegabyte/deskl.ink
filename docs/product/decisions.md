@@ -9,6 +9,28 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D15 — Rename = owner-scoped metadata PATCH + inline tile edit (no container touch)
+- **Decision:** Rename is a metadata-only `PATCH /api/v1/desktops/:id` ({ name }), owner-scoped in the
+  registry (`UPDATE … WHERE id = ? AND owner = ?`), allowed in ANY lifecycle state, never touching the
+  container. UI is an inline tile edit: a keyboard-reachable pencil swaps the name `<h3>` for an input;
+  Enter/click-away commit via a single `onBlur`, Escape cancels. Optimistic with revert-on-failure.
+- **Alternatives:** (a) a rename modal (heavier, worse for a one-field edit); (b) rename only when
+  stopped (needless — name is metadata, not container state); (c) a generic PUT replacing the whole
+  resource (over-broad; most fields are server-derived/immutable).
+- **Rationale:** Computers were stuck with auto-generated names with no fix — a real CRUD gap, and a
+  spec-listed M4 tile action. Owner-scoping reuses the exact non-leak primitive as `getOwned` (a
+  foreign id touches 0 rows → 404). Inline edit keeps the chrome-light tile uncluttered.
+- **Evidence:** Verified live (`deskl.ink`): API probe create→PATCH→GET round-trips the new name;
+  empty→400, foreign→404; UI `rename.spec` green (shows immediately AND persists across reload);
+  golden-path 2/2 + a11y 3/3 unregressed.
+- **Lesson (reconfirms D12):** a NEW DO **method** (not just a schema change) also waits on the hot
+  singleton to evict — `rename` RPC 500'd for >2 min while probing kept the registry DO warm; it
+  worked on the first call after a ~100s idle eviction cold-started the new code. Post-deploy checks of
+  anything touching a long-lived DO must budget for the eviction window (or force idle first).
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** more mutable fields arrive (size/persistence/tags) → generalize to a small
+  typed patch set rather than a name-only endpoint.
+
 ### D14 — Observability: request correlation id + structured JSON logging (Sentry-ready foundation)
 - **Decision:** A `requestLogger()` Hono middleware mints/propagates an `x-request-id` (honor a sane
   bounded inbound token, else a fresh UUID), threads it through the context, echoes it on the
