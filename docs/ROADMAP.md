@@ -50,6 +50,7 @@ turn work lands.
 - **Lighthouse 4×100 + perf vitals verified, LIVE (2026-10-08):** a prod Lighthouse pass scored A11y/Best-Practices/SEO 100 but Agentic Browsing 67 with 2 failures — both fixed → **4×100, 0 failed audits**. (1) `llms.txt` used a bare URL; llmstxt.org wants markdown links → proper `[text](url)` links (agentic 67→100; on-brand for "a computer for your AI"). (2) coming-soon OAuth buttons' `aria-label` interrupted the visible "Continue with X" + "Soon" pill text (WCAG 2.5.3 Label-in-Name) → dropped the redundant aria-label. Performance trace: **LCP 238ms / CLS 0.04** (well under ≤2.0s / ≤0.05), no render-blocking — the self-hosted fonts + preloads + immutable caching paid off. WebMCP (agent tool exposure) noted as a future AI-native direction, not adopted (experimental). See **D25**.
 - **Hero backdrop — living "network of workstations", LIVE (2026-10-08):** moved the hero toward the spec's cinematic vision (floating workstations connected by cyan pathways, agents moving between nodes) — but in the EXISTING 2D canvas, not a risky full Three.js rebuild. Over the drifting nebula + a dialed-back starfield, added ~7–16 luminous nodes (drift + bounce) joined by proximity-faded cyan pathways + a few pulses travelling node-to-node (you + your agents across computers). Subtle opacities keep the hero copy fully readable; zero-dep, lazy-loaded (LCP untouched), reduced-motion-gated, visibility-paused. Chunk 1.94→3.72KB (gz 1.67KB). **Verified live:** screenshot (network reads clearly, foreground crisp); 0 console errors; a11y/mobile/resilience/golden-path green. Partially delivers M1's "cinematic hero" (full WebGL deferred to a dedicated session). See **D26**.
 - **CSP violation reporting — completes security observability, LIVE (2026-10-08):** a strict CSP without reporting is fire-and-forget. Added `report-uri` + `report-to` + a `Reporting-Endpoints` header → `POST /api/v1/csp-report` sink that accepts both legacy + modern Reporting-API shapes, drops browser-extension noise, and logs each real violation as a structured `csp_violation` (observability.ts shape + correlation id — Sentry-ready). Always 204. New `e2e/security.spec.ts`. **Verified live:** headers present; a real violation logged with full context; chrome-extension noise filtered (0 logged); 204; security spec green + no regression. Completes the D13 CSP + D14 logger + D21 ui_crash story. See **D27**.
+- **M2 IDENTITY — login REQUIRED, LIVE (2026-10-08):** deskl.ink now requires a real account (supersedes the anonymous model, D9). The homepage is a hard login gate — no dismiss, no guest, X removed — and the control plane 401s every sensitive request without an authenticated session. STATELESS (no DB): a signed `deskl_session` cookie carries `{userId,email,provider,exp}`, `userId = HMAC(email)`, so Google / GitHub / email-magic-link logins unify by email. Hand-rolled on Web Crypto: `auth/crypto.ts` + `auth/session.ts` + `routes/auth.ts` (OAuth with CSRF `state`, VERIFIED email only; magic link via Resend/`megabyte.space`; `/session`, `/logout`, secret-gated `/dev-login` for E2E). Frontend gate in `App.tsx` + real `AuthPanel`. **Verified live:** 401 without session / 200 with; gate screenshot (no X, real buttons); OAuth 302 + state; magic-link Resend 200; full E2E suite green (19 passed) incl. golden-path via dev-login. Follow-ups: register the OAuth callback URIs + verify deskl.ink in Resend; profile/billing user store (D1) when needed. See **D28**.
 - Shared contract: `packages/shared/src/desktop-api.ts` (Zod SSOT for server + client + E2E).
 - Other milestones `[ ]` queued below.
 
@@ -90,22 +91,23 @@ container/agent     desklink-agent — in-container daemon (control, recording, 
 - [~] WebGL hero mount point + graceful fallback (static gradient, reduced-motion, no-WebGL)
 - [~] `workers/api` Hono skeleton (`/health`, `/api/v1/version`) + `wrangler.toml` with commented bindings
 - [~] **Cinematic hero scene**: a living "network of workstations" (luminous nodes + cyan pathways + travelling pulses) now ships in the 2D canvas (D26, 2026-10-08) — lazy-loaded + reduced-motion-gated. REMAINING (dedicated WebGL session): dark infinite 3D environment, floating workstation panels showing Chrome/terminal/editor/agent/timeline, one active desktop approaching, cursor-reactive parallax, FPS-monitored.
-- [ ] Locked read-only app shell behind overlay for unauthenticated users + obvious sign-in affordance
+- [x] Locked app shell for unauthenticated users + obvious sign-in — now a HARD login gate (no guest/preview); the app renders only after auth (D28, 2026-10-08).
 - [ ] Reopen-homepage control from within the app
 - [ ] Playwright E2E: homepage renders, WebGL present or fallback, dismiss/reopen, 6 breakpoints, axe-clean
 - [ ] Deploy web + API to real URLs; verify live
 
-## M2 — Identity `[ ]`
+## M2 — Identity `[~]` (login REQUIRED + enforced — LIVE 2026-10-08, D28)
 
-- [ ] Research + ADR: Better Auth on CF Workers + D1 (vs alternatives) — confirm current CF compatibility
-- [ ] `packages/schemas` Zod + env validation (`@t3-oss/env-core` style)
-- [ ] D1 schema + Drizzle migrations: users, accounts, sessions, oauth links, verification
-- [ ] Better Auth wired: GitHub OAuth, Google OAuth, email magic link (Resend)
-- [ ] Secure HTTP-only cookies, CSRF, state/nonce, session rotation, safe redirect allowlist, rate limiting
-- [ ] OAuth account linking (one user ↔ many providers)
-- [ ] **5-minute SSO threshold**: track cumulative billable minutes; at ~4 min notify; at 5 min checkpoint + stop billable compute + show OAuth verify UI + resume after GitHub/Google. One-time, never re-auth loop. Never destroy work.
-- [ ] Right-panel auth UI wired to real flows (replaces M1 no-op handlers)
-- [ ] Tests: auth flows, linking, 5-min enforcement state machine
+- [x] Research + decision: **hand-rolled on Web Crypto** (not Better Auth) — full control + verifiable on Workers; no D1 dependency (D28 § alternatives).
+- [~] `packages/schemas` Zod + env validation — env typed in `env.ts`; Zod envelope at API boundaries. (Dedicated `@t3-oss/env-core` style is a follow-up.)
+- [x] ~~D1 schema~~ → **stateless**: `userId = HMAC(email)` unifies providers with zero storage (D28). D1 user store deferred until profile/billing needs it.
+- [x] GitHub OAuth, Google OAuth, email magic link (Resend) — all live + verified.
+- [x] Secure HttpOnly/Secure/SameSite cookies, CSRF (signed `state`), VERIFIED-email only, redirect to canonical `APP_URL`. (Session rotation + per-user magic-link rate-limit: follow-ups.)
+- [x] OAuth account linking — automatic by verified email (one email ↔ one account across providers).
+- [ ] **5-minute SSO threshold** (billable-minutes gate) — deferred to M3 (needs the usage ledger).
+- [x] Auth UI wired to real flows — `AuthPanel` (Google/GitHub links + magic-link form), full login gate replacing the dismissable overlay.
+- [x] Tests: the full E2E suite authenticates via the secret-gated dev-login (19 green); linking-by-email is exercised implicitly. (5-min state machine: with M3.)
+- **External config to confirm:** register `https://deskl.ink/api/v1/auth/{google,github}/callback` as OAuth redirect URIs; verify `deskl.ink` in Resend to send magic links from `@deskl.ink` (currently `megabyte.space`).
 
 ## M3 — Billing `[ ]`
 

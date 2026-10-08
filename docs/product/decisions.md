@@ -9,6 +9,35 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D28 — Require login (M2): stateless Google/GitHub/magic-link + server-side enforcement
+- **Decision:** deskl.ink now REQUIRES a real account — anonymous access is removed (supersedes **D9**).
+  The homepage is a hard login gate (no dismiss, no guest, no "X"); the control plane 401s every
+  sensitive request without an authenticated session. Auth is STATELESS (no DB): a signed
+  `deskl_session` cookie carries `{userId,email,provider,exp}` where `userId = HMAC(email)`, so Google,
+  GitHub, and email magic-link logins for the same address resolve to one account + the same computers.
+- **Alternatives:** (a) Better Auth (the ROADMAP's intended lib) — its CF-Workers+D1 compatibility is
+  an open research gate, it's a heavy dep, and it gives less control over the gate + the E2E test-auth;
+  a focused hand-roll (OAuth authorization-code + signed sessions on Web Crypto) is fully verifiable on
+  Workers; (b) a D1/DO user store — unneeded: a verified email IS the identity, so deriving `userId`
+  statelessly unifies providers with zero storage/migrations; (c) keep anonymous + only gate the UI —
+  rejected: the UI gate is not security; the API must enforce it (and it does).
+- **Security:** OAuth uses a signed `state` cookie (CSRF) + server-side code exchange + VERIFIED email
+  only (Google `email_verified` / GitHub primary-verified). Magic-link + session + OAuth-state tokens
+  are HMAC-signed, domain-separated, expiring. Sessions are HttpOnly/Secure/SameSite=Lax.
+- **Evidence:** Verified live (`deskl.ink`): `list`/`create` → 401 without a session, 200 with one; the
+  gate renders with no X + real Google/GitHub links + a working magic-link form (screenshot); Google +
+  GitHub redirect 302 with correct `client_id`/`redirect_uri`/`scope` + CSRF state; magic-link SENDS
+  (Resend 200 via the verified `megabyte.space` sender); full E2E suite green (19 passed) incl.
+  golden-path create→VNC→delete via a secret-gated dev-login.
+- **Known external config (verify before wide launch):** the Google + GitHub OAuth apps must list
+  `https://deskl.ink/api/v1/auth/{google,github}/callback` as an authorized redirect URI (the redirect
+  is correct; a real interactive login confirms the callback) — a `redirect_uri_mismatch` means it
+  isn't registered. Magic-link sends from `megabyte.space`; verify `deskl.ink` in Resend to send from
+  `@deskl.ink`.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** account profile/billing needs persistence → add a D1/DO user store keyed by
+  `userId`; or session revocation is required → back sessions with a store.
+
 ### D27 — CSP violation reporting → completes the security-observability loop
 - **Decision:** Wire the CSP to a reporting sink — `report-uri` (legacy) + `report-to` + a
   `Reporting-Endpoints` header → `POST /api/v1/csp-report`, which filters browser-extension noise and
