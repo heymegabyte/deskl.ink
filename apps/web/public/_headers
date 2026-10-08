@@ -1,0 +1,41 @@
+# Response headers for the static SPA document + assets (Workers Assets parses this).
+# NOTE (Cloudflare): these rules apply ONLY to asset responses, never to Worker-generated
+# responses. So the control-plane JSON (/api/*) and the proxied noVNC/ttyd surfaces
+# (/api/v1/desktops/:id/vnc|term/*) are untouched here — their headers live in the Hono
+# app, and the remote-desktop iframes keep working. See workers/api/src/index.ts.
+
+/*
+  # --- Content Security Policy (enforcing) -------------------------------------------
+  # The built index.html has exactly one external, same-origin module script and one
+  # same-origin stylesheet (Vite, fingerprinted) — so script-src can be locked to 'self'
+  # with no nonce. This blocks arbitrary third-party/CDN script injection outright.
+  #   style-src   'unsafe-inline' is required for React inline style attributes + the
+  #               Google Fonts stylesheet (googleapis). Low-risk: script-src stays strict.
+  #   font-src    Google Fonts woff2 come from gstatic.
+  #   frame-src   the remote desktop (noVNC) + server terminal (ttyd) are same-origin proxies.
+  #   connect-src the SPA only ever calls same-origin /api/* (fetch + same-origin wss).
+  #   frame-ancestors 'none' + X-Frame-Options: DENY — deskl.ink is never embedded by others.
+  #
+  # FUTURE ORIGINS — when these land, widen the CSP here (a silent block is the usual symptom):
+  #   Stripe   → script-src + frame-src https://js.stripe.com ; connect-src https://api.stripe.com
+  #   PostHog  → script-src + connect-src <your-posthog-ingest-host>  (self-hosted or *.posthog.com)
+  #   (Sentry is server-side @sentry/cloudflare only — no browser SDK, so no CSP change needed.)
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  # --- Transport + sniffing + referrer + powerful-feature policy ---------------------
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  # clipboard-read/write deliberately left at browser default so the VNC/terminal iframes
+  # can still delegate copy-paste into the remote workstation. payment=(self) keeps the
+  # path open for the Stripe Payment Element without re-touching this file.
+  Permissions-Policy: accelerometer=(), autoplay=(self), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(self), usb=(), xr-spatial-tracking=(), interest-cohort=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# Fingerprinted build assets are immutable — cache hard. (Inherits the headers above too.)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The app shell must always revalidate so new deploys are picked up immediately.
+/index.html
+  Cache-Control: no-cache
