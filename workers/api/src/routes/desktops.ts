@@ -149,7 +149,14 @@ function desktopNamespace(
   size: DesktopSizeId,
   form: ComputerForm
 ): Env['DESKTOP'] {
-  if (form === 'server') return env.DESKTOP_UBUNTU_SERVER as unknown as Env['DESKTOP'];
+  if (form === 'server') {
+    const servers = {
+      ubuntu: env.DESKTOP_UBUNTU_SERVER,
+      fedora: env.DESKTOP_FEDORA_SERVER,
+      debian: env.DESKTOP_DEBIAN_SERVER,
+    } as unknown as Record<DistroId, Env['DESKTOP']>;
+    return servers[distro] ?? (env.DESKTOP_UBUNTU_SERVER as unknown as Env['DESKTOP']);
+  }
   const grid = {
     ubuntu: {
       everyday: env.DESKTOP,

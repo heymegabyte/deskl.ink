@@ -46,7 +46,7 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
   const chooseForm = (f: ComputerForm) => {
     setForm(f);
     if (f === 'server') {
-      setDistro('ubuntu');
+      // Servers are everyday-size for v1; the distro stays the user's choice (all distros supported).
       setSize('everyday');
     }
   };
@@ -137,11 +137,9 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
           })}
         </div>
 
-        {form === 'desktop' ? (
-          <>
-            {/* Distro */}
-            <div className="mt-6">
-              <GroupLabel>Linux</GroupLabel>
+        {/* Distro — both desktop and server pick a distro */}
+        <div className="mt-6">
+          <GroupLabel>Linux</GroupLabel>
               <div className="grid gap-3 sm:grid-cols-3">
                 {DISTRO_IDS.map((id) => {
                   const d = DISTROS[id];
@@ -169,12 +167,13 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                     </button>
                   );
                 })}
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {/* Size */}
-            <div className="mt-6">
-              <GroupLabel>Size</GroupLabel>
+        {/* Size (desktop) or a headless-server note (server) */}
+        {form === 'desktop' ? (
+          <div className="mt-6">
+            <GroupLabel>Size</GroupLabel>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {DESKTOP_SIZE_IDS.map((id) => {
                   const s = DESKTOP_SIZES[id];
@@ -206,12 +205,11 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                 })}
               </div>
             </div>
-          </>
         ) : (
           <div className="mt-6 rounded-xl border border-[var(--color-border)]/60 bg-white/5 p-4 text-sm leading-relaxed text-[var(--color-muted)]">
-            <span className="font-700 text-white">Ubuntu · 4 GiB · headless</span> — a dev box with
-            git, Node, Python, ripgrep, tmux + a browser terminal, OpenCode-ready. No desktop; your
-            workspace is the terminal. More server distros + sizes are coming.
+            <span className="font-700 text-white">{DISTROS[distro].name} · 4 GiB · headless</span> — a
+            dev box with git, Node, Python, ripgrep, tmux + a browser terminal, OpenCode-ready. No
+            desktop; your workspace is the terminal. More server sizes are coming.
           </div>
         )}
 

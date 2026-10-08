@@ -125,3 +125,7 @@ export class DebianHeavy extends DesktopContainer {}
  * a remote desktop. `everyday` size (standard-1) for v1; more sizes are additive classes later.
  */
 export class UbuntuServer extends DesktopContainer {}
+
+/** Fedora / Debian server variants — bound (in wrangler) to their own lean server images. */
+export class FedoraServer extends DesktopContainer {}
+export class DebianServer extends DesktopContainer {}

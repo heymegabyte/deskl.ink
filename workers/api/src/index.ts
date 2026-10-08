@@ -31,8 +31,10 @@ export {
   DebianDeveloper,
   DebianPower,
   DebianHeavy,
-  // Headless server form (Ubuntu + ttyd, no desktop/VNC).
+  // Headless server form (distro + ttyd, no desktop/VNC).
   UbuntuServer,
+  FedoraServer,
+  DebianServer,
 } from './containers/DesktopContainer.js';
 export { DesktopRegistry } from './containers/DesktopRegistry.js';
 

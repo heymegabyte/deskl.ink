@@ -120,6 +120,16 @@ class_name = "UbuntuServer"
 image = "../../container/ubuntu-server/Dockerfile"
 instance_type = "standard-1"
 max_instances = 10
+[[containers]]
+class_name = "FedoraServer"
+image = "../../container/fedora-server/Dockerfile"
+instance_type = "standard-1"
+max_instances = 10
+[[containers]]
+class_name = "DebianServer"
+image = "../../container/debian-server/Dockerfile"
+instance_type = "standard-1"
+max_instances = 10
 
 # --- Computer: the UNIVERSAL durable_object-policy container app (the LIVE create path) ---
 # ONE class picks its image (from the `images` map) + instance size per-instance AT RUNTIME via
@@ -185,6 +195,12 @@ class_name = "DebianHeavy"
 [[durable_objects.bindings]]
 name = "DESKTOP_UBUNTU_SERVER"
 class_name = "UbuntuServer"
+[[durable_objects.bindings]]
+name = "DESKTOP_FEDORA_SERVER"
+class_name = "FedoraServer"
+[[durable_objects.bindings]]
+name = "DESKTOP_DEBIAN_SERVER"
+class_name = "DebianServer"
 
 # --- Migrations: container DOs + the registry both require SQLite storage ---
 [[migrations]]
@@ -223,6 +239,11 @@ new_sqlite_classes = ["Computer"]
 [[migrations]]
 tag = "v5"
 new_sqlite_classes = ["UbuntuServer"]
+
+# v6: Fedora/Debian server-form classes (additive).
+[[migrations]]
+tag = "v6"
+new_sqlite_classes = ["FedoraServer", "DebianServer"]
 
 # ---------------------------------------------------------------------------
 # Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill

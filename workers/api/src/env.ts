@@ -26,6 +26,8 @@ import type {
   DebianPower,
   DebianHeavy,
   UbuntuServer,
+  FedoraServer,
+  DebianServer,
 } from './containers/DesktopContainer.js';
 import type { DesktopRegistry } from './containers/DesktopRegistry.js';
 import type { Computer } from './containers/Computer.js';
@@ -80,8 +82,10 @@ export interface Env {
   DESKTOP_DEBIAN_POWER: DurableObjectNamespace<DebianPower>;
   DESKTOP_DEBIAN_HEAVY: DurableObjectNamespace<DebianHeavy>;
 
-  /** Headless SERVER form (Ubuntu + ttyd, no desktop/VNC) — the lean server image. */
+  /** Headless SERVER form (distro + ttyd, no desktop/VNC) — the lean server images. */
   DESKTOP_UBUNTU_SERVER: DurableObjectNamespace<UbuntuServer>;
+  DESKTOP_FEDORA_SERVER: DurableObjectNamespace<FedoraServer>;
+  DESKTOP_DEBIAN_SERVER: DurableObjectNamespace<DebianServer>;
 
   /** Single SQLite DO holding the authoritative desktop list (M2: per-user). */
   REGISTRY: DurableObjectNamespace<DesktopRegistry>;
