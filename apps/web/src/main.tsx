@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
+import { ErrorBoundary, CrashSelfTest } from './components/ErrorBoundary.js';
 import './index.css';
 
 const container = document.getElementById('root');
@@ -10,7 +11,10 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <CrashSelfTest />
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 );
 

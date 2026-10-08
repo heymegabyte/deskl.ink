@@ -102,9 +102,10 @@ export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
           </ul>
         </section>
 
-        {/* Right: auth (~38%). */}
+        {/* Right: auth (~38%). "Start now" enters the workspace (anonymous session); real sign-in
+            is Milestone 2. */}
         <div className="lg:basis-[38%]">
-          <AuthPanel />
+          <AuthPanel onStart={onDismiss} />
         </div>
       </div>
     </div>
