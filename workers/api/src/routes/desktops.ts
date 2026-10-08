@@ -74,7 +74,10 @@ interface Lifecycle {
   start(): Promise<void>;
   stop(): Promise<void>;
   destroy(): Promise<void>;
+  /** Proxy to the desktop's VNC (websockify) port. */
   fetch(req: Request): Response | Promise<Response>;
+  /** Proxy to the desktop's browser-terminal (ttyd) port. */
+  termFetch(req: Request): Response | Promise<Response>;
 }
 
 /** The RPC surface the control-plane drives on a Computer DO (durable_object path). */
@@ -97,6 +100,7 @@ interface DesktopContainerStub {
   start(): Promise<void>;
   stop(): Promise<void>;
   destroy(): Promise<void>;
+  /** Stub `.fetch` — the ONLY WS-capable path. The DO routes by path: `/term` → ttyd, else VNC. */
   fetch(req: Request): Response | Promise<Response>;
 }
 
@@ -161,6 +165,11 @@ function lifecycleFor(env: Env, id: string, distro: DistroId, size: DesktopSizeI
       stop: () => comp.stopComputer(),
       destroy: () => comp.destroyComputer(),
       fetch: (req) => comp.fetch(req),
+      // Second-port (terminal) proxy isn't wired on the Computer DO yet — its fetch() is hardwired
+      // to the VNC port, and a WS-safe port switch needs a dedicated path. COMPUTER_DO is off, so
+      // this is never hit in prod; return a clear 503 rather than mis-proxy to VNC.
+      termFetch: () =>
+        new Response('Terminal is not available on the Computer backend yet.', { status: 503 }),
     };
   }
   const cont = getDesktopContainer(env, id, distro, size);
@@ -169,6 +178,10 @@ function lifecycleFor(env: Env, id: string, distro: DistroId, size: DesktopSizeI
     stop: () => cont.stop(),
     destroy: () => cont.destroy(),
     fetch: (req) => cont.fetch(req),
+    // Terminal also goes through the WS-capable `.fetch` (NOT containerFetch — a WS can't return
+    // across DO-RPC). The DO's `fetch` routes `/term` paths to ttyd, so we forward the request with
+    // its `/term` prefix INTACT and let the DO strip it.
+    termFetch: (req) => cont.fetch(req),
   };
 }
 
@@ -420,6 +433,48 @@ app.all('/:id/vnc/*', async (c) => {
   // Set the short-lived, path-scoped, HttpOnly ticket cookie so subsequent relative asset
   // requests + the ws handshake authenticate without carrying `?ticket=`. Scoped to THIS
   // desktop's vnc path so it never leaks to another desktop.
+  const out = new Response(upstream.body, upstream);
+  out.headers.append(
+    'Set-Cookie',
+    `${cookieName}=${ticket}; Path=${prefix}; HttpOnly; Secure; SameSite=Lax; Max-Age=900`
+  );
+  return out;
+});
+
+/**
+ * ALL /api/v1/desktops/:id/term/* — ticketed browser-terminal proxy (HTTP + WebSocket).
+ *
+ * Same signed-ticket auth as the VNC route: a desktop-scoped ticket authorizes BOTH that desktop's
+ * VNC and terminal (a VNC desktop user already has a full shell via a terminal app, so this adds no
+ * privilege). Proxies to the container's ttyd on TTYD_CONTAINER_PORT. ttyd serves a single
+ * self-contained HTML and builds its `token`/`ws` URLs RELATIVE to the page path, so the same
+ * strip-prefix + path-scoped-cookie pattern as VNC authenticates everything.
+ */
+app.all('/:id/term/*', async (c) => {
+  const id = c.req.param('id');
+  const cookieName = `deskl_term_${id}`;
+  const ticket = c.req.query('ticket') ?? getCookie(c, cookieName);
+
+  const verdict = await verifyVncTicket(ticket, id, c.env.VNC_TICKET_SECRET);
+  if (!verdict.ok) {
+    console.warn('[deskl.ink term] rejected ticket', id, verdict.error);
+    return c.json({ ok: false, error: 'unauthorized' }, 401);
+  }
+
+  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size);
+
+  // Forward the request with its `/term` prefix INTACT through the WS-capable stub `.fetch` — do
+  // NOT reconstruct/strip it here, which would drop the WebSocket upgrade. The DesktopContainer DO
+  // detects `/term`, strips it so ttyd sees its own `/`, `/ws`, `/token` (ttyd rejects a WS on any
+  // other path — confirmed locally), and proxies to ttyd in-DO so the WS tunnels back.
+  const isWs = c.req.header('upgrade')?.toLowerCase() === 'websocket';
+  const prefix = `/api/v1/desktops/${id}/term`;
+  const upstream = await container.termFetch(c.req.raw);
+
+  // A WS upgrade (101) is returned as-is — the cookie was set on the HTML load and rides the ws
+  // handshake. For HTTP, set the short-lived, path-scoped, HttpOnly cookie so ttyd's relative
+  // `token` + `ws` requests (which don't carry `?ticket=`) authenticate.
+  if (isWs) return upstream;
   const out = new Response(upstream.body, upstream);
   out.headers.append(
     'Set-Cookie',

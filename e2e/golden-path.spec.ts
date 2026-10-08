@@ -29,6 +29,9 @@ const T = {
   vncViewport: 'vnc-viewport',
   controlSurface: 'desktop-control-surface',
   exitFullscreen: 'desktop-exit-fullscreen',
+  terminalToggle: 'desktop-terminal-toggle',
+  terminalPanel: 'desktop-terminal-panel',
+  terminalClose: 'desktop-terminal-close',
 } as const;
 
 // Container cold-start (image pull + KDE Plasma/VNC boot) + noVNC connect can be slow.
@@ -206,6 +209,22 @@ test.describe('Golden path', () => {
       await settleDesktop(page, T.vncViewport, 25_000);
 
       await page.screenshot({ path: path.join(SHOT_DIR, '02-desktop.png') });
+    });
+
+    await test.step('4b · open the browser terminal (ttyd)', async () => {
+      // Reveal the auto-hiding control surface, then open the terminal. Ubuntu (the golden-path
+      // distro) ships ttyd, so the toggle is present. This asserts the UI wiring only (panel +
+      // iframe src under /term/); the ttyd HTTP+WS path is proven separately against prod.
+      await page.mouse.move(640, 16);
+      const toggle = page.getByTestId(T.terminalToggle);
+      await expect(toggle).toBeVisible({ timeout: 10_000 });
+      await toggle.click();
+      const panel = page.getByTestId(T.terminalPanel);
+      await expect(panel).toBeVisible({ timeout: 10_000 });
+      await expect(panel).toHaveAttribute('src', new RegExp(`/desktops/${desktopId}/term/`));
+      await page.screenshot({ path: path.join(SHOT_DIR, '02b-terminal.png') });
+      await page.getByTestId(T.terminalClose).click();
+      await expect(panel).toHaveCount(0, { timeout: 5_000 });
     });
 
     await test.step('5 · delete the computer', async () => {

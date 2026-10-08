@@ -60,10 +60,14 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [minting, setMinting] = useState(false);
+  const [termOpen, setTermOpen] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { color, label, live } = statusDot(current.status);
   const ready = current.status === 'ready' || current.status === 'active';
+  // The browser terminal (ttyd) ships for Ubuntu first; reuse the desktop-scoped VNC ticket (it
+  // authorizes this desktop's /term proxy too). Other distros don't offer the toggle yet.
+  const canTerminal = ready && !!vncTicket && current.distro === 'ubuntu';
 
   // Auto-hide the control surface after idle; reveal on pointer/key activity.
   useEffect(() => {
@@ -198,6 +202,58 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
         </div>
       )}
 
+      {/* Docked browser terminal (ttyd), bottom ~45vh. Same-origin iframe proxied under /term/*
+          with the desktop's signed ticket. Toggled from the control surface. */}
+      {termOpen && canTerminal && vncTicket && (
+        <div className="absolute inset-x-0 bottom-0 z-30 flex h-[45vh] flex-col border-t border-[var(--color-cyan)]/30 bg-[var(--color-black)]/95 shadow-[0_-8px_32px_rgba(0,0,0,0.55)] backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-1.5">
+            <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[var(--color-cyan)]">
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m5 8 3 3-3 3M11 14h5" />
+              </svg>
+              Terminal
+            </span>
+            <button
+              type="button"
+              data-testid={desktopTestIds.terminalClose}
+              onClick={() => setTermOpen(false)}
+              aria-label="Close terminal"
+              className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          <iframe
+            data-testid={desktopTestIds.terminalPanel}
+            title={`${current.name} terminal`}
+            src={desktopApi.termClient(current.id, vncTicket)}
+            className="h-full w-full flex-1 border-0 bg-[#05060A]"
+            allow="clipboard-read; clipboard-write"
+          />
+        </div>
+      )}
+
       {/* Tiny translucent control surface, top-right, auto-hiding. */}
       <div
         data-testid={desktopTestIds.controlSurface}
@@ -227,6 +283,34 @@ export function DesktopFullscreen({ desktop, ticket, onExit }: DesktopFullscreen
         </span>
 
         <span className="h-4 w-px bg-[var(--color-border)]" aria-hidden="true" />
+
+        {/* Terminal toggle (Ubuntu for now) — opens an in-session browser shell */}
+        {canTerminal && (
+          <button
+            type="button"
+            data-testid={desktopTestIds.terminalToggle}
+            onClick={() => setTermOpen((v) => !v)}
+            aria-label={termOpen ? 'Hide terminal' : 'Open terminal'}
+            aria-pressed={termOpen}
+            className="grid h-8 w-8 place-items-center rounded-full transition-colors hover:bg-[var(--color-cyan)]/15 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+            style={{ color: termOpen ? 'var(--color-cyan)' : 'var(--color-muted)' }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="m7 9 3 3-3 3M13 15h4" />
+            </svg>
+          </button>
+        )}
 
         {/* Stop */}
         <button

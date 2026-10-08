@@ -102,6 +102,16 @@ RUN apt-get update \
 # bare path (http://host:6080/) also loads the client. /vnc.html already works.
 RUN ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
+# Browser terminal: the ttyd static binary (tsl0922/ttyd, pinned). ttyd serves an
+# xterm.js terminal over HTTP+WS on :7681 and is designed for reverse-proxy subpath
+# deployment (relative asset + ws paths), so the deskl.ink Worker proxies it under
+# /api/v1/desktops/:id/term/* with the SAME signed-ticket auth as VNC. Bound
+# loopback-free (0.0.0.0) by start.sh so getTcpPort/containerFetch can reach it;
+# the container is never publicly exposed.
+RUN curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+      -o /usr/local/bin/ttyd \
+ && chmod +x /usr/local/bin/ttyd
+
 # -----------------------------------------------------------------------------
 # Non-root desktop user `desklink` with passwordless sudo (NOPASSWD so the
 # in-container shell can admin the box without a password the user never set).
@@ -146,10 +156,12 @@ ENV HOME=/home/desklink \
     VNC_RESOLUTION=1920x1080 \
     VNC_DISPLAY=:1 \
     VNC_PORT=5901 \
-    NOVNC_PORT=6080
+    NOVNC_PORT=6080 \
+    TTYD_PORT=7681
 
-# The browser-facing port websockify listens on (noVNC HTML + WS proxy).
-EXPOSE 6080
+# Browser-facing ports: 6080 = websockify (noVNC HTML + WS), 7681 = ttyd (terminal).
+# Both are reached only via the deskl.ink Worker proxy; neither is publicly exposed.
+EXPOSE 6080 7681
 
 # Drop to the unprivileged desktop user; the entrypoint runs the whole session.
 USER desklink

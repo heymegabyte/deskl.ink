@@ -18,7 +18,7 @@
  */
 
 import { Container } from '@cloudflare/containers';
-import { VNC_CONTAINER_PORT } from '@deskl/shared';
+import { VNC_CONTAINER_PORT, TTYD_CONTAINER_PORT } from '@deskl/shared';
 import type { Env } from '../env.js';
 
 export class DesktopContainer extends Container<Env> {
@@ -30,6 +30,25 @@ export class DesktopContainer extends Container<Env> {
 
   /** Baseline container env. Per-instance overrides go through `start(startOptions)`. */
   override envVars: Record<string, string> = { VNC_RESOLUTION: '1920x1080' };
+
+  /**
+   * Route to the right container port by path. The control-plane sends browser-terminal traffic
+   * under a `/term` path; everything else is VNC (the helper default).
+   *
+   * The terminal MUST be proxied here, IN the DO, not via a `containerFetch(...)` RPC call from the
+   * Worker — a WebSocket cannot cross the DO-RPC boundary as a return value (DataCloneError). By
+   * proxying inside the DO and returning the Response from THIS `fetch`, the ttyd WebSocket tunnels
+   * back through the stub's fetch exactly as the VNC WebSocket does. The `/term` prefix is stripped
+   * so ttyd resolves its own `/`, `/ws`, `/token` (it rejects a WS on any other path).
+   */
+  override async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const marker = '/term';
+    const at = url.pathname.indexOf(marker);
+    if (at === -1) return super.fetch(request);
+    url.pathname = url.pathname.slice(at + marker.length) || '/';
+    return this.containerFetch(new Request(url.toString(), request), TTYD_CONTAINER_PORT);
+  }
 
   /** Surface container errors to Worker logs; keep the DO default (rethrow). */
   override onError(error: unknown): never {

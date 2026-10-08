@@ -188,6 +188,9 @@ export type VncTicketResponse = z.infer<typeof VncTicketResponseSchema>;
 /** Container port websockify serves (noVNC HTML + ws proxy to local VNC) — see Dockerfile. */
 export const VNC_CONTAINER_PORT = 6080;
 
+/** Container port ttyd serves the browser terminal on (xterm.js HTML + ws) — see Dockerfile. */
+export const TTYD_CONTAINER_PORT = 7681;
+
 /**
  * API route builders — ONE definition imported by server, client, and E2E so paths can't drift.
  * `/vnc/*` proxies (HTTP + WebSocket) to the container's websockify on VNC_CONTAINER_PORT.
@@ -208,6 +211,15 @@ export const desktopApi = {
     )}&autoconnect=true&resize=remote`,
   /** prefix proxied (HTTP+WS) to the container; append noVNC asset path or `websockify`. */
   vncProxyPrefix: (id: string) => `/api/v1/desktops/${id}/vnc`,
+  /**
+   * ttyd browser-terminal client entry — served at the proxied root (trailing slash matters so
+   * ttyd's relative `./token` + `./ws` resolve under the prefix). The `?ticket=` authenticates the
+   * first HTML load; the route then sets a path-scoped cookie so token + ws authenticate too.
+   */
+  termClient: (id: string, ticket: string) =>
+    `/api/v1/desktops/${id}/term/?ticket=${encodeURIComponent(ticket)}`,
+  /** prefix proxied (HTTP+WS) to the container's ttyd terminal on TTYD_CONTAINER_PORT. */
+  termProxyPrefix: (id: string) => `/api/v1/desktops/${id}/term`,
 } as const;
 
 /**
@@ -228,4 +240,7 @@ export const desktopTestIds = {
   vncViewport: 'vnc-viewport', // wraps the noVNC canvas/iframe in the fullscreen route
   controlSurface: 'desktop-control-surface',
   exitFullscreen: 'desktop-exit-fullscreen',
+  terminalToggle: 'desktop-terminal-toggle', // opens the in-session browser terminal
+  terminalPanel: 'desktop-terminal-panel', // the docked ttyd iframe panel
+  terminalClose: 'desktop-terminal-close',
 } as const;
