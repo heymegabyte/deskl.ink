@@ -9,6 +9,26 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D20 — Discovery layer = real robots/sitemap/llms static files + accurate JSON-LD
+- **Decision:** Ship real `robots.txt` / `sitemap.xml` / `llms.txt` static files + a homepage canonical
+  + accurate `WebSite`/`SoftwareApplication` JSON-LD. JSON-LD is an inline `application/ld+json` data
+  block (non-executable → not subject to the strict `script-src 'self'`).
+- **Alternatives:** (a) leave them to the SPA fallback (the bug — they returned `text/html` index.html,
+  so crawlers got the app, not the files); (b) generate structured data at runtime in the Worker
+  (needless — the homepage is static); (c) pad JSON-LD with FAQPage/AggregateRating (violates
+  "accurate types only"; no real reviews/FAQ exist).
+- **Rationale:** "Distribution > technology" — a public product needs to be found (search + AI-search
+  engines). llms.txt is on-brand ("a computer for your AI"). Everything is kept ACCURATE: llms.txt +
+  featureList describe only SHIPPED behavior (no billing/persistence/MCP claims), and no fabricated
+  price/rating.
+- **Evidence:** Verified live (`deskl.ink`): `/robots.txt` text/plain, `/sitemap.xml` application/xml,
+  `/llms.txt` text/plain — all real content (not the HTML fallback); canonical present; JSON-LD valid
+  (`WebSite` + `SoftwareApplication`) and CSP-clean (console-gated specs green); `seo` spec 2/2 +
+  full 12-test suite green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** real public sub-routes/content appear (blog, docs) → add them to the sitemap +
+  give each accurate per-page JSON-LD; or real FAQs/reviews exist → add those types (never before).
+
 ### D19 — Offline service worker = conservative, control-plane-safe (network-first + never cache /api)
 - **Decision:** A hand-rolled `public/sw.js`: network-first for navigations (fresh shell online,
   cached shell / branded `/offline` page when unreachable), cache-first ONLY for immutable
