@@ -38,3 +38,53 @@ describe('TaskViewStore range selection', () => {
     expect(store.lastSelectedId).toBe('1');
   });
 });
+
+describe('TaskViewStore search selection', () => {
+  it.each(['active', 'archived'] as const)('clears hidden selections on search in %s', (tab) => {
+    const store = new ProjectViewStore().taskView;
+    store.setTab(tab);
+    store.toggleSelect('task-1');
+    store.toggleSelect('task-2');
+
+    store.setSearchQuery('another task');
+
+    expect(store.searchQuery).toBe('another task');
+    expect([...store.selectedIds]).toEqual([]);
+    expect(store.lastSelectedId).toBeNull();
+  });
+
+  it.each(['', 'different task'])('clears selections when changing a search to %j', (query) => {
+    const store = new ProjectViewStore().taskView;
+    store.setSearchQuery('task');
+    store.toggleSelect('task-1');
+
+    store.setSearchQuery(query);
+
+    expect([...store.selectedIds]).toEqual([]);
+    expect(store.lastSelectedId).toBeNull();
+  });
+
+  it.each(['task', ' TASK ', 'Task'])('preserves selection for equivalent query %j', (query) => {
+    const store = new ProjectViewStore().taskView;
+    store.setSearchQuery('task');
+    store.toggleSelect('task-1');
+
+    store.setSearchQuery(query);
+
+    expect(store.searchQuery).toBe(query);
+    expect([...store.selectedIds]).toEqual(['task-1']);
+    expect(store.lastSelectedId).toBe('task-1');
+  });
+
+  it('starts a fresh range after a search change', () => {
+    const store = new ProjectViewStore().taskView;
+    store.toggleSelect('old-task');
+    store.setSearchQuery('new');
+
+    store.selectRange(['new-1', 'new-2', 'new-3'], 'new-2');
+    store.selectRange(['new-1', 'new-2', 'new-3'], 'new-3');
+
+    expect([...store.selectedIds]).toEqual(['new-2', 'new-3']);
+    expect(store.lastSelectedId).toBe('new-2');
+  });
+});

@@ -46,7 +46,9 @@ class TaskViewStore {
   }
 
   setSearchQuery(query: string) {
+    const filterChanged = this.searchQuery.trim().toLowerCase() !== query.trim().toLowerCase();
     this.searchQuery = query;
+    if (filterChanged) this.setSelectedIds(new Set());
   }
 
   setSelectedIds(ids: Set<string>) {

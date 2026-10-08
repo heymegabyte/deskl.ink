@@ -57,3 +57,23 @@ Commit is the containing fix(terminal) commit; publication delegated to outer ru
 No deployment or real Electron golden/long journey, six-breakpoint visual or axe proof.
 Next: real Electron Unicode selection, navigation redirects, hidden task filtering and
 remaining renderer convention paths. Build bundle/outDir warnings remain.
+
+
+## 2026-10-08 — heymegabyte--deskl.ink-37847372525-1
+
+One bounded fallback iteration: remote main contains all prior task-tab, navigation and
+Unicode search fixes despite failed Actions summary finalizers; no retained worktree recovery
+needed. Grouped role source reviews identified search-hidden bulk-action targets. Four new
+regressions failed before the fix; changed effective search now clears selection and anchor
+on both tabs, preserving equivalent queries and raw input. Adversarial review passed 12/12
+focused tests. Renderer conventions now describe actual modal/navigation/PTY ownership;
+all 18 explicit source paths exist. Loop improvement: durable search-selection acceptance,
+confirmation snapshot guidance, and deduplicated actionable backlog findings.
+
+Fresh corepack pnpm format, lint, typecheck, test (158 files / 1113 tests), production build
+and diff check passed. Commit is the containing fix(tasks) commit; publication is delegated
+to the outer runner. Deployment was not performed. Real Electron golden/long journeys,
+visual breakpoints and accessibility runtime gates remain unexecuted; source audits do not
+satisfy them. Existing bundle/outDir warnings remain. Next frontier: confirmed deletion ID
+snapshot, search-specific empty state, bulk-operation feedback, task-list accessibility,
+and isolated Electron journey including navigation redirects and Unicode selection.

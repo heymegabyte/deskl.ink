@@ -29,3 +29,9 @@ one cell. Pass actual terminal.cols when selecting across wraps. Text-only ASCII
 cannot prove Unicode cell behavior; real Electron selection remains a separate gate.
 The verified renderer source map is agents/architecture/renderer.md; older conventions
 may still name retired core paths. Verify referenced files before copying their patterns.
+
+For task search changes, align query comparisons with TaskList's trim/lowercase filter.
+Test active and archived selections, clearing search, equivalent queries, and fresh range
+anchors. Changing the effective filter clears selection; raw text still updates for case
+and whitespace edits. Inspect confirmation callbacks separately: a modal must operate on
+its confirmed IDs, not a mutable selection reread. Zero matches is distinct from no tasks.
