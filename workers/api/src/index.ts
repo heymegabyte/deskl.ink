@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { requestLogger, type AppContext } from './observability.js';
 import desktops from './routes/desktops.js';
+import auth from './routes/auth.js';
 
 // Container + registry Durable Objects must be exported from the Worker entry
 // so the runtime can instantiate them (classes referenced in wrangler.jsonc
@@ -125,6 +126,9 @@ app.post('/api/v1/csp-report', async (c) => {
   }
   return c.body(null, 204);
 });
+
+// Identity: Google/GitHub OAuth, email magic link, session + logout (M2). Stateless, no DB.
+app.route('/api/v1/auth', auth);
 
 // Desktop control-plane: create/list/get/start/stop/destroy + ticketed VNC proxy.
 app.route('/api/v1/desktops', desktops);

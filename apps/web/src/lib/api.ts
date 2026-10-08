@@ -136,7 +136,46 @@ async function request<TSchema extends z.ZodTypeAny>(
  * The typed desktop control-plane client. One method per route; each validates
  * its response against the shared Zod schema and returns a typed domain object.
  */
+/** The authenticated user (if any) — from GET /api/v1/auth/session. */
+export interface SessionState {
+  authenticated: boolean;
+  user?: { email: string; name: string | null; provider: string };
+}
+
 export const api = {
+  /** GET /api/v1/auth/session — is the caller logged in? Drives the login gate. */
+  async getSession(signal?: AbortSignal): Promise<SessionState> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/session`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        signal: signal ?? null,
+      });
+      if (!res.ok) return { authenticated: false };
+      return (await res.json()) as SessionState;
+    } catch {
+      return { authenticated: false };
+    }
+  },
+
+  /** POST /api/v1/auth/logout — clear the session server-side. */
+  async logout(): Promise<void> {
+    await fetch(`${API_BASE}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => undefined);
+  },
+
+  /** POST /api/v1/auth/magic-link — request a sign-in email. Always resolves (never discloses). */
+  async requestMagicLink(email: string): Promise<void> {
+    await fetch(`${API_BASE}/api/v1/auth/magic-link`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => undefined);
+  },
+
   /** GET /api/v1/desktops — every desktop owned by the caller. */
   async listDesktops(signal?: AbortSignal): Promise<DesktopListResponse> {
     return request(desktopApi.list(), DesktopListResponseSchema, { signal });

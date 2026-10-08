@@ -6,11 +6,6 @@ import { Wordmark } from './Logo.js';
 // Lazy-load the WebGL/canvas hero so it stays out of the main bundle.
 const HeroCanvas = lazy(() => import('./HeroCanvas.js'));
 
-interface HomeOverlayProps {
-  /** Dismiss the overlay (persisted by the parent for the session). */
-  onDismiss: () => void;
-}
-
 /** A compact feature chip rendered in the left product column. */
 function FeatureChip({ label }: { label: string }) {
   return (
@@ -21,12 +16,12 @@ function FeatureChip({ label }: { label: string }) {
 }
 
 /**
- * HomeOverlay — full-screen layer above the locked app shell.
- * Left ~62%: the product experience (headline + supporting copy + size chips)
- * over the living nebula. Right ~38%: the auth panel. Elegant dismiss X top-right.
- * Collapses to a single column on mobile.
+ * HomeOverlay — the LOGIN GATE. deskl.ink requires a real account (Google / GitHub / email magic
+ * link), so this full-screen layer shows until the user is authenticated; there is no dismiss / no
+ * guest access. Left ~62%: the product experience over the living nebula. Right ~38%: the sign-in
+ * panel. Collapses to a single column on mobile.
  */
-export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
+export function HomeOverlay() {
   const sizes = Object.values(DESKTOP_SIZES);
 
   return (
@@ -47,31 +42,10 @@ export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
         aria-hidden="true"
       />
 
-      {/* Brand mark, top-left. */}
+      {/* Brand mark, top-left. (No dismiss control — this is the login gate.) */}
       <div className="absolute left-6 top-5 z-10">
         <Wordmark size={32} textClassName="text-xl" />
       </div>
-
-      <button
-        type="button"
-        data-testid="overlay-close"
-        onClick={onDismiss}
-        aria-label="Close and preview the workspace"
-        className="ds-glass absolute right-5 top-5 z-10 grid h-10 w-10 place-items-center rounded-full text-[var(--color-white)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:scale-105"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="18"
-          height="18"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
 
       <div className="relative z-[1] mx-auto flex min-h-full w-full max-w-7xl flex-col gap-10 px-6 py-16 lg:flex-row lg:items-center lg:gap-14 lg:py-20">
         {/* Left: product experience (~62%). */}
@@ -102,10 +76,9 @@ export function HomeOverlay({ onDismiss }: HomeOverlayProps) {
           </ul>
         </section>
 
-        {/* Right: auth (~38%). "Start now" enters the workspace (anonymous session); real sign-in
-            is Milestone 2. */}
+        {/* Right: the sign-in panel (~38%) — Google / GitHub / email magic link. */}
         <div className="lg:basis-[38%]">
-          <AuthPanel onStart={onDismiss} />
+          <AuthPanel />
         </div>
       </div>
     </div>

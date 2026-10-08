@@ -41,19 +41,26 @@ import type { Env } from '../env.js';
 import type { AppContext } from '../observability.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
 import { imageKeyFor, instanceFor } from '../compute/catalog.js';
-import { resolvePrincipal, principalCookie, isAdmin } from '../auth/principal.js';
+import { isAdmin } from '../auth/principal.js';
+import { resolveSession } from '../auth/session.js';
 import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
 
 /**
- * Resolve the caller's owning principal + admin flag, and set the signed session cookie when it's
- * freshly minted (so the browser gets a stable identity on its first API call). Every ownership
- * check in this control-plane keys off `id`. See auth/principal.ts.
+ * Resolve the AUTHENTICATED owner for a control-plane request. deskl.ink requires a real login (M2) —
+ * there is no anonymous access to the control plane. Returns the owner id (the user id from the
+ * signed `deskl_session`) + admin flag, or `null` when the caller is not logged in (→ 401). The
+ * `x-deskl-admin: ADMIN_TOKEN` header still allows cross-owner ops. owner id is threaded into logs.
  */
-async function principalOf(c: Context<AppContext>): Promise<{ id: string; admin: boolean }> {
-  const p = await resolvePrincipal(c, c.env.VNC_TICKET_SECRET);
-  if (p.fresh) c.header('Set-Cookie', await principalCookie(p.id, c.env.VNC_TICKET_SECRET));
-  c.set('ownerId', p.id); // thread the owner into structured request logs (observability.ts)
-  return { id: p.id, admin: isAdmin(c, c.env.ADMIN_TOKEN) };
+async function resolveAuth(
+  c: Context<AppContext>
+): Promise<{ id: string; admin: boolean } | null> {
+  if (isAdmin(c, c.env.ADMIN_TOKEN)) return { id: '__admin__', admin: true };
+  const session = await resolveSession(c, c.env.AUTH_SECRET ?? c.env.VNC_TICKET_SECRET ?? '');
+  if (session) {
+    c.set('ownerId', session.userId);
+    return { id: session.userId, admin: false };
+  }
+  return null;
 }
 
 /**
@@ -241,14 +248,15 @@ const app = new Hono<AppContext>();
  * started. Idempotent at the registry layer (upsert by id).
  */
 app.post('/', async (c) => {
-  const { id: principalId } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId } = auth;
   const registry = getRegistry(c.env);
 
-  // Cost-abuse guard (runs BEFORE body-parse + any container spin-up): there is no auth boundary
-  // yet, so cap create attempts per client IP AND globally so an unauthenticated caller can't spin
-  // up unbounded billable containers. Counts EVERY POST attempt (incl. malformed) — this is abuse
-  // protection, not request validation. See docs/product/deskl-converged-spec.md § security. The
-  // standing monitor creates ~1/fire, far under these limits.
+  // Cost-abuse guard (defense in depth — the caller is already authenticated above): cap create
+  // attempts per client IP AND globally so even a compromised/automated session can't spin up
+  // unbounded billable containers. Counts EVERY POST attempt (incl. malformed). See
+  // docs/product/deskl-converged-spec.md § security. The standing monitor creates ~1/fire.
   const ip = c.req.header('cf-connecting-ip') ?? 'anon';
   const ipGate = await registry.checkRate(`create:ip:${ip}`, 6, 60_000);
   const gate = ipGate.allowed ? await registry.checkRate('create:global', 30, 60_000) : ipGate;
@@ -310,7 +318,9 @@ app.post('/', async (c) => {
 
 /** GET /api/v1/desktops — list the CALLER'S desktops (newest first); admin sees all. */
 app.get('/', async (c) => {
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const desktops = await getRegistry(c.env).list(admin ? undefined : principalId);
   const body = DesktopListResponseSchema.parse({ desktops });
   return c.json(body);
@@ -318,7 +328,9 @@ app.get('/', async (c) => {
 
 /** GET /api/v1/desktops/:id — fetch one desktop the caller owns; 404 when unknown OR not owned. */
 app.get('/:id', async (c) => {
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   const id = c.req.param('id');
   const desktop = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
@@ -333,7 +345,9 @@ app.get('/:id', async (c) => {
  * then Zod-validates `{ name }`. Owner-scoped update; admins may rename across owners (ops).
  */
 app.patch('/:id', async (c) => {
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   const id = c.req.param('id');
 
@@ -363,7 +377,9 @@ app.patch('/:id', async (c) => {
  */
 app.post('/:id/start', async (c) => {
   const id = c.req.param('id');
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
@@ -393,7 +409,9 @@ app.post('/:id/start', async (c) => {
  */
 app.post('/:id/ticket', async (c) => {
   const id = c.req.param('id');
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
@@ -425,7 +443,9 @@ app.post('/:id/ticket', async (c) => {
  */
 app.post('/:id/stop', async (c) => {
   const id = c.req.param('id');
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
@@ -451,7 +471,9 @@ app.post('/:id/stop', async (c) => {
  */
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
-  const { id: principalId, admin } = await principalOf(c);
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
   // Authorize: only the OWNER (or admin) may destroy. Unknown OR not-owned → 404 (no cross-owner
   // destroy, and no existence-probing of another principal's computer). Destroy BEFORE removing

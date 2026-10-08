@@ -15,6 +15,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import path from 'path';
+import { enterApp } from './auth.js';
 
 const T = {
   newComputerButton: 'new-computer-button',
@@ -134,18 +135,6 @@ async function settleDesktop(page: Page, viewportTestId: string, maxMs: number):
   }
 }
 
-/** Dismiss the first-run homepage overlay so the manager beneath is interactive. */
-async function dismissOverlay(page: Page): Promise<void> {
-  const close = page.getByTestId('overlay-close');
-  if (await close.isVisible({ timeout: 8_000 }).catch(() => false)) {
-    await close.click();
-  }
-  // The overlay (role=dialog) must be gone before interacting with the shell.
-  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
-    timeout: 10_000,
-  });
-}
-
 test.describe('Golden path', () => {
   let desktopId = '';
 
@@ -162,10 +151,9 @@ test.describe('Golden path', () => {
       if (m.type() === 'error' && !BENIGN_CONSOLE.test(m.text())) consoleErrors.push(m.text());
     });
 
-    await test.step('1 · homepage loads + overlay dismisses', async () => {
-      await page.goto('/');
+    await test.step('1 · sign in + load the app', async () => {
+      await enterApp(page); // dev-login (no OAuth) → the authenticated manager
       await expect(page.locator('#root')).not.toBeEmpty();
-      await dismissOverlay(page);
       await expect(page.getByTestId(T.newComputerButton)).toBeVisible({ timeout: 10_000 });
     });
 
@@ -286,9 +274,8 @@ test.describe('Golden path', () => {
  */
 test.describe('OS picker — size selector', () => {
   test('all four sizes selectable; the create CTA reflects the chosen RAM', async ({ page }) => {
-    await page.goto('/');
+    await enterApp(page);
     await expect(page.locator('#root')).not.toBeEmpty();
-    await dismissOverlay(page);
     await page.getByTestId(T.newComputerButton).click();
 
     const sizes = page.getByTestId(T.sizeOption);

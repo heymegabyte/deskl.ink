@@ -93,6 +93,23 @@ export interface Env {
   /** HMAC secret for signing/verifying short-lived VNC connection tickets + session principals. */
   VNC_TICKET_SECRET?: string;
 
+  // --- Auth (M2 identity) — secrets provisioned via `wrangler secret put` from get-secret. ---
+  /** HMAC secret for signing auth sessions, OAuth state, magic-link tokens, + deriving user ids. */
+  AUTH_SECRET?: string;
+  /** Canonical app origin (no trailing slash), e.g. https://deskl.ink — a var, not a secret. */
+  APP_URL?: string;
+  /** Google OAuth client credentials (console.cloud.google.com). */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** GitHub OAuth App credentials (github.com/settings/developers). */
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  /** Resend API key for magic-link emails + the verified sender, e.g. "deskl.ink <login@deskl.ink>". */
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  /** Secret that gates POST /api/v1/auth/dev-login (E2E auth without OAuth). Unset in normal prod. */
+  TEST_LOGIN_SECRET?: string;
+
   /**
    * Optional operator token. When set, a request carrying `x-deskl-admin: <ADMIN_TOKEN>` may list
    * / act across owners (ops cleanup of orphaned computers, the E2E monitor sweep). Unset = no

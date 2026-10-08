@@ -17,6 +17,14 @@ routes = [
 [observability]
 enabled = true
 
+# Non-secret config. Secrets (AUTH_SECRET, GOOGLE_/GITHUB_ client id+secret, RESEND_API_KEY,
+# TEST_LOGIN_SECRET) are set via `wrangler secret put` from get-secret — never committed.
+[vars]
+APP_URL = "https://deskl.ink"
+# Sent from the verified Resend domain (megabyte.space) so magic links reach ANY recipient; the
+# display name is deskl.ink. (Verify deskl.ink in Resend later to send from @deskl.ink directly.)
+EMAIL_FROM = "deskl.ink <login@megabyte.space>"
+
 # Serve the web SPA (homepage overlay + desktop manager + fullscreen VNC route) from THIS
 # same Worker → single origin, so the SPA's /api/* calls, the cookie, and the noVNC iframe
 # are all same-origin. /api/* runs the Worker first; every other path serves the built SPA

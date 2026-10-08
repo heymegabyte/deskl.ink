@@ -1,3 +1,6 @@
+import { useState, type FormEvent } from 'react';
+import { api } from '../lib/api.js';
+
 function GithubGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -17,78 +20,111 @@ function GoogleGlyph() {
   );
 }
 
-/** A small "Soon" pill marking a not-yet-active account option. */
-function SoonPill() {
-  return (
-    <span className="ml-auto rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[0.6rem] font-600 uppercase tracking-wider text-[var(--color-muted)]">
-      Soon
-    </span>
-  );
-}
+const oauthBtn =
+  'inline-flex items-center justify-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-white no-underline transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]';
 
 /**
- * AuthPanel — the right ~38% of the home overlay.
- *
- * deskl.ink works WITHOUT an account (an anonymous signed session owns your computers), so the honest
- * primary action is "Start now" (→ enters the workspace). Real account sign-in (GitHub / Google /
- * email magic link via Better Auth) is Milestone 2 and creds-blocked, so those are shown as explicit
- * coming-soon options — disabled, never dead no-op buttons that do nothing when clicked.
+ * AuthPanel — the real sign-in surface (M2). deskl.ink requires an account; this is the only way in.
+ * Google + GitHub are full-page OAuth redirects (plain links — work without JS); the email path POSTs
+ * a magic-link request and then shows a "check your email" confirmation. All three verify an email,
+ * so they resolve to the same account.
  */
-export function AuthPanel({ onStart }: { onStart: () => void }) {
+export function AuthPanel() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const onEmailSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (submitting || !email.trim()) return;
+    setSubmitting(true);
+    await api.requestMagicLink(email.trim());
+    setSubmitting(false);
+    setSent(true);
+  };
+
+  if (sent) {
+    return (
+      <aside
+        className="ds-glass flex w-full flex-col justify-center gap-5 rounded-2xl p-7 sm:p-9"
+        aria-label="Check your email"
+      >
+        <div className="space-y-1.5">
+          <h2 className="font-display text-2xl font-700 text-white">Check your email</h2>
+          <p className="text-sm leading-relaxed text-[var(--color-muted)]">
+            We sent a sign-in link to <strong className="text-white">{email}</strong>. Open it on this
+            device to continue — it expires in 15 minutes.
+          </p>
+        </div>
+        <button
+          type="button"
+          data-testid="auth-reset"
+          onClick={() => setSent(false)}
+          className="self-start text-sm font-600 text-[var(--color-cyan)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+        >
+          ← Use a different method
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className="ds-glass flex w-full flex-col justify-center gap-6 rounded-2xl p-7 sm:p-9"
-      aria-label="Start on deskl.ink"
+      aria-label="Sign in to deskl.ink"
     >
       <div className="space-y-1.5">
-        <h2 className="font-display text-2xl font-700 text-white">Get your desktop</h2>
+        <h2 className="font-display text-2xl font-700 text-white">Sign in to deskl.ink</h2>
         <p className="text-sm text-[var(--color-muted)]">
-          No account needed — spin up a cloud workstation in seconds. Free to start.
+          Continue with Google, GitHub, or an email link. Free to start.
         </p>
       </div>
 
-      <button
-        type="button"
-        data-testid="auth-start"
-        onClick={onStart}
-        className="rounded-lg bg-[var(--color-cyan)] px-4 py-3.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_28px_rgba(0,229,255,0.28)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
-      >
-        Start now — it's free
-      </button>
+      <div className="flex flex-col gap-3">
+        <a data-testid="auth-github" href="/api/v1/auth/github" className={oauthBtn}>
+          <GithubGlyph />
+          Continue with GitHub
+        </a>
+        <a data-testid="auth-google" href="/api/v1/auth/google" className={oauthBtn}>
+          <GoogleGlyph />
+          Continue with Google
+        </a>
+      </div>
 
       <div className="flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-[var(--color-border)]" />
-        <span className="text-[0.7rem] font-500 uppercase tracking-wider text-[var(--color-muted)]">
-          accounts coming soon
-        </span>
+        <span className="text-xs font-500 uppercase tracking-wider text-[var(--color-muted)]">or</span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
       </div>
 
-      <div className="flex flex-col gap-3">
+      <form onSubmit={onEmailSubmit} className="flex flex-col gap-3">
+        <label htmlFor="auth-email" className="sr-only">
+          Email address
+        </label>
+        <input
+          id="auth-email"
+          data-testid="auth-email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-black)] px-4 py-3 text-sm text-white placeholder:text-[var(--color-muted)] focus:border-[var(--color-cyan)] focus-visible:outline-none"
+        />
         <button
-          type="button"
-          disabled
-          className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-[var(--color-white)]/70 opacity-70"
+          type="submit"
+          data-testid="auth-email-submit"
+          disabled={submitting}
+          aria-busy={submitting}
+          className="rounded-lg bg-[var(--color-cyan)] px-4 py-3 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <GithubGlyph />
-          Continue with GitHub
-          <SoonPill />
+          {submitting ? 'Sending…' : 'Email me a sign-in link'}
         </button>
-
-        <button
-          type="button"
-          disabled
-          className="inline-flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-[var(--color-white)]/70 opacity-70"
-        >
-          <GoogleGlyph />
-          Continue with Google
-          <SoonPill />
-        </button>
-      </div>
+      </form>
 
       <p className="text-xs leading-relaxed text-[var(--color-muted)]">
-        Sign in to save &amp; sync across devices is coming soon. Start as a guest now — by continuing
-        you agree to the Terms and Privacy Policy.
+        By continuing you agree to the Terms and Privacy Policy.
       </p>
     </aside>
   );

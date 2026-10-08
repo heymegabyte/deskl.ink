@@ -56,3 +56,6 @@ e2e/playwright-report/
 
 # Playwright MCP transient snapshots
 .playwright-mcp/
+
+# Local dev-login secret (E2E auth) — never commit
+.test-auth-secret

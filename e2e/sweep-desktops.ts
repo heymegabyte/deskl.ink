@@ -17,7 +17,24 @@
 export async function sweepDesktops(label: string): Promise<void> {
   const base = process.env['DESKL_BASE_URL'] ?? 'https://deskl.ink';
   const adminToken = process.env['DESKL_ADMIN_TOKEN'];
-  const headers: Record<string, string> = adminToken ? { 'x-deskl-admin': adminToken } : {};
+  const testAuth = process.env['DESKL_TEST_AUTH'];
+  // The control plane requires auth. Prefer admin (cross-owner); else dev-login as the e2e user and
+  // reuse its session cookie to clean that user's leftover computers.
+  let headers: Record<string, string> = {};
+  if (adminToken) {
+    headers = { 'x-deskl-admin': adminToken };
+  } else if (testAuth) {
+    try {
+      const login = await fetch(`${base}/api/v1/auth/dev-login`, {
+        method: 'POST',
+        headers: { 'x-deskl-test-auth': testAuth },
+      });
+      const setCookie = login.headers.get('set-cookie');
+      if (setCookie) headers = { cookie: setCookie.split(';')[0]! };
+    } catch {
+      /* ignore — sweep is best-effort */
+    }
+  }
   try {
     const res = await fetch(`${base}/api/v1/desktops`, { headers });
     if (!res.ok) return;

@@ -21,19 +21,13 @@ const ServerWorkspace = lazy(() =>
   import('./routes/ServerWorkspace.js').then((m) => ({ default: m.ServerWorkspace }))
 );
 
-/**
- * localStorage key tracking whether the home overlay was dismissed this
- * session. Milestone 2 ties this to the real auth session instead.
- */
-const OVERLAY_DISMISSED_KEY = 'deskl.ink:overlay-dismissed:v1';
-
 /** localStorage key holding the ids of OPEN tabs, so the workspace survives a reload (§35). */
 const OPEN_TABS_KEY = 'deskl.ink:open-tab-ids:v1';
 
-/** Reads the dismissed flag safely (SSR/sandboxed storage guarded). */
-function readDismissed(): boolean {
+/** Reads the `?new=1` PWA shortcut once, before any effect can strip it. */
+function readNewParam(): boolean {
   try {
-    return window.sessionStorage.getItem(OVERLAY_DISMISSED_KEY) === '1';
+    return new URLSearchParams(window.location.search).has('new');
   } catch {
     return false;
   }
@@ -46,24 +40,24 @@ interface OpenTab {
 }
 
 /**
- * Root orchestration + the TAB WORKSPACE (spec §33): the homepage overlay guards everything, and
- * once inside, every OPEN computer is a tab. "Home" is the manager grid (where you create/see all
- * computers); opening a computer adds+selects its tab; the active tab shows that computer's desktop.
+ * Root orchestration + the TAB WORKSPACE (spec §33). The login gate guards EVERYTHING: deskl.ink
+ * requires a real account (Google / GitHub / email magic link, M2) — there is no guest access. Only
+ * once authenticated is the app shown, and every OPEN computer is a tab. "Home" is the manager grid;
+ * opening a computer adds+selects its tab; the active tab shows that computer's desktop.
  *
  * A tab is an open VIEW of a computer — NOT a container and NOT a VNC session (§33). Closing a tab
- * does NOT Stop or Destroy the computer (§35) — it just removes the view. Tab state is session-only
- * for now; cross-reload tab restore is a tracked follow-up (§35).
+ * does NOT Stop or Destroy the computer (§35) — it just removes the view.
  */
 export function App() {
-  const [dismissed, setDismissed] = useState<boolean>(readDismissed);
+  // null = still checking the session; false = show the login gate; true = show the app.
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null); // null = Home (the grid)
   const [paletteOpen, setPaletteOpen] = useState(false); // ⌘K command palette (§87)
   // Bumping this asks the manager to open its New-computer picker (from the palette / shortcut).
   const [pickerNonce, setPickerNonce] = useState(0);
 
-  // Capture the previously-open tab ids ONCE at first render — before any effect runs, so the
-  // persist effect's empty-state `removeItem` can't wipe them before restore reads them.
+  // Capture the previously-open tab ids + the ?new shortcut ONCE at first render.
   const savedTabIdsRef = useRef<string[]>(
     ((): string[] => {
       try {
@@ -74,26 +68,28 @@ export function App() {
       }
     })()
   );
+  const newParamRef = useRef<boolean>(readNewParam());
 
-  const dismiss = useCallback(() => {
-    setDismissed(true);
-    try {
-      window.sessionStorage.setItem(OVERLAY_DISMISSED_KEY, '1');
-    } catch {
-      // Storage unavailable (private mode / sandbox) — overlay still dismisses.
-    }
+  // Check the auth session on mount (and after an OAuth / magic-link redirect lands back on "/").
+  useEffect(() => {
+    const controller = new AbortController();
+    void api
+      .getSession(controller.signal)
+      .then((s) => {
+        if (!controller.signal.aborted) setAuthed(s.authenticated);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAuthed(false);
+      });
+    return () => controller.abort();
   }, []);
 
-  // Sign out: drop all tabs, clear the dismiss flag, reopen the overlay.
-  const reopenOverlay = useCallback(() => {
+  // Sign out: clear the server session, drop local state, return to the gate.
+  const signOut = useCallback(() => {
     setTabs([]);
     setActiveId(null);
-    setDismissed(false);
-    try {
-      window.sessionStorage.removeItem(OVERLAY_DISMISSED_KEY);
-    } catch {
-      // Storage unavailable — state reset still reopens the overlay.
-    }
+    setPaletteOpen(false);
+    void api.logout().finally(() => setAuthed(false));
   }, []);
 
   /** Open (or re-select) a computer as a tab and switch to it. */
@@ -136,43 +132,42 @@ export function App() {
     });
   }, []);
 
-  // ⌘K / Ctrl+K toggles the command palette — but only inside the app (the homepage overlay is the
-  // gate; the palette is an in-app tool). ⌘K is used deliberately (⌘N/⌘W/⌘1-9 collide with browser).
+  // ⌘K / Ctrl+K toggles the command palette — only inside the app (the login gate is the barrier;
+  // the palette is an in-app tool). ⌘K is used deliberately (⌘N/⌘W/⌘1-9 collide with browser).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        if (!dismissed) return;
+        if (!authed) return;
         e.preventDefault();
         setPaletteOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dismissed]);
+  }, [authed]);
 
-  // PWA shortcut: the manifest's "New computer" action launches /?new=1. Enter the app + open the
-  // picker, then strip the param so a reload doesn't re-trigger it. Runs once on mount.
+  // PWA shortcut: the manifest's "New computer" action launches /?new=1. Once authenticated, open
+  // the picker + strip the param so a reload doesn't re-trigger it.
   useEffect(() => {
-    try {
-      if (new URLSearchParams(window.location.search).has('new')) {
-        dismiss();
-        requestNewComputer();
+    if (authed && newParamRef.current) {
+      newParamRef.current = false;
+      requestNewComputer();
+      try {
         window.history.replaceState(null, '', window.location.pathname);
+      } catch {
+        /* history unavailable — ignore */
       }
-    } catch {
-      /* no query / storage access — ignore */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authed, requestNewComputer]);
 
-  // Lock background scroll while the overlay is up.
+  // Lock background scroll while the login gate is up (not authenticated).
   useEffect(() => {
     const prev = document.body.style.overflow;
-    document.body.style.overflow = dismissed ? prev : 'hidden';
+    document.body.style.overflow = authed ? prev : 'hidden';
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [dismissed]);
+  }, [authed]);
 
   // Persist open tab ids so the workspace survives a reload (§35).
   useEffect(() => {
@@ -212,10 +207,17 @@ export function App() {
 
   const active = tabs.find((t) => t.desktop.id === activeId) ?? null;
   const hasTabs = tabs.length > 0;
-  // The manager grid sits below the strip when tabs exist, and is inert while a desktop covers it
-  // OR the command palette is open (so focus can't escape behind the modal).
-  const managerInert = !dismissed || active !== null || paletteOpen;
+  // The manager grid is inert while a desktop covers it OR the command palette is open (so focus
+  // can't escape behind the modal).
+  const managerInert = active !== null || paletteOpen;
 
+  // Still checking the session — a brief branded boot avoids flashing the gate or the app.
+  if (authed === null) return <BootScreen />;
+
+  // Not logged in → the login gate. deskl.ink requires a real account — there is no guest access.
+  if (!authed) return <HomeOverlay />;
+
+  // Authenticated → the app.
   return (
     <div className="relative h-full">
       {hasTabs && (
@@ -237,25 +239,21 @@ export function App() {
       >
         <DesktopManager
           onOpen={openDesktop}
-          onSignOut={reopenOverlay}
+          onSignOut={signOut}
           onDeleted={closeTab}
           openPickerSignal={pickerNonce}
         />
       </div>
 
-      {!dismissed && <HomeOverlay onDismiss={dismiss} />}
-
       {/* ⌘K command palette — in-app only, above every surface (z-90). */}
-      {dismissed && (
-        <CommandPalette
-          open={paletteOpen}
-          onClose={() => setPaletteOpen(false)}
-          onOpenDesktop={openDesktop}
-          onGoHome={goHome}
-          onNewComputer={requestNewComputer}
-          onSignOut={reopenOverlay}
-        />
-      )}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenDesktop={openDesktop}
+        onGoHome={goHome}
+        onNewComputer={requestNewComputer}
+        onSignOut={signOut}
+      />
 
       {/* The active tab's workspace (lazy chunk), filling everything UNDER the tab strip (§38):
           a remote desktop for `desktop` computers, a terminal-native workspace for `server`. */}
@@ -419,6 +417,19 @@ function TabStrip({
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+/** Brief branded boot while the auth session is checked (avoids flashing the gate or the app). */
+function BootScreen() {
+  return (
+    <div className="ds-nebula-fallback fixed inset-0 z-50 flex items-center justify-center">
+      <span
+        className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-[var(--color-cyan)] border-t-transparent"
+        aria-hidden="true"
+      />
+      <span className="sr-only">Loading deskl.ink…</span>
     </div>
   );
 }

@@ -263,6 +263,18 @@ export class DesktopRegistry extends DurableObject<Env> {
     return this.getOwned(id, owner);
   }
 
+  /**
+   * Reassign every computer owned by `fromOwner` to `toOwner` — used by claim-on-login so computers
+   * created under an anonymous principal aren't orphaned once the user signs in. Idempotent.
+   */
+  reassignOwner(fromOwner: string, toOwner: string): void {
+    this.ctx.storage.sql.exec(
+      `UPDATE desktops SET owner = ? WHERE owner = ?;`,
+      toOwner,
+      fromOwner
+    );
+  }
+
   /** Delete a desktop row. Idempotent — removing an unknown id is a no-op. */
   remove(id: string): void {
     this.ctx.storage.sql.exec(`DELETE FROM desktops WHERE id = ?;`, id);
