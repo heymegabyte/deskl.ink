@@ -1,0 +1,9 @@
+# deskl.ink — a desktop for you, a computer for your AI
+# The public marketing homepage is crawlable; the authenticated JSON control plane is not useful
+# to index. Client-side app routes render from "/" (SPA), so "/" is the canonical crawl entry.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://deskl.ink/sitemap.xml

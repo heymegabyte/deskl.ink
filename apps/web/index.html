@@ -10,6 +10,7 @@
       name="description"
       content="Instantly available, browser-accessible Linux workstations operable by humans and AI agents. Cloudflare-native."
     />
+    <link rel="canonical" href="https://deskl.ink/" />
 
     <!-- Brand mark / favicons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -42,6 +43,40 @@
          faces: Space Grotesk 400 (body) + Sora 700 (headings/wordmark) so first paint isn't FOUT. -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-400.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/sora-700.woff2" crossorigin />
+
+    <!-- Structured data (accurate types only — no fabricated pricing/ratings). A non-JS MIME data
+         block: not executed, so the strict CSP script-src 'self' does not apply to it. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://deskl.ink/#website",
+            "url": "https://deskl.ink/",
+            "name": "deskl.ink",
+            "description": "Instantly available, browser-accessible Linux workstations operable by humans and AI agents."
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://deskl.ink/#app",
+            "name": "deskl.ink",
+            "url": "https://deskl.ink/",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires a modern web browser",
+            "description": "A desktop for you. A computer for your AI. Browser-accessible Linux workstations (Ubuntu, Fedora, Debian) operable by people and AI agents — boots in seconds, scales to zero when idle.",
+            "featureList": [
+              "Browser-accessible Linux workstations",
+              "Desktop (GUI over VNC) or headless Server form",
+              "Operable by humans and AI agents",
+              "In-session browser terminal",
+              "Installable PWA with offline shell"
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
