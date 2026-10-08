@@ -9,6 +9,25 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D18 — Installable PWA = manifest-only, SVG icons (no service worker, no raster generation)
+- **Decision:** Ship a web app manifest (standalone display, theme/bg `#05060A`, any+maskable icons,
+  a "New computer" shortcut → `/?new=1`) to make deskl.ink installable. No service worker. Icons are
+  SVG with `sizes: "any"`; the maskable one is hand-authored (full-bleed bg + glyph in the safe zone).
+- **Alternatives:** (a) add a service worker for installability — not required since Chrome 108/112
+  (verified: `developer.chrome.com/blog/update-install-criteria`), and an empty-fetch SW hurts perf;
+  (b) generate 192/512 PNG icons — needs rsvg/magick/sharp (none available) and SVG `any` already
+  satisfies the 192+512 criterion while staying crisp at every size; (c) a full offline PWA now —
+  SW caching risks stale-content bugs; it's a cleaner separable slice.
+- **Rationale:** Installability is genuinely on-brand ("a desktop for you" → install it like an app)
+  and cheap done this way. SVG icons are superior (resolution-independent). The CSP's `manifest-src
+  'self'` + `worker-src 'self' blob:` were pre-provisioned in D13.
+- **Evidence:** Verified live (`deskl.ink`): `/manifest.webmanifest` → 200 `application/manifest+json`
+  with all required fields + any+maskable; maskable icon served; `/?new=1` enters the app + opens the
+  picker + strips the param; 0 console errors; `pwa` spec 2/2 + full suite green.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** offline matters → add a Workbox/hand-rolled service worker caching the shell +
+  fonts (CSP already allows it); or Android splash wants raster → add a build-step for 192/512 PNGs.
+
 ### D17 — Self-host webfonts (no Google origin) → tighter CSP
 - **Decision:** Serve Sora / Space Grotesk / JetBrains Mono as same-origin woff2 from `/fonts/*`
   (`src/fonts.css` @font-face, latin subset, `font-display: swap`) instead of the Google Fonts
