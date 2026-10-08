@@ -37,3 +37,23 @@
   size/outDir warnings remain. DeepSeek environment key absent; no API fallback used.
 - Publication of this iteration is delegated to the outer runner; this record is not proof
   that the new commit reached main. Commit identity is recorded in the run agent-report.json.
+
+## 2026-10-08 — Unicode terminal search cells
+
+Run: heymegabyte--deskl.ink-37811159866-1. Base f9c33b50 already on origin/main;
+prior failed Actions receipts retained published fixes, with no worktree to recover.
+Grouped reviews covered product, testing, UX/a11y, architecture, compression/hygiene,
+performance/security, documentation and loop improvement. No current stack claims made.
+
+Fixed UTF-16/cell coordinate confusion using public xterm cell widths, mapped normalized
+match endpoints, viewport columns across wraps and deduplication within combining cells.
+Six Unicode regressions failed before implementation; adversarial review reproduced one
+duplicate-result regression before repair. All 14 focused tests pass, including Greek
+contextual lowercase, hard breaks and resize clipping. Corrected renderer map paths and
+added durable Unicode acceptance guidance for subsequent loops.
+
+Fresh format, lint, typecheck, 158 files / 1105 tests, production build and diff check passed.
+Commit is the containing fix(terminal) commit; publication delegated to outer runner.
+No deployment or real Electron golden/long journey, six-breakpoint visual or axe proof.
+Next: real Electron Unicode selection, navigation redirects, hidden task filtering and
+remaining renderer convention paths. Build bundle/outDir warnings remain.

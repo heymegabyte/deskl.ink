@@ -94,7 +94,7 @@ export function useTerminalSearch({
         return EMPTY_SEARCH_STATUS;
       }
 
-      const matches = collectTerminalSearchMatches(buffer, query);
+      const matches = collectTerminalSearchMatches(buffer, query, terminal.cols);
       if (matches.length === 0) {
         searchedTerminalRef.current = terminal;
         activeSearchQueryRef.current = query;

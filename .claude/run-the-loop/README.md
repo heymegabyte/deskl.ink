@@ -21,3 +21,11 @@ Assert popup decisions, navigation prevention, and browser-open calls independen
 Production localhost HTTP links are external; the renderer uses app://. Unit handlers do
 not prove a real Electron journey. Isolate appData/config as well as EMDASH_DB_FILE before
 launching Electron tests; --user-data-dir alone does not override the app's userData setup.
+
+For terminal search changes, use xterm getCell/getChars/getWidth to map text to cells.
+Cover CJK, surrogate pairs, combining marks, lowercase expansion, contextual Greek sigma,
+wrapped and hard lines, retained line capacity after resize, and duplicate matches inside
+one cell. Pass actual terminal.cols when selecting across wraps. Text-only ASCII mocks
+cannot prove Unicode cell behavior; real Electron selection remains a separate gate.
+The verified renderer source map is agents/architecture/renderer.md; older conventions
+may still name retired core paths. Verify referenced files before copying their patterns.

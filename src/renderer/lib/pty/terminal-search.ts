@@ -1,5 +1,7 @@
 export interface TerminalSearchBufferLineLike {
   isWrapped?: boolean;
+  length?: number;
+  getCell?(column: number): { getChars(): string; getWidth(): number } | undefined;
   translateToString(trimRight?: boolean, startColumn?: number, endColumn?: number): string;
 }
 
@@ -14,91 +16,93 @@ export interface TerminalSearchMatch {
   length: number;
 }
 
-interface PhysicalLineSegment {
+interface SearchCell {
   row: number;
-  startIndex: number;
+  col: number;
+  offset: number;
+  width: number;
 }
 
 interface LogicalLine {
   text: string;
-  segments: PhysicalLineSegment[];
+  cells: SearchCell[];
 }
 
-function buildLogicalLines(buffer: TerminalSearchBufferLike): LogicalLine[] {
+function buildLogicalLines(buffer: TerminalSearchBufferLike, columns?: number): LogicalLine[] {
   const logicalLines: LogicalLine[] = [];
   let current: LogicalLine | null = null;
+  let cellOffset = 0;
 
-  for (let index = 0; index < buffer.length; index += 1) {
-    const line = buffer.getLine(index);
+  for (let row = 0; row < buffer.length; row += 1) {
+    const line = buffer.getLine(row);
     if (!line) continue;
-
-    const text = line.translateToString(false);
     if (!current || !line.isWrapped) {
       if (current) logicalLines.push(current);
-      current = { text: '', segments: [] };
+      current = { text: '', cells: [] };
+      cellOffset = 0;
     }
 
-    current.segments.push({
-      row: index,
-      startIndex: current.text.length,
-    });
-    current.text += text;
+    const logicalLine = current;
+    const appendCell = (chars: string, col: number, width: number) => {
+      logicalLine.text += chars;
+      // Every folded code unit points to its complete terminal cell. Lowercase the
+      // whole logical line below to preserve contextual mappings such as Greek sigma.
+      const foldedLength = chars.toLowerCase().length;
+      for (let index = 0; index < foldedLength; index += 1) {
+        logicalLine.cells.push({ row, col, offset: cellOffset + col, width });
+      }
+    };
+
+    if (line.getCell && line.length !== undefined) {
+      const length = Math.min(line.length, columns ?? line.length);
+      for (let col = 0; col < length; col += 1) {
+        const cell = line.getCell(col);
+        if (!cell || cell.getWidth() === 0) continue;
+        appendCell(cell.getChars() || ' ', col, cell.getWidth());
+      }
+      cellOffset += columns ?? length;
+    } else {
+      // Structural text-only buffers are used by non-xterm callers and ASCII tests.
+      const text = line.translateToString(false);
+      for (let col = 0; col < text.length; col += 1) appendCell(text[col], col, 1);
+      cellOffset += columns ?? text.length;
+    }
   }
 
   if (current) logicalLines.push(current);
-
   return logicalLines;
-}
-
-function resolveMatchStart(
-  segments: PhysicalLineSegment[],
-  startIndex: number
-): TerminalSearchMatch {
-  for (let index = segments.length - 1; index >= 0; index -= 1) {
-    const segment = segments[index];
-    if (startIndex >= segment.startIndex) {
-      return {
-        row: segment.row,
-        col: startIndex - segment.startIndex,
-        length: 0,
-      };
-    }
-  }
-
-  const firstSegment = segments[0];
-  return {
-    row: firstSegment?.row ?? 0,
-    col: 0,
-    length: 0,
-  };
 }
 
 export function collectTerminalSearchMatches(
   buffer: TerminalSearchBufferLike,
-  query: string
+  query: string,
+  columns?: number
 ): TerminalSearchMatch[] {
   if (!query) return [];
 
-  const normalizedQuery = query.toLocaleLowerCase();
+  const normalizedQuery = query.toLowerCase();
   if (!normalizedQuery) return [];
 
   const matches: TerminalSearchMatch[] = [];
-  const logicalLines = buildLogicalLines(buffer);
+  const logicalLines = buildLogicalLines(buffer, columns);
 
   for (const logicalLine of logicalLines) {
-    const haystack = logicalLine.text.toLocaleLowerCase();
+    const haystack = logicalLine.text.toLowerCase();
     let fromIndex = 0;
 
     while (fromIndex <= haystack.length - normalizedQuery.length) {
       const matchIndex = haystack.indexOf(normalizedQuery, fromIndex);
       if (matchIndex === -1) break;
 
-      const start = resolveMatchStart(logicalLine.segments, matchIndex);
-      matches.push({
+      const start = logicalLine.cells[matchIndex];
+      const end = logicalLine.cells[matchIndex + normalizedQuery.length - 1];
+      const match = {
         row: start.row,
         col: start.col,
-        length: query.length,
-      });
+        length: end.offset + end.width - start.offset,
+      };
+      const previous = matches[matches.length - 1];
+      if (!previous || compareMatchPosition(previous, match) !== 0) matches.push(match);
 
       fromIndex = matchIndex + Math.max(1, normalizedQuery.length);
     }
