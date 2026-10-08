@@ -14,18 +14,14 @@
  * Testid values mirror `@deskl/shared` desktopTestIds.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { enterApp } from './auth.js';
 
 const BENIGN_CONSOLE = /favicon|ResizeObserver|Download the React DevTools/i;
 
 /** Dismiss the first-run homepage overlay so the manager beneath is interactive. */
 async function dismissOverlay(page: Page): Promise<void> {
-  const close = page.getByTestId('overlay-close');
-  if (await close.isVisible({ timeout: 8_000 }).catch(() => false)) {
-    await close.click();
-  }
-  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
-    timeout: 10_000,
-  });
+  // The homepage is now the login GATE — authenticate (dev-login) to reach the app.
+  await enterApp(page);
 }
 
 test.describe('Rename a computer', () => {

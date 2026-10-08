@@ -8,6 +8,7 @@
  * Run:  DESKL_BASE_URL=https://deskl.ink pnpm -C e2e test pwa
  */
 import { test, expect } from '@playwright/test';
+import { devLogin } from './auth.js';
 
 test.describe('PWA — manifest + install shortcut', () => {
   test('manifest is linked, valid, and correctly served', async ({ page }) => {
@@ -35,15 +36,15 @@ test.describe('PWA — manifest + install shortcut', () => {
     }
   });
 
-  test('"New computer" shortcut (/?new=1) enters the app, opens the picker, strips the param', async ({
+  test('"New computer" shortcut (/?new=1) opens the picker + strips the param (authenticated)', async ({
     page,
   }) => {
+    await devLogin(page.request); // the shortcut only applies inside the app
     await page.goto('/?new=1');
     await expect(page.getByRole('dialog', { name: /choose your computer/i })).toBeVisible({
       timeout: 10_000,
     });
-    // The overlay is gone (we're in the app) and the query param has been cleaned.
-    await expect(page.locator('[role="dialog"][aria-modal="true"]').first()).toBeVisible(); // the picker is modal
+    // The query param has been cleaned so a reload doesn't re-trigger it.
     expect(new URL(page.url()).search, 'query stripped').toBe('');
   });
 });

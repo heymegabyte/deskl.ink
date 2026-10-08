@@ -8,15 +8,11 @@
  * Run:  DESKL_BASE_URL=https://deskl.ink pnpm -C e2e test focus
  */
 import { test, expect, type Page } from '@playwright/test';
+import { enterApp } from './auth.js';
 
 async function dismissOverlay(page: Page): Promise<void> {
-  const close = page.getByTestId('overlay-close');
-  if (await close.isVisible({ timeout: 8_000 }).catch(() => false)) {
-    await close.click();
-  }
-  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
-    timeout: 10_000,
-  });
+  // The homepage is now the login GATE — authenticate (dev-login) to reach the app.
+  await enterApp(page);
 }
 
 /** Is the active element inside the OS-picker dialog? (runs in the browser) */

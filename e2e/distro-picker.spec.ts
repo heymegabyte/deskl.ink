@@ -16,6 +16,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import path from 'path';
+import { enterApp } from './auth.js';
 
 const T = {
   newComputerButton: 'new-computer-button',
@@ -44,11 +45,8 @@ const CASES = [
 ] as const;
 
 async function dismissOverlay(page: Page): Promise<void> {
-  const close = page.getByTestId('overlay-close');
-  if (await close.isVisible({ timeout: 8_000 }).catch(() => false)) await close.click();
-  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
-    timeout: 10_000,
-  });
+  // The homepage is now the login GATE — authenticate (dev-login) to reach the app.
+  await enterApp(page);
 }
 
 /**

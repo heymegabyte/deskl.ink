@@ -17,6 +17,7 @@
  */
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { enterApp } from './auth.js';
 
 /** The WCAG rule sets we hold the product to (matches the manual sweep). */
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
@@ -39,13 +40,8 @@ function summarize(violations: Awaited<ReturnType<typeof auditWcag>>['violations
 
 /** Dismiss the first-run homepage overlay so the manager beneath is interactive. */
 async function dismissOverlay(page: Page): Promise<void> {
-  const close = page.getByTestId('overlay-close');
-  if (await close.isVisible({ timeout: 8_000 }).catch(() => false)) {
-    await close.click();
-  }
-  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(0, {
-    timeout: 10_000,
-  });
+  // The homepage is now the login GATE — authenticate (dev-login) to reach the app.
+  await enterApp(page);
 }
 
 test.describe('Accessibility (axe) — WCAG 2.2 A+AA, container-free surfaces', () => {
