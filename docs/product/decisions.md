@@ -9,6 +9,34 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D13 — Browser security headers: enforcing CSP via `_headers`, JSON-scoped headers in the Worker
+- **Decision:** Ship an **enforcing** Content-Security-Policy (not report-only) on the SPA document +
+  static assets through a Workers-Assets `_headers` file (`apps/web/public/_headers`), plus HSTS,
+  `X-Frame-Options: DENY` + `frame-ancestors 'none'`, nosniff, `Referrer-Policy`, a tight
+  `Permissions-Policy`, and COOP. `script-src 'self'` with **no nonce** (the built `index.html` has a
+  single external same-origin module). A separate Hono middleware stamps nosniff + `Referrer-Policy`
+  + HSTS on **JSON responses only** (keyed off `Content-Type`).
+- **Alternatives:** (a) report-only CSP first (slower to protect; the policy was already provably
+  safe, so enforce now); (b) nonce + `strict-dynamic` (needs per-request HTML generation — the doc is
+  a static asset, and there are no inline scripts to bless, so pure overhead); (c) one blanket Hono
+  `app.use('*')` CSP (would stamp a restrictive policy onto the proxied noVNC `/vnc/*` + ttyd
+  `/term/*` responses our own iframes embed, **breaking the core product**).
+- **Rationale:** Prod served the SPA with **zero** security headers — arbitrary third-party script
+  injection was possible (axe-core loaded straight from a CDN during the a11y sweep). Closes Hard
+  Gate 8. The two-layer split is dictated by Cloudflare: `_headers` never applies to Worker responses,
+  so the document policy and the JSON-scoped Worker headers can't collide, and the remote-desktop
+  surfaces stay pristine. `clipboard` left at browser default so VNC/terminal copy-paste survives;
+  `payment=(self)` pre-clears the imminent Stripe Element.
+- **Evidence:** Verified live (`deskl.ink`): document carries the full policy; `/api/v1/version`
+  carries the safe subset with **no CSP**; app renders clean under enforcement (0 breaking console
+  errors; fonts + styles + module all load); CDN script-injection now **refused**
+  (`script-src-elem` violation, `onerror`, `axe` undefined). axe WCAG 2.0/2.1/2.2 A+AA stayed 0
+  violations across homepage/manager/picker.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** Stripe/PostHog/other 3rd-party origins land → widen the directives (the exact
+  additions are documented inline in `_headers`); or the SPA gains inline scripts → move to
+  nonce + `strict-dynamic` served through the Worker.
+
 ### D12 — Server form = a distinct lean image + class + terminal workspace (not desktop-with-VNC-hidden)
 - **Decision:** Implement the headless `server` form (§9) as a SEPARATE lean image
   (`container/ubuntu-server`: ttyd + dev CLIs, no KDE/VNC) on its own `UbuntuServer` DO class, with
