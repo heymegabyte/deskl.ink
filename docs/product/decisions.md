@@ -9,6 +9,27 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D16 — Command palette = a decoupled, App-owned ⌘K overlay (not a manager feature)
+- **Decision:** A `⌘K`/`Ctrl+K` command palette that fetches its OWN owner-scoped computer list and
+  invokes App's existing `openDesktop`/`goHome`/`reopenOverlay` — so it touches none of the
+  monitor-critical manager/VNC code. v1 = nav to any computer + New/Home/Sign-out. "New computer"
+  opens the real picker via a tiny additive `openPickerSignal` nonce on the manager (no refactor).
+- **Alternatives:** (a) naive `⌘N`/`⌘W`/`⌘1-9` shortcuts (collide with browser-reserved keys, often
+  un-preventable — rejected); (b) lift all manager state (list, create, stopAll) to App so the palette
+  can drive everything (big refactor + risk to the golden path — deferred; it's why per-computer Stop /
+  Stop-all are out of v1); (c) a routing-based palette (overkill for a single-view SPA).
+- **Rationale:** ⌘K is the de-facto palette binding and doesn't fight the browser. Decoupling (palette
+  fetches its own list, calls existing handlers) delivers the core value — instant keyboard nav to any
+  computer — with near-zero blast radius. The manager goes `inert` while it's open so focus can't
+  escape behind the modal.
+- **Evidence:** Verified live (`deskl.ink`): `command-palette` spec green (⌘K opens + focuses, axe-
+  clean via the editable-combobox/listbox pattern, filter narrows, Esc closes, "New computer"→picker);
+  golden-path 2/2 + a11y 3/3 + rename unregressed. The console-gated spec also **caught a latent CSP
+  regression** (font `connect-src`) — see D13 amendment.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** the palette needs state-mutating actions (Stop/Stop-all/Rename) → introduce a
+  shared computer store (Context/Zustand) so App + manager + palette read one source, then add them.
+
 ### D15 — Rename = owner-scoped metadata PATCH + inline tile edit (no container touch)
 - **Decision:** Rename is a metadata-only `PATCH /api/v1/desktops/:id` ({ name }), owner-scoped in the
   registry (`UPDATE … WHERE id = ? AND owner = ?`), allowed in ANY lifecycle state, never touching the
@@ -80,6 +101,12 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
   errors; fonts + styles + module all load); CDN script-injection now **refused**
   (`script-src-elem` violation, `onerror`, `axe` undefined). axe WCAG 2.0/2.1/2.2 A+AA stayed 0
   violations across homepage/manager/picker.
+- **Amended 2026-10-08:** `connect-src 'self'` was too strict — a fresh (uncached) load issues a
+  connection to `fonts.googleapis.com` the browser classifies under connect-src (the console-gated
+  command-palette E2E caught it; the manual check missed it because the font CSS was already cached).
+  Fonts still rendered (via the stylesheet, allowed by style-src), so it was console noise, not a
+  visual break. Added the two font origins to `connect-src`. Proper fix: self-host fonts and drop all
+  google/gstatic allowances (follow-up). Lesson: verify CSP in a FRESH, cache-less context.
 - **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
 - **Reconsider when:** Stripe/PostHog/other 3rd-party origins land → widen the directives (the exact
   additions are documented inline in `_headers`); or the SPA gains inline scripts → move to
