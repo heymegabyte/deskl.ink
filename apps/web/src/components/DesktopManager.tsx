@@ -307,7 +307,7 @@ export function DesktopManager({
         />
       )}
       {/* Top bar */}
-      <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
+      <header className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-4 sm:px-6">
         <Wordmark size={30} textClassName="text-lg" />
 
         <div className="flex items-center gap-3">
@@ -355,7 +355,7 @@ export function DesktopManager({
             disabled={creating}
             aria-label="Create a new computer"
             aria-busy={creating}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-cyan)] px-4 py-2.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-cyan)] px-3 py-2.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
           >
             {creating ? (
               <Spinner />
@@ -373,7 +373,8 @@ export function DesktopManager({
                 <path d="M12 5v14M5 12h14" />
               </svg>
             )}
-            <span className="min-w-[7.5ch] text-center">
+            {/* Label hides on mobile so the header fits (the + icon + aria-label carry it). */}
+            <span className="hidden min-w-[7.5ch] text-center sm:inline-block">
               {creating ? 'Creating…' : 'New computer'}
             </span>
           </button>
@@ -382,9 +383,23 @@ export function DesktopManager({
             type="button"
             onClick={onSignOut}
             aria-label="Sign out"
-            className="rounded-lg border border-[var(--color-border)] px-3 py-2.5 text-sm font-600 text-[var(--color-muted)] transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2.5 text-sm font-600 text-[var(--color-muted)] transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
           >
-            Sign out
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            {/* Label hides on mobile; the icon + aria-label carry it. */}
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
       </header>
