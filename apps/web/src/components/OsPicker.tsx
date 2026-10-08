@@ -131,7 +131,7 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                   </svg>
                   {f.name}
                 </span>
-                <span className="text-xs leading-snug text-[var(--color-muted)]/80">{f.tagline}</span>
+                <span className="text-xs leading-snug text-[var(--color-muted)]">{f.tagline}</span>
               </button>
             );
           })}
@@ -161,7 +161,7 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                       <DistroMark distro={id} size={52} />
                       <span className="font-display text-base font-700 text-white">{d.name}</span>
                       <span className="font-mono text-xs text-[var(--color-muted)]">{d.version}</span>
-                      <span className="text-xs leading-snug text-[var(--color-muted)]/80">
+                      <span className="text-xs leading-snug text-[var(--color-muted)]">
                         {d.tagline}
                       </span>
                     </button>

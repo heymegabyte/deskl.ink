@@ -7,9 +7,11 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "test:a11y": "playwright test a11y"
   },
   "devDependencies": {
+    "@axe-core/playwright": "latest",
     "@playwright/test": "latest"
   }
 }
