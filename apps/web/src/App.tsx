@@ -1,7 +1,8 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { HomeOverlay } from './components/HomeOverlay.js';
 import { DesktopManager } from './components/DesktopManager.js';
 import { DistroMark } from './components/DistroMark.js';
+import { api } from './lib/api.js';
 import {
   desktopTestIds,
   type DesktopResource,
@@ -19,6 +20,9 @@ const DesktopFullscreen = lazy(() =>
  * session. Milestone 2 ties this to the real auth session instead.
  */
 const OVERLAY_DISMISSED_KEY = 'deskl.ink:overlay-dismissed:v1';
+
+/** localStorage key holding the ids of OPEN tabs, so the workspace survives a reload (§35). */
+const OPEN_TABS_KEY = 'deskl.ink:open-tab-ids:v1';
 
 /** Reads the dismissed flag safely (SSR/sandboxed storage guarded). */
 function readDismissed(): boolean {
@@ -48,6 +52,19 @@ export function App() {
   const [dismissed, setDismissed] = useState<boolean>(readDismissed);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null); // null = Home (the grid)
+
+  // Capture the previously-open tab ids ONCE at first render — before any effect runs, so the
+  // persist effect's empty-state `removeItem` can't wipe them before restore reads them.
+  const savedTabIdsRef = useRef<string[]>(
+    ((): string[] => {
+      try {
+        const s: unknown = JSON.parse(window.localStorage.getItem(OPEN_TABS_KEY) ?? '[]');
+        return Array.isArray(s) ? s.filter((x): x is string => typeof x === 'string') : [];
+      } catch {
+        return [];
+      }
+    })()
+  );
 
   const dismiss = useCallback(() => {
     setDismissed(true);
@@ -97,6 +114,42 @@ export function App() {
       document.body.style.overflow = prev;
     };
   }, [dismissed]);
+
+  // Persist open tab ids so the workspace survives a reload (§35).
+  useEffect(() => {
+    try {
+      const ids = tabs.map((t) => t.desktop.id);
+      if (ids.length) window.localStorage.setItem(OPEN_TABS_KEY, JSON.stringify(ids));
+      else window.localStorage.removeItem(OPEN_TABS_KEY);
+    } catch {
+      // Storage unavailable — tabs are simply session-only.
+    }
+  }, [tabs]);
+
+  // Restore previously-open tabs on mount: re-fetch each saved id. The persistent signed session
+  // cookie keeps this owner-scoped — a deleted / not-owned id 404s and is silently dropped. Lands
+  // on Home (doesn't auto-open a desktop) so a reload is calm, not a surprise connect.
+  useEffect(() => {
+    const ids = savedTabIdsRef.current;
+    if (ids.length === 0) return;
+    const controller = new AbortController();
+    void (async () => {
+      const results = await Promise.allSettled(
+        ids.map((id) => api.getDesktop(id, controller.signal))
+      );
+      if (controller.signal.aborted) return;
+      const restored = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+      if (restored.length === 0) return;
+      setTabs((prev) => {
+        const have = new Set(prev.map((t) => t.desktop.id));
+        const add = restored.filter((d) => !have.has(d.id)).map((d) => ({ desktop: d }));
+        return add.length ? [...prev, ...add] : prev;
+      });
+    })();
+    return () => controller.abort();
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const active = tabs.find((t) => t.desktop.id === activeId) ?? null;
   const hasTabs = tabs.length > 0;

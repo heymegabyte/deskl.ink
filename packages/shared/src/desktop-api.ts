@@ -239,11 +239,16 @@ export const desktopApi = {
   destroy: (id: string) => `/api/v1/desktops/${id}`,
   /** mint a fresh VNC ticket for a running desktop (self-heal when no create-time ticket). */
   ticket: (id: string) => `/api/v1/desktops/${id}/ticket`,
-  /** noVNC client entry (HTML served by websockify through the proxy). */
+  /**
+   * noVNC client entry (HTML served by websockify through the proxy). `reconnect=true` +
+   * `reconnect_delay` make noVNC transparently re-establish the WebSocket after a dropped browser
+   * connection (network blip, laptop sleep) WITHOUT stopping the computer (spec §110) — the
+   * path-scoped cookie keeps the reconnect authenticated.
+   */
   vncClient: (id: string, ticket: string) =>
     `/api/v1/desktops/${id}/vnc/vnc.html?ticket=${encodeURIComponent(ticket)}&path=${encodeURIComponent(
       `api/v1/desktops/${id}/vnc/websockify?ticket=${ticket}`
-    )}&autoconnect=true&resize=remote`,
+    )}&autoconnect=true&resize=remote&reconnect=true&reconnect_delay=2000`,
   /** prefix proxied (HTTP+WS) to the container; append noVNC asset path or `websockify`. */
   vncProxyPrefix: (id: string) => `/api/v1/desktops/${id}/vnc`,
   /**
