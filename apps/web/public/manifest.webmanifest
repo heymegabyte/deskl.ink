@@ -1,0 +1,30 @@
+{
+  "name": "deskl.ink — a desktop for you, a computer for your AI",
+  "short_name": "deskl.ink",
+  "description": "Instantly available, browser-accessible Linux workstations operable by you and your AI agents. Boots in seconds, persists between sessions, scales to zero when idle.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#05060A",
+  "background_color": "#05060A",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "developer", "utilities"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/favicon-32.png", "sizes": "32x32", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New computer",
+      "short_name": "New",
+      "description": "Spin up a new cloud workstation",
+      "url": "/?new=1"
+    }
+  ]
+}

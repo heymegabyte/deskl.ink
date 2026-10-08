@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="deskl.ink">
+  <!-- Maskable icon: full-bleed dark background (the mask clips the background, never the glyph),
+       with the brand terminal-prompt mark centered inside the inner ~80% safe zone, in electric
+       cyan. Resolution-independent — one SVG renders crisply at 192 / 512 / any size. -->
+  <rect width="512" height="512" fill="#05060A"/>
+  <g transform="translate(256 256) scale(15) translate(-16.5 -16)"
+     fill="none" stroke="#00E5FF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.5 11.8 L14.5 16 L9.5 20.2"/>
+    <path d="M16.5 20.2 H23.5"/>
+  </g>
+</svg>

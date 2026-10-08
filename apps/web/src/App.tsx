@@ -150,6 +150,21 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [dismissed]);
 
+  // PWA shortcut: the manifest's "New computer" action launches /?new=1. Enter the app + open the
+  // picker, then strip the param so a reload doesn't re-trigger it. Runs once on mount.
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).has('new')) {
+        dismiss();
+        requestNewComputer();
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch {
+      /* no query / storage access — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Lock background scroll while the overlay is up.
   useEffect(() => {
     const prev = document.body.style.overflow;

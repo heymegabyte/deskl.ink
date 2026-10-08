@@ -40,6 +40,11 @@
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
+# PWA manifest — correct MIME (Workers Assets may not infer .webmanifest) + modest cache.
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: public, max-age=3600
+
 # The app shell must always revalidate so new deploys are picked up immediately.
 /index.html
   Cache-Control: no-cache
