@@ -9,9 +9,9 @@
   # The built index.html has exactly one external, same-origin module script and one
   # same-origin stylesheet (Vite, fingerprinted) — so script-src can be locked to 'self'
   # with no nonce. This blocks arbitrary third-party/CDN script injection outright.
-  #   style-src   'unsafe-inline' is required for React inline style attributes + the
-  #               Google Fonts stylesheet (googleapis). Low-risk: script-src stays strict.
-  #   font-src    Google Fonts woff2 come from gstatic.
+  #   style-src   'unsafe-inline' is required for React inline style attributes. Low-risk:
+  #               script-src stays strict. (Fonts are self-hosted now — no googleapis origin.)
+  #   font-src    'self' — webfonts are self-hosted at /fonts/* (src/fonts.css), no gstatic.
   #   frame-src   the remote desktop (noVNC) + server terminal (ttyd) are same-origin proxies.
   #   connect-src the SPA only ever calls same-origin /api/* (fetch + same-origin wss).
   #   frame-ancestors 'none' + X-Frame-Options: DENY — deskl.ink is never embedded by others.
@@ -20,7 +20,7 @@
   #   Stripe   → script-src + frame-src https://js.stripe.com ; connect-src https://api.stripe.com
   #   PostHog  → script-src + connect-src <your-posthog-ingest-host>  (self-hosted or *.posthog.com)
   #   (Sentry is server-side @sentry/cloudflare only — no browser SDK, so no CSP change needed.)
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
   # --- Transport + sniffing + referrer + powerful-feature policy ---------------------
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
@@ -34,6 +34,10 @@
 
 # Fingerprinted build assets are immutable — cache hard. (Inherits the headers above too.)
 /assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Self-hosted webfonts are content-stable — cache hard (filenames change if the subset changes).
+/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
 # The app shell must always revalidate so new deploys are picked up immediately.

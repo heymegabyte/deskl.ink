@@ -30,12 +30,10 @@
     <meta name="twitter:title" content="deskl.ink — a desktop for you, a computer for your AI" />
     <meta name="twitter:image" content="https://deskl.ink/og.png" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Self-hosted fonts (no Google origin — see src/fonts.css). Preload the two above-the-fold
+         faces: Space Grotesk 400 (body) + Sora 700 (headings/wordmark) so first paint isn't FOUT. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-400.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/sora-700.woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>

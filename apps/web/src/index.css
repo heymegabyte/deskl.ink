@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './fonts.css'; /* self-hosted Sora / Space Grotesk / JetBrains Mono (no Google origin) */
 
 /*
  * deskl.ink theme — Tailwind v4 CSS-first config.
