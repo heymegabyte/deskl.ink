@@ -9,6 +9,26 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D27 — CSP violation reporting → completes the security-observability loop
+- **Decision:** Wire the CSP to a reporting sink — `report-uri` (legacy) + `report-to` + a
+  `Reporting-Endpoints` header → `POST /api/v1/csp-report`, which filters browser-extension noise and
+  logs each real violation as a structured `csp_violation` (observability.ts shape, with the
+  correlation id). Always 204.
+- **Alternatives:** (a) no reporting (the prior state — a strict CSP is fire-and-forget; you never
+  learn if it blocks a legit resource for some user); (b) a third-party report collector (report-uri.com
+  etc.) — an external dependency + data egress when a same-origin Worker sink + our own logger
+  suffice; (c) store reports in D1 (premature — logs + the eventual Sentry pipe are enough).
+- **Rationale:** Completes the security-observability story (D13 CSP + D14 request logger + D21
+  `ui_crash`): now a too-strict rule or a real injection attempt surfaces in logs, and feeds Sentry
+  once the DSN lands. Standard hygiene for a strict CSP.
+- **Evidence:** Verified live (`deskl.ink`): `Reporting-Endpoints` + `report-uri`/`report-to` on the
+  document; a real violation (`evil.example.com`) logged as `csp_violation` with full context; a
+  `chrome-extension://` report filtered (0 logged); both return 204; `security` spec green +
+  command-palette/a11y/golden-path unregressed.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** report volume is high → sample/rate-limit the sink; or the DSN lands → forward
+  `csp_violation` (and `ui_crash`) to Sentry with alerting.
+
 ### D26 — Hero = a living "network of workstations" in 2D canvas (not a Three.js rebuild)
 - **Decision:** Deliver the spec's hero metaphor ("floating luminous workstations connected by cyan
   pathways, cursors/agents moving between nodes") as an enhancement to the EXISTING 2D-canvas
