@@ -37,6 +37,7 @@ const T = {
   tabStrip: 'tab-strip',
   tab: 'tab',
   tabHome: 'tab-home',
+  stopAll: 'stop-all',
 } as const;
 
 // Container cold-start (image pull + KDE Plasma/VNC boot) + noVNC connect can be slow.
@@ -192,9 +193,10 @@ test.describe('Golden path', () => {
         timeout: READY_TIMEOUT_MS,
       });
       // Global financial bar (spec §39) reflects the running computer: an honest estimated burn,
-      // no fabricated wallet balance.
+      // no fabricated wallet balance. The "Stop all" cost control (spec §40) appears too.
       await expect(page.getByTestId(T.financialBar)).toBeVisible();
       await expect(page.getByTestId(T.financialBarRunning)).toContainText('1 running');
+      await expect(page.getByTestId(T.stopAll)).toBeVisible();
       await page.screenshot({ path: path.join(SHOT_DIR, '01-ready.png') });
     });
 

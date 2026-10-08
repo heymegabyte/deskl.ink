@@ -92,6 +92,7 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [confirmStopAll, setConfirmStopAll] = useState(false);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
@@ -223,6 +224,17 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
     [refresh]
   );
 
+  /** Stop EVERY running computer (spec §40 — "stop everything costing money"). */
+  const stopAll = useCallback(async () => {
+    setConfirmStopAll(false);
+    const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
+    if (running.length === 0) return;
+    const ids = new Set(running.map((d) => d.id));
+    setDesktops((prev) => prev.map((d) => (ids.has(d.id) ? { ...d, status: 'stopping' } : d)));
+    await Promise.allSettled(running.map((d) => api.stopDesktop(d.id)));
+    void refresh();
+  }, [desktops, refresh]);
+
   /** Delete a desktop after confirmation; remove its tile optimistically. */
   const deleteComputer = useCallback(
     async (id: string) => {
@@ -243,6 +255,7 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
   );
 
   const isEmpty = !loading && desktops.length === 0;
+  const runningCount = desktops.filter((d) => RUNNING_STATUSES.has(d.status)).length;
 
   return (
     <div className="ds-nebula-fallback flex h-full flex-col">
@@ -259,6 +272,42 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
 
         <div className="flex items-center gap-3">
           <FinancialBar desktops={desktops} />
+
+          {/* Stop everything costing money (spec §40) — appears only while something is running. */}
+          {runningCount > 0 &&
+            (confirmStopAll ? (
+              <div className="hidden items-center gap-1.5 sm:inline-flex">
+                <button
+                  type="button"
+                  data-testid={desktopTestIds.stopAllConfirm}
+                  onClick={() => void stopAll()}
+                  className="rounded-lg bg-[var(--color-warning)] px-3 py-2 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-warning)]"
+                >
+                  {`Stop ${runningCount}?`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmStopAll(false)}
+                  className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid={desktopTestIds.stopAll}
+                onClick={() => setConfirmStopAll(true)}
+                aria-label="Stop all running computers"
+                className="hidden items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] sm:inline-flex"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+                  <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                </svg>
+                Stop all
+              </button>
+            ))}
+
           <button
             type="button"
             data-testid={desktopTestIds.newComputerButton}
@@ -547,6 +596,15 @@ function DesktopTile({
             <dt className="sr-only">Size</dt>
             <dd className="font-mono">
               {size.friendlyName} · {size.ramGiB} GiB
+            </dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Estimated cost</dt>
+            <dd
+              className="font-mono"
+              title="Estimated infrastructure cost while running (Cloudflare rate card; active CPU extra)"
+            >
+              {`~$${estimateDesktopCost(desktop.size).baselineUsdPerHour.toFixed(2)}/hr`}
             </dd>
           </div>
           <div className="flex items-center gap-1.5">

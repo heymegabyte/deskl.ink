@@ -286,4 +286,6 @@ export const desktopTestIds = {
   tabHome: 'tab-home',
   tabClose: 'tab-close', // per-tab close (does NOT stop/destroy)
   tabNew: 'tab-new',
+  stopAll: 'stop-all', // "stop everything costing money" (spec §40)
+  stopAllConfirm: 'stop-all-confirm',
 } as const;
