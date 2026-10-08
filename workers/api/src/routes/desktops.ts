@@ -37,6 +37,7 @@ import {
 } from '@deskl/shared';
 import type { Env } from '../env.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
+import { imageKeyFor, instanceFor } from '../compute/catalog.js';
 import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
 
 /**
@@ -55,7 +56,43 @@ function getRegistry(env: Env): DurableObjectStub<DesktopRegistry> {
   return env.REGISTRY.get(id) as unknown as DurableObjectStub<DesktopRegistry>;
 }
 
-/** The container-lifecycle surface the control-plane drives on a DesktopContainer. */
+// ---------------------------------------------------------------------------
+// Compute backend. TWO implementations behind one `Lifecycle` surface + a flag:
+//
+//   DEFAULT (flag off)      → the proven 12-class `default`-policy helper fleet (live golden path).
+//   COMPUTER_DO === '1'     → the universal `Computer` DO (durable_object policy, ADR-0002).
+//
+// The Computer path is fully deployed + wired but FLAG-GATED OFF: under the durable_object policy
+// `ctx.container.start({ image, instance })` returns but launches 0 instances (the `images` map is
+// present at runtime, but the multi-image runtime LAUNCH/size-selection call isn't confirmable from
+// current public docs — see docs/adr/0002 § Blocker). Flip `COMPUTER_DO=1` (a wrangler var) to
+// re-test once that's resolved, with NO change to the control-plane below.
+// ---------------------------------------------------------------------------
+
+/** Uniform lifecycle + proxy surface the routes drive, regardless of compute backend. */
+interface Lifecycle {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  destroy(): Promise<void>;
+  fetch(req: Request): Response | Promise<Response>;
+}
+
+/** The RPC surface the control-plane drives on a Computer DO (durable_object path). */
+interface ComputerStub {
+  configure(config: { imageKey: string; instance: string; env?: Record<string, string> }): Promise<void>;
+  startComputer(): Promise<void>;
+  stopComputer(): Promise<void>;
+  destroyComputer(): Promise<void>;
+  fetch(req: Request): Response | Promise<Response>;
+}
+
+/** Resolve the universal Computer DO stub (one DO per id). Cast breaks the TS2589 deep inference. */
+function getComputer(env: Env, id: string): ComputerStub {
+  const nsId = env.COMPUTER.idFromName(id);
+  return env.COMPUTER.get(nsId) as unknown as ComputerStub;
+}
+
+/** The container-lifecycle surface on a DesktopContainer (default-policy helper path). */
 interface DesktopContainerStub {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -64,16 +101,11 @@ interface DesktopContainerStub {
 }
 
 /**
- * Resolve the DesktopContainer stub for a desktop, routed by (distro × size).
- * Each (distro, size) pair is a DISTINCT Durable Object namespace — distro picks
- * the image, size picks the Cloudflare `instance_type` (RAM), and both are fixed
- * per DO class — so a desktop id maps to the instance in exactly its namespace.
- * Unknown distro/size fall back to ubuntu/everyday so the golden path never wedges.
- *
- * `getContainer(...)`'s full stub-proxy type expands recursively under
- * `exactOptionalPropertyTypes` (TS2589 at every call site). Narrowing to the
- * `DesktopContainerStub` surface breaks that deep inference once, here, without
- * changing runtime behavior.
+ * Resolve the DesktopContainer stub for a desktop, routed by (distro × size). Each (distro, size)
+ * is a DISTINCT Durable Object namespace — distro picks the image, size picks the Cloudflare
+ * `instance_type` (RAM), both fixed per class. Unknown distro/size fall back to ubuntu/everyday.
+ * The `getContainer` stub-proxy type expands recursively under `exactOptionalPropertyTypes`
+ * (TS2589); narrowing to `DesktopContainerStub` breaks that once, here, without runtime change.
  */
 function getDesktopContainer(
   env: Env,
@@ -89,9 +121,8 @@ function getDesktopContainer(
 }
 
 /**
- * (distro × size) → the Durable Object namespace bound to that image +
- * instance_type. The cast collapses the 12 structurally-identical namespace
- * types to one; runtime selection is a plain object lookup.
+ * (distro × size) → the Durable Object namespace bound to that image + instance_type. The cast
+ * collapses the 12 structurally-identical namespace types to one; selection is a plain lookup.
  */
 function desktopNamespace(env: Env, distro: DistroId, size: DesktopSizeId): Env['DESKTOP'] {
   const grid = {
@@ -115,6 +146,30 @@ function desktopNamespace(env: Env, distro: DistroId, size: DesktopSizeId): Env[
     },
   } as unknown as Record<DistroId, Record<DesktopSizeId, Env['DESKTOP']>>;
   return grid[distro]?.[size] ?? grid.ubuntu.everyday;
+}
+
+/** Resolve the compute backend for a computer — Computer DO when `COMPUTER_DO=1`, else the fleet. */
+function lifecycleFor(env: Env, id: string, distro: DistroId, size: DesktopSizeId): Lifecycle {
+  if (env.COMPUTER_DO === '1') {
+    const comp = getComputer(env, id);
+    return {
+      start: async () => {
+        // Persist image + instance, then boot. Registry (distro, size) stays authoritative.
+        await comp.configure({ imageKey: imageKeyFor(distro), instance: instanceFor(size) });
+        await comp.startComputer();
+      },
+      stop: () => comp.stopComputer(),
+      destroy: () => comp.destroyComputer(),
+      fetch: (req) => comp.fetch(req),
+    };
+  }
+  const cont = getDesktopContainer(env, id, distro, size);
+  return {
+    start: () => cont.start(),
+    stop: () => cont.stop(),
+    destroy: () => cont.destroy(),
+    fetch: (req) => cont.fetch(req),
+  };
 }
 
 /** Generate a URL-safe desktop id (UUIDv4 — unpredictable, no info leak). */
@@ -163,7 +218,9 @@ app.post('/', async (c) => {
   // Route to the container namespace matching the chosen distro.
   let desktop = created;
   try {
-    await getDesktopContainer(c.env, id, distro, size).start();
+    // Boot the computer on the active backend (12-class fleet by default; Computer DO when
+    // COMPUTER_DO=1). `.start()` is non-blocking + idempotent; `ready` here = "boot accepted".
+    await lifecycleFor(c.env, id, distro, size).start();
     desktop = (await registry.updateStatus(id, 'ready')) ?? created;
   } catch (err) {
     console.error('[deskl.ink desktops] auto-start on create failed', id, err);
@@ -206,9 +263,8 @@ app.post('/:id/start', async (c) => {
 
   await registry.updateStatus(id, 'starting');
   try {
-    // `.start()` is non-blocking + idempotent (safe on an already-running instance).
-    // Route to the container namespace for this desktop's distro.
-    await getDesktopContainer(c.env, id, existing.distro, existing.size).start();
+    // Idempotent on both backends (no-op if already running).
+    await lifecycleFor(c.env, id, existing.distro, existing.size).start();
   } catch (err) {
     console.error('[deskl.ink desktops] start failed', id, err);
     const failed = await registry.updateStatus(id, 'failed');
@@ -235,9 +291,9 @@ app.post('/:id/ticket', async (c) => {
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
   try {
-    // `.start()` is non-blocking + idempotent — guarantees the instance is up before we hand
-    // out a ticket (covers "ticket for a stopped desktop" too).
-    await getDesktopContainer(c.env, id, existing.distro, existing.size).start();
+    // Ensure the instance is up before handing out a ticket (covers "ticket for a stopped
+    // desktop" too). Idempotent on both backends.
+    await lifecycleFor(c.env, id, existing.distro, existing.size).start();
   } catch (err) {
     console.error('[deskl.ink desktops] ticket start failed', id, err);
     return c.json({ ok: false, error: 'start_failed' }, 502);
@@ -261,8 +317,7 @@ app.post('/:id/stop', async (c) => {
 
   await registry.updateStatus(id, 'stopping');
   try {
-    // Route to the container namespace for this desktop's distro.
-    await getDesktopContainer(c.env, id, existing.distro, existing.size).stop();
+    await lifecycleFor(c.env, id, existing.distro, existing.size).stop();
   } catch (err) {
     // A stop failure shouldn't wedge the record — log, still mark stopped.
     console.error('[deskl.ink desktops] stop failed', id, err);
@@ -282,13 +337,14 @@ app.post('/:id/stop', async (c) => {
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
   const registry = getRegistry(c.env);
-  // Look up the distro so we destroy the instance in the RIGHT namespace. An
-  // unknown desktop has no live container in any namespace — skip the destroy
-  // and just ensure the (already-absent) row is removed, keeping this idempotent.
+  // One Computer DO per id — destroy it directly (no namespace routing needed). An unknown
+  // desktop has no live container, and `destroyComputer` is idempotent, so a destroy on a
+  // never-started / already-gone id is a safe no-op. We await the destroy BEFORE removing the
+  // row so a GET during teardown still 404s only once the container is actually gone.
   const existing = await registry.get(id);
   if (existing) {
     try {
-      await getDesktopContainer(c.env, id, existing.distro, existing.size).destroy();
+      await lifecycleFor(c.env, id, existing.distro, existing.size).destroy();
     } catch (err) {
       console.error('[deskl.ink desktops] destroy failed', id, err);
     }
@@ -321,15 +377,14 @@ app.all('/:id/vnc/*', async (c) => {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  // The verified ticket carries the distro → route to the matching container
-  // namespace without re-reading the registry on this hot path.
-  const container = getDesktopContainer(c.env, id, verdict.claims.distro, verdict.claims.size);
+  // Resolve the compute backend from the ticket's (distro, size) claims — routes the 12-class
+  // fleet to the right namespace, or (COMPUTER_DO=1) the single Computer DO by id.
+  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size);
 
-  // WebSocket upgrades: pass the ORIGINAL request straight to the container's defaultPort
-  // (VNC_CONTAINER_PORT = websockify). NO switchPort / NO `new Request` — both reconstruct
-  // the request and drop the forbidden Upgrade/Connection headers, so websockify would see a
-  // plain GET and 404. websockify proxies a socket on ANY path, so no prefix-strip is needed.
-  // The browser sends the path-scoped cookie on the ws handshake, so it stays authenticated.
+  // WebSocket upgrades: pass the ORIGINAL request straight through (NO switchPort / NO new Request
+  // at this layer — both drop the forbidden Upgrade/Connection headers, so websockify would see a
+  // plain GET and 404). websockify proxies a socket on ANY path, so no prefix-strip is needed. The
+  // browser sends the path-scoped cookie on the ws handshake, so it stays authenticated.
   if (c.req.header('upgrade')?.toLowerCase() === 'websocket') {
     return container.fetch(c.req.raw);
   }

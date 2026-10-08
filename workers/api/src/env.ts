@@ -27,6 +27,7 @@ import type {
   DebianHeavy,
 } from './containers/DesktopContainer.js';
 import type { DesktopRegistry } from './containers/DesktopRegistry.js';
+import type { Computer } from './containers/Computer.js';
 
 export interface Env {
   /** Primary relational store. */
@@ -48,6 +49,16 @@ export interface Env {
    * (`ubuntu`) distro + the live golden path.
    */
   DESKTOP: DurableObjectNamespace<DesktopContainer>;
+
+  /**
+   * The UNIVERSAL computer DO (one per computer id) — Cloudflare `durable_object` scheduling
+   * policy. Selects image + instance size AT RUNTIME (`ctx.container.start`), so ONE class spans
+   * every distro × size (and, later, desktop/server form + version + snapshot restore). This is
+   * the live create path; the 12 per-(distro × size) DESKTOP* namespaces below are the superseded
+   * `default`-policy fleet, kept defined for a clean revert while this is verified in prod.
+   * See docs/adr/0002-durable-object-container-policy.md.
+   */
+  COMPUTER: DurableObjectNamespace<Computer>;
 
   /** Per-distro container DO for `fedora` desktops (Fedora image). */
   DESKTOP_FEDORA: DurableObjectNamespace<FedoraDesktop>;
@@ -73,6 +84,14 @@ export interface Env {
 
   /** HMAC secret for signing/verifying short-lived VNC connection tickets. */
   VNC_TICKET_SECRET?: string;
+
+  /**
+   * Feature flag (default off): when `'1'`, route compute through the universal `Computer` DO
+   * (durable_object policy, ADR-0002) instead of the 12-class `default`-policy fleet. OFF because
+   * the durable_object multi-image runtime launch isn't confirmed yet (start() → 0 instances).
+   * Flip via a wrangler var to re-test without a code change.
+   */
+  COMPUTER_DO?: string;
 
   /** Deploy environment tag, e.g. "production" | "preview". */
   ENVIRONMENT?: string;

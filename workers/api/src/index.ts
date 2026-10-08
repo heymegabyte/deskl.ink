@@ -15,6 +15,8 @@ import desktops from './routes/desktops.js';
 // so the runtime can instantiate them (classes referenced in wrangler.jsonc
 // durable_objects.bindings + migrations.new_sqlite_classes). FedoraDesktop /
 // DebianDesktop are per-distro subclasses bound to their own images.
+// The universal `durable_object`-policy computer DO — the live create path.
+export { Computer } from './containers/Computer.js';
 export {
   DesktopContainer,
   FedoraDesktop,

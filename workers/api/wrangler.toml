@@ -113,10 +113,26 @@ image = "../../container/debian/Dockerfile"
 instance_type = "standard-4"
 max_instances = 4
 
+# --- Computer: the UNIVERSAL durable_object-policy container app (the LIVE create path) ---
+# ONE class picks its image (from the `images` map) + instance size per-instance AT RUNTIME via
+# `ctx.container.start({ image, instance, ... })`. This supersedes the 12 default-policy classes
+# above (collapsing distro × size into data), and is the foundation for server form, version
+# selection, and snapshot restore. `max_instances` is NOT supported with durable_object policy.
+# See docs/adr/0002-durable-object-container-policy.md.
+[[containers]]
+class_name = "Computer"
+scheduling_policy = "durable_object"
+images = { "ubuntu-desktop" = { dockerfile = "../../container/ubuntu/Dockerfile" }, "fedora-desktop" = { dockerfile = "../../container/fedora/Dockerfile" }, "debian-desktop" = { dockerfile = "../../container/debian/Dockerfile" } }
+
 # --- Durable Objects ---
 [[durable_objects.bindings]]
 name = "DESKTOP"
 class_name = "DesktopContainer"
+
+# The universal computer DO (durable_object policy) — the live create path.
+[[durable_objects.bindings]]
+name = "COMPUTER"
+class_name = "Computer"
 
 [[durable_objects.bindings]]
 name = "DESKTOP_FEDORA"
@@ -185,6 +201,12 @@ new_sqlite_classes = [
   "DebianPower",
   "DebianHeavy",
 ]
+
+# v4: the universal `Computer` DO (durable_object scheduling policy). Additive — none of the
+# v1/v2/v3 classes change, so a revert is just removing this class + flipping routing back.
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["Computer"]
 
 # ---------------------------------------------------------------------------
 # Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill
