@@ -111,6 +111,21 @@ export function App() {
   /** Return to Home (the grid) while keeping every tab open. */
   const goHome = useCallback(() => setActiveId(null), []);
 
+  /** Reorder tabs by moving `draggedId` to `targetId`'s position (drag-and-drop, §35). The persist
+   *  effect saves ids in this order, so a reordered strip survives reload. */
+  const reorderTab = useCallback((draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    setTabs((prev) => {
+      const from = prev.findIndex((t) => t.desktop.id === draggedId);
+      const to = prev.findIndex((t) => t.desktop.id === targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(from, 1);
+      if (moved) next.splice(to, 0, moved);
+      return next;
+    });
+  }, []);
+
   // Lock background scroll while the overlay is up.
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -170,6 +185,7 @@ export function App() {
           onSelect={setActiveId}
           onClose={closeTab}
           onHome={goHome}
+          onReorder={reorderTab}
         />
       )}
 
@@ -228,13 +244,16 @@ function TabStrip({
   onSelect,
   onClose,
   onHome,
+  onReorder,
 }: {
   tabs: OpenTab[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onHome: () => void;
+  onReorder: (draggedId: string, targetId: string) => void;
 }) {
+  const dragId = useRef<string | null>(null);
   return (
     <div
       data-testid={desktopTestIds.tabStrip}
@@ -282,7 +301,21 @@ function TabStrip({
               data-tab-id={t.desktop.id}
               role="tab"
               aria-selected={selected}
-              className="group my-1 flex min-w-0 max-w-[12rem] items-center gap-1.5 rounded-md pl-2 pr-1 transition-colors"
+              draggable
+              onDragStart={() => {
+                dragId.current = t.desktop.id;
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const d = dragId.current;
+                dragId.current = null;
+                if (d) onReorder(d, t.desktop.id);
+              }}
+              onDragEnd={() => {
+                dragId.current = null;
+              }}
+              className="group my-1 flex min-w-0 max-w-[12rem] cursor-grab items-center gap-1.5 rounded-md pl-2 pr-1 transition-colors active:cursor-grabbing"
               style={{
                 backgroundColor: selected ? 'var(--color-cyan)' + '26' : 'transparent',
               }}
