@@ -9,6 +9,30 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D12 — Server form = a distinct lean image + class + terminal workspace (not desktop-with-VNC-hidden)
+- **Decision:** Implement the headless `server` form (§9) as a SEPARATE lean image
+  (`container/ubuntu-server`: ttyd + dev CLIs, no KDE/VNC) on its own `UbuntuServer` DO class, with
+  a terminal-native `ServerWorkspace` tab — NOT a desktop computer with the VNC view swapped. `form`
+  threads the contract → registry → ticket → routing; defaults to `desktop` (fully additive).
+- **Alternatives:** (a) server = desktop image, UI hides VNC + shows terminal (violates §9
+  explicitly; wastes a KDE image's RAM/boot on a headless box); (b) wait for the Computer DO to
+  unblock so form is pure data (blocked — see D6); (c) put server behind a flag (unnecessary — it's
+  additive + the desktop path is untouched).
+- **Rationale:** §9 is emphatic that Server "deserves a server-native workspace." A lean image boots
+  faster + costs less, and a terminal-first tab is the right surface for OpenCode/agents/ports.
+  Reused the proven `/term` proxy + a separate `ServerWorkspace` so the monitor-critical desktop view
+  is untouched.
+- **Evidence:** Verified live end-to-end (real browser): server create → `form:'server'` →
+  terminal-native `ServerWorkspace` with the ttyd iframe + **no VNC viewport**; image built locally
+  (ttyd 200, git/node/python/rg present); desktop golden path green.
+- **Lesson:** a registry **DO schema change (`ALTER TABLE ... form`) + new column don't take effect
+  until the hot singleton DO evicts/cold-starts** — right after deploy, creates hit the old code and
+  `form` read back as `desktop`. Correct after the eviction window. Factor this into post-deploy
+  verification of DO-schema changes.
+- **Date:** 2026-10-07 · **Status:** active (Ubuntu server, everyday size) · **Confidence:** high
+- **Reconsider when:** the Computer DO unblocks (D6) → form becomes pure data (one class, image
+  chosen at runtime); add server sizes/distros + Files/Ports + OpenCode preinstall as additive.
+
 ### D11 — Tabs = the primary workspace; "Home" is the grid; close ≠ stop
 - **Decision:** Adopt the spec-§33 model — every OPEN computer is a tab in a persistent top strip;
   "Home" (leftmost) is the manager grid. The active tab's desktop fills everything under the strip

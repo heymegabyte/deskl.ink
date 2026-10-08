@@ -113,6 +113,14 @@ image = "../../container/debian/Dockerfile"
 instance_type = "standard-4"
 max_instances = 4
 
+# --- Server form: Ubuntu headless (ttyd, no desktop/VNC) — the LEAN server image ---
+# everyday size (standard-1) for v1; more server sizes are additive classes later.
+[[containers]]
+class_name = "UbuntuServer"
+image = "../../container/ubuntu-server/Dockerfile"
+instance_type = "standard-1"
+max_instances = 10
+
 # --- Computer: the UNIVERSAL durable_object-policy container app (the LIVE create path) ---
 # ONE class picks its image (from the `images` map) + instance size per-instance AT RUNTIME via
 # `ctx.container.start({ image, instance, ... })`. This supersedes the 12 default-policy classes
@@ -174,6 +182,9 @@ class_name = "DebianPower"
 [[durable_objects.bindings]]
 name = "DESKTOP_DEBIAN_HEAVY"
 class_name = "DebianHeavy"
+[[durable_objects.bindings]]
+name = "DESKTOP_UBUNTU_SERVER"
+class_name = "UbuntuServer"
 
 # --- Migrations: container DOs + the registry both require SQLite storage ---
 [[migrations]]
@@ -207,6 +218,11 @@ new_sqlite_classes = [
 [[migrations]]
 tag = "v4"
 new_sqlite_classes = ["Computer"]
+
+# v5: the headless server-form class (additive — the desktop classes are untouched).
+[[migrations]]
+tag = "v5"
+new_sqlite_classes = ["UbuntuServer"]
 
 # ---------------------------------------------------------------------------
 # Bindings below are STAGED for later milestones (D1 + R2). Uncomment + fill

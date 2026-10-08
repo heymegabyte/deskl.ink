@@ -7,6 +7,7 @@ import {
   type DesktopStatus,
   type DistroId,
   type DesktopSizeId,
+  type ComputerForm,
 } from '../../../../packages/shared/src/desktop-api';
 import { api, ApiError } from '../lib/api.js';
 import { Wordmark } from './Logo.js';
@@ -155,7 +156,11 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
 
   /** Create an Everyday desktop, show it optimistically, poll until ready. */
   const createComputer = useCallback(
-    async (distro: DistroId = 'ubuntu', size: DesktopSizeId = 'everyday') => {
+    async (
+      distro: DistroId = 'ubuntu',
+      size: DesktopSizeId = 'everyday',
+      form: ComputerForm = 'desktop'
+    ) => {
       if (creating) return;
       setCreating(true);
       setError(null);
@@ -163,6 +168,7 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
         const { desktop, vncTicket } = await api.createDesktop({
           size,
           distro,
+          form,
           disposable: false,
         });
         ticketsRef.current.set(desktop.id, vncTicket);
@@ -261,7 +267,7 @@ export function DesktopManager({ onOpen, onSignOut, onDeleted }: DesktopManagerP
     <div className="ds-nebula-fallback flex h-full flex-col">
       {pickerOpen && (
         <OsPicker
-          onCreate={(distro, size) => void createComputer(distro, size)}
+          onCreate={(distro, size, form) => void createComputer(distro, size, form)}
           onClose={() => setPickerOpen(false)}
           creating={creating}
         />
@@ -591,6 +597,12 @@ function DesktopTile({
           <div className="flex items-center gap-1.5">
             <dt className="sr-only">Operating system</dt>
             <dd>{desktop.os}</dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Type</dt>
+            <dd className={desktop.form === 'server' ? 'text-[var(--color-cyan)]/80' : undefined}>
+              {desktop.form === 'server' ? 'Server' : 'Desktop'}
+            </dd>
           </div>
           <div className="flex items-center gap-1.5">
             <dt className="sr-only">Size</dt>

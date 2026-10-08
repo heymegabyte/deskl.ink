@@ -21,6 +21,8 @@ import { DurableObject } from 'cloudflare:workers';
 import {
   DEFAULT_DESKTOP_OS,
   DISTROS,
+  COMPUTER_FORMS,
+  type ComputerForm,
   type DesktopResource,
   type DesktopSizeId,
   type DesktopStatus,
@@ -44,6 +46,8 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
   /** Selectable distro ('ubuntu' | 'fedora' | 'debian'); NULL on legacy rows. */
   distro: string | null;
   size: string;
+  /** Computer form ('desktop' | 'server'); NULL on pre-server rows → 'desktop'. */
+  form: string | null;
   status: string;
   created_at: string;
   last_active_at: string | null;
@@ -65,6 +69,7 @@ export interface CreateDesktopRow {
   os?: string;
   distro: DistroId;
   size: DesktopSizeId;
+  form: ComputerForm;
   status: DesktopStatus;
   persistent: boolean;
   /** Owning principal id — the ownership boundary enforced by the control-plane. */
@@ -86,7 +91,8 @@ export class DesktopRegistry extends DurableObject<Env> {
         created_at TEXT NOT NULL,
         last_active_at TEXT,
         persistent INTEGER NOT NULL DEFAULT 0,
-        owner TEXT
+        owner TEXT,
+        form TEXT
       );`
     );
     // Additive migrations for registries created before a column existed. `ADD COLUMN` throws
@@ -102,6 +108,11 @@ export class DesktopRegistry extends DurableObject<Env> {
       this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN owner TEXT;`);
     } catch {
       // column already present — expected on every start after the first.
+    }
+    try {
+      this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN form TEXT;`);
+    } catch {
+      // column already present — pre-server rows read as 'desktop'.
     }
     // Fixed-window rate-limit counters (cost-abuse guard on create). Keyed by an
     // arbitrary bucket string (e.g. per-IP or global). Idempotent create.
@@ -154,13 +165,14 @@ export class DesktopRegistry extends DurableObject<Env> {
   create(input: CreateDesktopRow): DesktopResource {
     const now = new Date().toISOString();
     this.ctx.storage.sql.exec(
-      `INSERT INTO desktops (id, name, os, distro, size, status, created_at, last_active_at, persistent, owner)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+      `INSERT INTO desktops (id, name, os, distro, size, form, status, created_at, last_active_at, persistent, owner)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          os = excluded.os,
          distro = excluded.distro,
          size = excluded.size,
+         form = excluded.form,
          status = excluded.status,
          owner = excluded.owner;`,
       input.id,
@@ -168,6 +180,7 @@ export class DesktopRegistry extends DurableObject<Env> {
       input.os ?? DEFAULT_DESKTOP_OS,
       input.distro,
       input.size,
+      input.form,
       input.status,
       now,
       input.persistent ? 1 : 0,
@@ -251,6 +264,7 @@ function rowToResource(row: DesktopRow): DesktopResource {
     os: row.os,
     distro: normalizeDistro(row.distro),
     size: row.size as DesktopSizeId,
+    form: normalizeForm(row.form),
     status: row.status as DesktopStatus,
     createdAt: row.created_at,
     persistent: row.persistent === 1,
@@ -262,4 +276,11 @@ function rowToResource(row: DesktopRow): DesktopResource {
 /** Coerce a stored distro to a known id; NULL (legacy rows) or unknown → Ubuntu. */
 function normalizeDistro(value: string | null): DistroId {
   return value && value in DISTROS ? (value as DistroId) : DEFAULT_DISTRO;
+}
+
+/** Coerce a stored form to a known value; NULL (pre-server rows) or unknown → 'desktop'. */
+function normalizeForm(value: string | null): ComputerForm {
+  return value && (COMPUTER_FORMS as readonly string[]).includes(value)
+    ? (value as ComputerForm)
+    : 'desktop';
 }

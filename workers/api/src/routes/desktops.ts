@@ -31,6 +31,7 @@ import {
   DesktopListResponseSchema,
   DesktopResponseSchema,
   VncTicketResponseSchema,
+  type ComputerForm,
   type DesktopResource,
   type DistroId,
   type DesktopSizeId,
@@ -127,20 +128,28 @@ function getDesktopContainer(
   env: Env,
   id: string,
   distro: DistroId,
-  size: DesktopSizeId
+  size: DesktopSizeId,
+  form: ComputerForm
 ): DesktopContainerStub {
   const resolve = getContainer as unknown as (
     binding: Env['DESKTOP'],
     name: string
   ) => DesktopContainerStub;
-  return resolve(desktopNamespace(env, distro, size), id);
+  return resolve(desktopNamespace(env, distro, size, form), id);
 }
 
 /**
- * (distro × size) → the Durable Object namespace bound to that image + instance_type. The cast
- * collapses the 12 structurally-identical namespace types to one; selection is a plain lookup.
+ * (distro × size × form) → the Durable Object namespace bound to that image + instance_type. The
+ * cast collapses the structurally-identical namespace types to one; selection is a plain lookup.
+ * A `server` computer is the headless Ubuntu image (one class for v1), regardless of distro/size.
  */
-function desktopNamespace(env: Env, distro: DistroId, size: DesktopSizeId): Env['DESKTOP'] {
+function desktopNamespace(
+  env: Env,
+  distro: DistroId,
+  size: DesktopSizeId,
+  form: ComputerForm
+): Env['DESKTOP'] {
+  if (form === 'server') return env.DESKTOP_UBUNTU_SERVER as unknown as Env['DESKTOP'];
   const grid = {
     ubuntu: {
       everyday: env.DESKTOP,
@@ -165,13 +174,19 @@ function desktopNamespace(env: Env, distro: DistroId, size: DesktopSizeId): Env[
 }
 
 /** Resolve the compute backend for a computer — Computer DO when `COMPUTER_DO=1`, else the fleet. */
-function lifecycleFor(env: Env, id: string, distro: DistroId, size: DesktopSizeId): Lifecycle {
+function lifecycleFor(
+  env: Env,
+  id: string,
+  distro: DistroId,
+  size: DesktopSizeId,
+  form: ComputerForm
+): Lifecycle {
   if (env.COMPUTER_DO === '1') {
     const comp = getComputer(env, id);
     return {
       start: async () => {
-        // Persist image + instance, then boot. Registry (distro, size) stays authoritative.
-        await comp.configure({ imageKey: imageKeyFor(distro), instance: instanceFor(size) });
+        // Persist image + instance, then boot. Registry (distro, size, form) stays authoritative.
+        await comp.configure({ imageKey: imageKeyFor(distro, form), instance: instanceFor(size) });
         await comp.startComputer();
       },
       stop: () => comp.stopComputer(),
@@ -184,7 +199,7 @@ function lifecycleFor(env: Env, id: string, distro: DistroId, size: DesktopSizeI
         new Response('Terminal is not available on the Computer backend yet.', { status: 503 }),
     };
   }
-  const cont = getDesktopContainer(env, id, distro, size);
+  const cont = getDesktopContainer(env, id, distro, size, form);
   return {
     start: () => cont.start(),
     stop: () => cont.stop(),
@@ -202,9 +217,9 @@ function newDesktopId(): string {
   return crypto.randomUUID();
 }
 
-/** Default label when the user doesn't name the desktop. */
-function defaultName(size: keyof typeof DESKTOP_SIZES): string {
-  return `${DESKTOP_SIZES[size].friendlyName} desktop`;
+/** Default label when the user doesn't name the computer, e.g. "Everyday desktop" / "Everyday server". */
+function defaultName(size: keyof typeof DESKTOP_SIZES, form: ComputerForm): string {
+  return `${DESKTOP_SIZES[size].friendlyName} ${form}`;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -244,17 +259,18 @@ app.post('/', async (c) => {
   if (!parsed.success) {
     return c.json({ ok: false, error: 'invalid_request', details: parsed.error.flatten() }, 400);
   }
-  const { name, size, distro, disposable } = parsed.data;
+  const { name, size, distro, form, disposable } = parsed.data;
 
   const id = newDesktopId();
   const created: DesktopResource = await registry.create({
     id,
-    name: name ?? defaultName(size),
+    name: name ?? defaultName(size, form),
     // OS string is derived from the chosen distro (e.g. "Fedora 41") so the
     // registry's `os` field always matches the distro the container runs.
     os: DISTROS[distro].os,
     distro,
     size,
+    form,
     status: 'starting',
     persistent: !disposable,
     owner: principalId,
@@ -266,17 +282,17 @@ app.post('/', async (c) => {
   // Route to the container namespace matching the chosen distro.
   let desktop = created;
   try {
-    // Boot the computer on the active backend (12-class fleet by default; Computer DO when
-    // COMPUTER_DO=1). `.start()` is non-blocking + idempotent; `ready` here = "boot accepted".
-    await lifecycleFor(c.env, id, distro, size).start();
+    // Boot the computer on the active backend (12-class fleet / server class by default; Computer
+    // DO when COMPUTER_DO=1). `.start()` is non-blocking + idempotent; `ready` = "boot accepted".
+    await lifecycleFor(c.env, id, distro, size, form).start();
     desktop = (await registry.updateStatus(id, 'ready')) ?? created;
   } catch (err) {
     console.error('[deskl.ink desktops] auto-start on create failed', id, err);
     desktop = (await registry.updateStatus(id, 'failed')) ?? created;
   }
 
-  // Ticket carries the distro so the VNC proxy routes to the right container.
-  const vncTicket = await mintVncTicket(id, distro, size, c.env.VNC_TICKET_SECRET);
+  // Ticket carries distro + size + form so the VNC/terminal proxy routes to the right container.
+  const vncTicket = await mintVncTicket(id, distro, size, form, c.env.VNC_TICKET_SECRET);
 
   const body = CreateDesktopResponseSchema.parse({ desktop, vncTicket });
   return c.json(body, 201);
@@ -317,7 +333,7 @@ app.post('/:id/start', async (c) => {
   await registry.updateStatus(id, 'starting');
   try {
     // Idempotent on both backends (no-op if already running).
-    await lifecycleFor(c.env, id, existing.distro, existing.size).start();
+    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).start();
   } catch (err) {
     console.error('[deskl.ink desktops] start failed', id, err);
     const failed = await registry.updateStatus(id, 'failed');
@@ -347,14 +363,20 @@ app.post('/:id/ticket', async (c) => {
   try {
     // Ensure the instance is up before handing out a ticket (covers "ticket for a stopped
     // desktop" too). Idempotent on both backends.
-    await lifecycleFor(c.env, id, existing.distro, existing.size).start();
+    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).start();
   } catch (err) {
     console.error('[deskl.ink desktops] ticket start failed', id, err);
     return c.json({ ok: false, error: 'start_failed' }, 502);
   }
   await registry.updateStatus(id, 'ready');
 
-  const vncTicket = await mintVncTicket(id, existing.distro, existing.size, c.env.VNC_TICKET_SECRET);
+  const vncTicket = await mintVncTicket(
+    id,
+    existing.distro,
+    existing.size,
+    existing.form,
+    c.env.VNC_TICKET_SECRET
+  );
   const body = VncTicketResponseSchema.parse({ vncTicket });
   return c.json(body);
 });
@@ -372,7 +394,7 @@ app.post('/:id/stop', async (c) => {
 
   await registry.updateStatus(id, 'stopping');
   try {
-    await lifecycleFor(c.env, id, existing.distro, existing.size).stop();
+    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
   } catch (err) {
     // A stop failure shouldn't wedge the record — log, still mark stopped.
     console.error('[deskl.ink desktops] stop failed', id, err);
@@ -399,7 +421,7 @@ app.delete('/:id', async (c) => {
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
   try {
-    await lifecycleFor(c.env, id, existing.distro, existing.size).destroy();
+    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).destroy();
   } catch (err) {
     console.error('[deskl.ink desktops] destroy failed', id, err);
   }
@@ -433,7 +455,7 @@ app.all('/:id/vnc/*', async (c) => {
 
   // Resolve the compute backend from the ticket's (distro, size) claims — routes the 12-class
   // fleet to the right namespace, or (COMPUTER_DO=1) the single Computer DO by id.
-  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size);
+  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size, verdict.claims.form);
 
   // WebSocket upgrades: pass the ORIGINAL request straight through (NO switchPort / NO new Request
   // at this layer — both drop the forbidden Upgrade/Connection headers, so websockify would see a
@@ -481,7 +503,7 @@ app.all('/:id/term/*', async (c) => {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size);
+  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size, verdict.claims.form);
 
   // Forward the request with its `/term` prefix INTACT through the WS-capable stub `.fetch` — do
   // NOT reconstruct/strip it here, which would drop the WebSocket upgrade. The DesktopContainer DO

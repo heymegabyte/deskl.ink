@@ -16,6 +16,7 @@
 
 import {
   VncTicketClaimsSchema,
+  type ComputerForm,
   type DistroId,
   type DesktopSizeId,
   type VncTicketClaims,
@@ -91,12 +92,14 @@ export async function mintVncTicket(
   desktopId: string,
   distro: DistroId,
   size: DesktopSizeId,
+  form: ComputerForm,
   secret: string | undefined
 ): Promise<string> {
   const claims: VncTicketClaims = {
     desktopId,
     distro,
     size,
+    form,
     exp: Math.floor(Date.now() / 1000) + TICKET_TTL_MINUTES * 60,
   };
   const payload = base64UrlEncode(encoder.encode(JSON.stringify(claims)));

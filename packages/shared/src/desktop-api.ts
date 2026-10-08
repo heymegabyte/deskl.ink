@@ -159,12 +159,32 @@ export const DISTROS: Readonly<Record<DistroId, DistroSpec>> = {
   },
 } as const;
 
+/**
+ * Computer form (spec §9): a graphical `desktop` (full GUI over VNC) or a headless `server`
+ * (terminal / OpenCode / files / ports — NOT a desktop with VNC hidden). Behavior derives from
+ * this + capabilities, not from platform-name conditionals.
+ */
+export const COMPUTER_FORMS = ['desktop', 'server'] as const;
+export const ComputerFormSchema = z.enum(COMPUTER_FORMS);
+export type ComputerForm = z.infer<typeof ComputerFormSchema>;
+
+export interface ComputerFormSpec {
+  readonly id: ComputerForm;
+  readonly name: string;
+  readonly tagline: string;
+}
+export const COMPUTER_FORM_SPECS: Readonly<Record<ComputerForm, ComputerFormSpec>> = {
+  desktop: { id: 'desktop', name: 'Desktop', tagline: 'Full graphical workstation' },
+  server: { id: 'server', name: 'Server', tagline: 'Headless — terminal, agents, OpenCode' },
+} as const;
+
 /** POST /api/v1/desktops — create a computer. */
 export const CreateDesktopRequestSchema = z
   .object({
     name: z.string().min(1).max(60).optional(),
     size: DesktopSizeIdSchema.default('everyday'),
     distro: DistroIdSchema.default('ubuntu'),
+    form: ComputerFormSchema.default('desktop'),
     disposable: z.boolean().default(false),
   })
   .strict();
@@ -177,6 +197,7 @@ export const DesktopResourceSchema = z.object({
   os: z.string(),
   distro: DistroIdSchema,
   size: DesktopSizeIdSchema,
+  form: ComputerFormSchema.default('desktop'),
   status: DesktopStatusSchema,
   createdAt: z.string(),
   lastActiveAt: z.string().optional(),
@@ -197,10 +218,11 @@ export type DesktopListResponse = z.infer<typeof DesktopListResponseSchema>;
 export const VncTicketClaimsSchema = z.object({
   desktopId: z.string(),
   distro: DistroIdSchema,
-  // Carried so the VNC proxy routes to the right (distro × size) container namespace
-  // without re-reading the registry. Each size maps to a distinct Cloudflare
-  // `instance_type` (RAM), hence a distinct Durable Object class.
+  // Carried so the VNC/terminal proxy routes to the right container namespace without re-reading
+  // the registry. (distro × size × form) selects the Durable Object class. `form` defaults to
+  // 'desktop' so any older ticket still parses.
   size: DesktopSizeIdSchema,
+  form: ComputerFormSchema.default('desktop'),
   exp: z.number(), // epoch seconds
 });
 export type VncTicketClaims = z.infer<typeof VncTicketClaimsSchema>;
@@ -269,6 +291,7 @@ export const desktopApi = {
 export const desktopTestIds = {
   newComputerButton: 'new-computer-button',
   distroOption: 'distro-option', // carries data-distro=<id>
+  formOption: 'form-option', // carries data-form=<id> (desktop | server)
   sizeOption: 'size-option', // carries data-size=<id>
   createConfirm: 'create-computer-confirm',
   tile: 'desktop-tile', // carries data-desktop-id
@@ -293,4 +316,6 @@ export const desktopTestIds = {
   tabNew: 'tab-new',
   stopAll: 'stop-all', // "stop everything costing money" (spec §40)
   stopAllConfirm: 'stop-all-confirm',
+  serverWorkspace: 'server-workspace', // headless server tab (terminal-native)
+  serverTerminal: 'server-terminal', // the ttyd iframe in a server tab
 } as const;

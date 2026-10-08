@@ -15,6 +15,11 @@ const DesktopFullscreen = lazy(() =>
   import('./routes/DesktopFullscreen.js').then((m) => ({ default: m.DesktopFullscreen }))
 );
 
+// A headless server's tab is a terminal-native workspace, not a remote desktop (spec §9).
+const ServerWorkspace = lazy(() =>
+  import('./routes/ServerWorkspace.js').then((m) => ({ default: m.ServerWorkspace }))
+);
+
 /**
  * localStorage key tracking whether the home overlay was dismissed this
  * session. Milestone 2 ties this to the real auth session instead.
@@ -179,15 +184,25 @@ export function App() {
 
       {!dismissed && <HomeOverlay onDismiss={dismiss} />}
 
-      {/* The active tab's desktop (lazy chunk), filling everything UNDER the tab strip (§38). */}
+      {/* The active tab's workspace (lazy chunk), filling everything UNDER the tab strip (§38):
+          a remote desktop for `desktop` computers, a terminal-native workspace for `server`. */}
       {active && (
         <Suspense fallback={<FullscreenBoot />}>
-          <DesktopFullscreen
-            key={active.desktop.id}
-            desktop={active.desktop}
-            ticket={active.ticket}
-            onExit={goHome}
-          />
+          {active.desktop.form === 'server' ? (
+            <ServerWorkspace
+              key={active.desktop.id}
+              desktop={active.desktop}
+              ticket={active.ticket}
+              onExit={goHome}
+            />
+          ) : (
+            <DesktopFullscreen
+              key={active.desktop.id}
+              desktop={active.desktop}
+              ticket={active.ticket}
+              onExit={goHome}
+            />
+          )}
         </Suspense>
       )}
     </div>

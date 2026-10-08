@@ -115,3 +115,13 @@ export class FedoraHeavy extends DesktopContainer {}
 export class DebianDeveloper extends DesktopContainer {}
 export class DebianPower extends DesktopContainer {}
 export class DebianHeavy extends DesktopContainer {}
+
+/**
+ * UbuntuServer — the headless SERVER form (spec §9): Ubuntu + ttyd, NO desktop/VNC.
+ *
+ * Inherits DesktopContainer's `/term`→ttyd fetch routing, so the Worker's terminal proxy works
+ * identically. It's bound (in wrangler) to the LEAN `container/ubuntu-server/Dockerfile` instead of
+ * the KDE image, so there is no websockify/VNC on :6080 — a server's workspace is the terminal, not
+ * a remote desktop. `everyday` size (standard-1) for v1; more sizes are additive classes later.
+ */
+export class UbuntuServer extends DesktopContainer {}
