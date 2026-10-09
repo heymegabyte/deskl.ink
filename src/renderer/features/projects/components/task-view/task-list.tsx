@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { asMounted, getProjectStore } from '@renderer/features/projects/stores/project-selectors';
 import { useAppSettingsKey } from '@renderer/features/settings/use-app-settings-key';
 import { getTaskManagerStore } from '@renderer/features/tasks/stores/task-selectors';
+import { isRegistered } from '@renderer/features/tasks/stores/task-store';
 import { ListPopoverCard } from '@renderer/lib/components/list-popover-card';
 import {
   getEffectiveHotkey,
@@ -141,11 +142,7 @@ export const TaskList = observer(function TaskList() {
 
   const taskView = store?.view.taskView ?? null;
 
-  const allTasks = taskManager
-    ? Array.from(taskManager.tasks.values()).filter(
-        (t): t is ReadyTask => t.state !== 'unregistered'
-      )
-    : [];
+  const allTasks = taskManager ? Array.from(taskManager.tasks.values()).filter(isRegistered) : [];
   const activeTasks = allTasks.filter((t) => !t.data.archivedAt);
   const archivedTasks = allTasks.filter((t) => Boolean(t.data.archivedAt));
 
@@ -173,7 +170,7 @@ export const TaskList = observer(function TaskList() {
 
     const selectedTasks = [...taskView.selectedIds]
       .map((id) => taskManager?.tasks.get(id))
-      .filter((t): t is ReadyTask => !!t)
+      .filter((t): t is ReadyTask => t !== undefined && isRegistered(t))
       .map((t) => ({ taskId: t.data.id, taskName: t.data.name }));
 
     if (selectedTasks.length === 0) return;

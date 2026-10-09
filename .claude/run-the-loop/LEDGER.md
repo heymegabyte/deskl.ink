@@ -98,3 +98,26 @@ journey, breakpoint visual or accessibility runtime proof. Build bundle/outDir w
 remain. DeepSeek credentials unavailable from environment/broker; no paid API fallback used.
 Next frontier: search-specific empty state, bulk operation feedback, preflight-error handling,
 registration guard, task-list accessibility, and isolated Electron runtime journeys.
+
+
+## 2026-10-09 — heymegabyte--deskl.ink-37900308892-1
+
+One bounded fallback iteration with grouped product/security, testing/UX/accessibility,
+and architecture/docs/hygiene reviews and an independent adversarial review. Remote main
+contains the preceding fixes despite earlier Actions summary-finalizer failures; the worktree
+list contains no retained failed workspace requiring recovery. Three registration regressions
+failed before the fix. Bulk deletion and task-list filtering now use the existing isRegistered
+guard; unregistered creation/error stores never enter the confirmed payload. Twelve focused
+tests cover mixed/all-ineligible selections, both registration transition directions before
+requesting confirmation, provisioned eligibility, and confirmed-ID/option preservation.
+
+Loop improvement: durable state-guard and transition acceptance guidance in README; tick
+the registration frontier without duplicating existing backlog items. Next bounded slice:
+visible retry/error handling for failed deletion preflight. Real Electron golden/long journeys,
+visual and accessibility runtime gates remain unexecuted; mocked callbacks do not prove them.
+Publication is delegated to the outer runner; no deployment performed. DeepSeek credentials
+unavailable from environment/broker; no paid API fallback used.
+
+Fresh corepack pnpm format, lint, typecheck, full test suite (159 files / 1125 tests),
+production build, and diff check passed. The commit is the containing fix(tasks) commit.
+Existing production bundle-size/outDir warnings remain; no deployment or publication claim.

@@ -40,3 +40,8 @@ For destructive confirmation changes, derive operation IDs from the exact modal 
 after resolving selected records. Snapshotting raw selection alone can include IDs never shown
 in the confirmation. Cover replacement/clearing of selection while open, missing task records,
 and cancellation; assert the destructive options as well as IDs sent to the manager.
+
+For task registration changes, use the existing isRegistered guard rather than a truthy-store
+cast. Cover mixed and exclusively unregistered selections, creating/create-error phases,
+and state transitions between rendering and requesting confirmation. Keep both provisioned
+and unprovisioned registered tasks eligible; assert the exact modal payload and deletion IDs.

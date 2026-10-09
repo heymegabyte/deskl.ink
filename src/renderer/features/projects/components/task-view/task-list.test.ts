@@ -11,6 +11,16 @@ const mocks = vi.hoisted(() => {
   return { view, manager, showDeleteTask: vi.fn() };
 });
 
+// Keep the real task registration guard while isolating Electron-backed store dependencies.
+vi.mock('@renderer/lib/ipc', () => ({ rpc: {}, events: {} }));
+vi.mock('@renderer/features/tasks/stores/conversation-registry', () => ({
+  conversationRegistry: {},
+}));
+vi.mock('@renderer/features/tasks/stores/workspace-registry', () => ({ workspaceRegistry: {} }));
+vi.mock('@renderer/features/tasks/stores/workspace-view-model', () => ({
+  WorkspaceViewModel: class {},
+}));
+
 vi.mock('mobx-react-lite', () => ({ observer: (component: unknown) => component }));
 vi.mock('@tanstack/react-hotkeys', () => ({ useHotkey: vi.fn() }));
 vi.mock('@renderer/features/projects/stores/project-selectors', () => ({
@@ -86,6 +96,60 @@ describe('task list deletion confirmation', () => {
       deleteWorktree: true,
       deleteBranch: false,
     });
+  });
+
+  it.each(['creating', 'create-error'])(
+    'excludes unregistered selected tasks in phase %s',
+    (phase) => {
+      mocks.view.selectedIds = new Set(['a', 'pending']);
+      mocks.manager.tasks.set('pending', {
+        state: 'unregistered',
+        phase,
+        data: { id: 'pending', name: 'Pending task' },
+      });
+      const modal = openDeleteConfirmation();
+      expect(modal.tasks).toEqual([{ taskId: 'a', taskName: 'Task A' }]);
+      modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+      expect(mocks.manager.deleteTasks).toHaveBeenCalledWith(['a'], {
+        deleteWorktree: false,
+        deleteBranch: false,
+      });
+    }
+  );
+
+  it.each(['creating', 'create-error'])('does not open confirmation for only %s tasks', (phase) => {
+    mocks.manager.tasks.get('a').state = 'unregistered';
+    mocks.manager.tasks.get('a').phase = phase;
+    expect(openDeleteConfirmation()).toBeUndefined();
+    expect(mocks.showDeleteTask).not.toHaveBeenCalled();
+    expect(mocks.manager.deleteTasks).not.toHaveBeenCalled();
+  });
+
+  it('includes provisioned selected tasks', () => {
+    mocks.manager.tasks.get('a').state = 'provisioned';
+    const modal = openDeleteConfirmation();
+    expect(modal.tasks).toEqual([{ taskId: 'a', taskName: 'Task A' }]);
+  });
+
+  it('checks registration when deletion is requested after a selected task transitions', () => {
+    const tree = TaskList();
+    if (!tree) throw new Error('Expected the mounted task list');
+    const selectedTask = mocks.manager.tasks.get('a');
+    selectedTask.state = 'unregistered';
+    tree.props.children.at(-1).props.onDelete();
+    expect(mocks.showDeleteTask).not.toHaveBeenCalled();
+    expect(mocks.manager.deleteTasks).not.toHaveBeenCalled();
+  });
+
+  it('includes a selected task after it becomes registered', () => {
+    const selectedTask = mocks.manager.tasks.get('a');
+    selectedTask.state = 'unregistered';
+    const tree = TaskList();
+    if (!tree) throw new Error('Expected the mounted task list');
+    selectedTask.state = 'unprovisioned';
+    tree.props.children.at(-1).props.onDelete();
+    const modal = mocks.showDeleteTask.mock.calls[0]?.[0];
+    expect(modal.tasks).toEqual([{ taskId: 'a', taskName: 'Task A' }]);
   });
 
   it('does not delete tasks until confirmation succeeds', () => {

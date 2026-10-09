@@ -32,5 +32,5 @@
 
 - [ ] Delete preflight failure: require visible retry/error handling rather than proceeding
   with hidden worktree options and default destructive choices after a failed preflight.
-- [ ] Task registration transitions: exclude unregistered records from bulk deletion
+- [x] Task registration transitions: exclude unregistered records from bulk deletion
   confirmation with a real state guard; cover selected tasks changing registration state.
