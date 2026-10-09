@@ -45,3 +45,8 @@ For task registration changes, use the existing isRegistered guard rather than a
 cast. Cover mixed and exclusively unregistered selections, creating/create-error phases,
 and state transitions between rendering and requesting confirmation. Keep both provisioned
 and unprovisioned registered tasks eligible; assert the exact modal payload and deletion IDs.
+
+For search empty states, cover both tabs, empty projects, whitespace-only queries and
+clear-search recovery. A no-match search must not render creation onboarding; keep
+onboarding for an empty active tab without an effective query. Component element tests
+prove branch/callback behavior only; retain separate real-renderer visual acceptance.

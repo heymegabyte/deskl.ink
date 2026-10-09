@@ -24,7 +24,7 @@
 
 - [x] Delete confirmation: capture confirmed task IDs rather than reading mutable selection
   in the success callback. Cover selection changes while the modal is open.
-- [ ] Search empty state: distinguish zero matching tasks from an empty active task list;
+- [x] Search empty state: distinguish zero matching tasks from an empty active task list;
   avoid presenting creation onboarding for a search with no matches.
 - [ ] Bulk archive/restore failures: handle rejected task-manager operations with visible feedback.
 - [ ] Task-list accessibility: label search explicitly, identify row checkboxes by task name,

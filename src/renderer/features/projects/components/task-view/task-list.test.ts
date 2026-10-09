@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => {
     tab: 'active',
     searchQuery: '',
     setSelectedIds: vi.fn(),
+    setSearchQuery: vi.fn(),
   };
   const manager = { tasks: new Map(), deleteTasks: vi.fn() };
   return { view, manager, showDeleteTask: vi.fn() };
@@ -163,5 +164,58 @@ describe('task list deletion confirmation', () => {
     expect(openDeleteConfirmation()).toBeUndefined();
     expect(mocks.showDeleteTask).not.toHaveBeenCalled();
     expect(mocks.manager.deleteTasks).not.toHaveBeenCalled();
+  });
+});
+
+describe('task list search empty state', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.view.selectedIds = new Set();
+    mocks.view.tab = 'active';
+    mocks.view.searchQuery = '';
+    mocks.manager.tasks = new Map([
+      ['a', { state: 'unprovisioned', data: { id: 'a', name: 'Task A' } }],
+      [
+        'b',
+        { state: 'unprovisioned', data: { id: 'b', name: 'Task B', archivedAt: '2026-01-01' } },
+      ],
+    ]);
+  });
+
+  it.each(['active', 'archived'])('offers search recovery for no matches in %s', (tab) => {
+    mocks.view.tab = tab;
+    mocks.view.searchQuery = ' missing ';
+    const body = TaskList()!.props.children[1];
+    expect(body.props.label).toBe('No matching tasks');
+    expect(body.props.action.props.children).toBe('Clear search');
+    body.props.action.props.onClick();
+    expect(mocks.view.setSearchQuery).toHaveBeenCalledWith('');
+  });
+
+  it('offers search recovery even when the active list is empty', () => {
+    mocks.manager.tasks.clear();
+    mocks.view.searchQuery = 'missing';
+    expect(TaskList()!.props.children[1].props.label).toBe('No matching tasks');
+  });
+
+  it('keeps creation onboarding for an empty list with a whitespace-only query', () => {
+    mocks.manager.tasks.clear();
+    mocks.view.searchQuery = '   ';
+    const body = TaskList()!.props.children[1];
+    expect(body.props.projectId).toBe('project');
+    expect(body.props.label).toBeUndefined();
+  });
+
+  it('returns matching tasks after clearing the search', () => {
+    mocks.manager.tasks.set('c', { state: 'unprovisioned', data: { id: 'c', name: 'Task C' } });
+    mocks.view.searchQuery = ' task a ';
+    const body = TaskList()!.props.children[1];
+    expect(body.props.tasks.map((task: { data: { id: string } }) => task.data.id)).toEqual(['a']);
+    mocks.view.searchQuery = '';
+    expect(
+      TaskList()!.props.children[1].props.tasks.map(
+        (task: { data: { id: string } }) => task.data.id
+      )
+    ).toEqual(['a', 'c']);
   });
 });

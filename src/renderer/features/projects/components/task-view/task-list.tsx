@@ -238,7 +238,17 @@ export const TaskList = observer(function TaskList() {
         </div>
       </div>
 
-      {filteredTasks.length === 0 && taskView.tab === 'active' ? (
+      {filteredTasks.length === 0 && q ? (
+        <EmptyState
+          label="No matching tasks"
+          description="Try a different search or clear it to see all tasks in this tab."
+          action={
+            <Button variant="outline" onClick={() => taskView.setSearchQuery('')}>
+              Clear search
+            </Button>
+          }
+        />
+      ) : filteredTasks.length === 0 && taskView.tab === 'active' ? (
         <TaskListEmptyState projectId={projectId} />
       ) : (
         <TaskVirtualList

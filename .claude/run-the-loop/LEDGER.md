@@ -121,3 +121,27 @@ unavailable from environment/broker; no paid API fallback used.
 Fresh corepack pnpm format, lint, typecheck, full test suite (159 files / 1125 tests),
 production build, and diff check passed. The commit is the containing fix(tasks) commit.
 Existing production bundle-size/outDir warnings remain; no deployment or publication claim.
+
+## 2026-10-09 — heymegabyte--deskl.ink-37945879634-1
+
+One bounded fallback iteration: grouped feature/testing/architecture/hygiene/performance,
+journey/UX/accessibility/security, and docs/discovery/loop-improvement reviews, followed by
+independent adversarial review. Remote main contains the prior failed-run fixes; only this
+run and the canonical checkout remain as worktrees, so no retained recovery was duplicated.
+
+Three search-empty regressions failed before implementation. Both active and archived
+no-match searches now show “No matching tasks” with Clear search; empty active lists without
+an effective query retain creation onboarding. Seventeen focused tests cover both tabs,
+empty projects, whitespace-only queries, recovery callbacks, filtering and deletion invariants.
+Adversarial review strengthened recovery coverage with a second active task.
+Loop improvement: durable search-empty acceptance guidance in README; tick existing backlog.
+
+Fresh format, lint, typecheck, full suite (159 files / 1130 tests), production build and diff
+check passed; final verification is recorded in this run's agent-report.json. The commit is
+this entry's containing fix(tasks) commit. Publication belongs to the outer runner; no deploy
+or push performed. Real Electron golden/long journeys, visual breakpoint and accessibility
+runtime gates remain unverified: no private display compositor was found, and owner display
+was left untouched. Existing build bundle-size/outDir warnings remain. DeepSeek credential
+unavailable through broker; no paid API fallback used. Router usage observations are stale.
+Next frontier: deletion preflight error/retry handling, bulk archive/restore feedback,
+keyboard-visible task selectors and named checkboxes, isolated real Electron journeys.
