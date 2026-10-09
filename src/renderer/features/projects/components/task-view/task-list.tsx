@@ -178,11 +178,13 @@ export const TaskList = observer(function TaskList() {
 
     if (selectedTasks.length === 0) return;
 
+    const confirmedTaskIds = selectedTasks.map((task) => task.taskId);
+
     showDeleteTask({
       projectId,
       tasks: selectedTasks,
       onSuccess: ({ deleteWorktree, deleteBranch }) => {
-        void taskManager?.deleteTasks([...taskView.selectedIds], { deleteWorktree, deleteBranch });
+        void taskManager?.deleteTasks(confirmedTaskIds, { deleteWorktree, deleteBranch });
         clearSelection();
       },
     });

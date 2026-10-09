@@ -22,10 +22,15 @@
 - [ ] Terminal search accessibility: announce result counts to assistive technology;
   verify actual terminal selection in an isolated real Electron Unicode journey.
 
-- [ ] Delete confirmation: capture confirmed task IDs rather than reading mutable selection
+- [x] Delete confirmation: capture confirmed task IDs rather than reading mutable selection
   in the success callback. Cover selection changes while the modal is open.
 - [ ] Search empty state: distinguish zero matching tasks from an empty active task list;
   avoid presenting creation onboarding for a search with no matches.
 - [ ] Bulk archive/restore failures: handle rejected task-manager operations with visible feedback.
 - [ ] Task-list accessibility: label search explicitly, identify row checkboxes by task name,
   and verify unchecked selectors remain visible on keyboard focus in a real renderer.
+
+- [ ] Delete preflight failure: require visible retry/error handling rather than proceeding
+  with hidden worktree options and default destructive choices after a failed preflight.
+- [ ] Task registration transitions: exclude unregistered records from bulk deletion
+  confirmation with a real state guard; cover selected tasks changing registration state.

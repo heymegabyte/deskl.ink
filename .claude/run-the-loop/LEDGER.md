@@ -77,3 +77,24 @@ visual breakpoints and accessibility runtime gates remain unexecuted; source aud
 satisfy them. Existing bundle/outDir warnings remain. Next frontier: confirmed deletion ID
 snapshot, search-specific empty state, bulk-operation feedback, task-list accessibility,
 and isolated Electron journey including navigation redirects and Unicode selection.
+
+
+## 2026-10-08 — heymegabyte--deskl.ink-37869335622-1
+
+One bounded fallback iteration with grouped product/security, testing/UX, and hygiene/docs
+reviews followed by independent adversarial review. Verified all prior fixes are ancestors
+of current main despite failed Actions structured-record finalizers; no retained recovery
+needed. Three deletion regressions failed before implementation. Bulk deletion now snapshots
+IDs from the exact confirmed task payload instead of rereading mutable selection. Five
+callback tests cover replacement/clearing, missing records, missing-only selection, and no
+deletion before confirmation; options are preserved. Test fixtures use real registration states.
+
+Loop improvement: document confirmed-payload identity and missing-record acceptance; tick
+the deletion frontier and record separate preflight-error and registration-transition defects.
+Fresh corepack pnpm format, lint, typecheck, full suite (159 files / 1118 tests), production
+build, and diff check passed. Commit is the containing fix(tasks) commit. Publication is
+delegated to the outer runner; no deployment performed. No real Electron golden/long
+journey, breakpoint visual or accessibility runtime proof. Build bundle/outDir warnings
+remain. DeepSeek credentials unavailable from environment/broker; no paid API fallback used.
+Next frontier: search-specific empty state, bulk operation feedback, preflight-error handling,
+registration guard, task-list accessibility, and isolated Electron runtime journeys.

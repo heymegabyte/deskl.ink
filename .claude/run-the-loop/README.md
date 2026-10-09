@@ -35,3 +35,8 @@ Test active and archived selections, clearing search, equivalent queries, and fr
 anchors. Changing the effective filter clears selection; raw text still updates for case
 and whitespace edits. Inspect confirmation callbacks separately: a modal must operate on
 its confirmed IDs, not a mutable selection reread. Zero matches is distinct from no tasks.
+
+For destructive confirmation changes, derive operation IDs from the exact modal task payload,
+after resolving selected records. Snapshotting raw selection alone can include IDs never shown
+in the confirmation. Cover replacement/clearing of selection while open, missing task records,
+and cancellation; assert the destructive options as well as IDs sent to the manager.
