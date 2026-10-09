@@ -26,7 +26,7 @@
   in the success callback. Cover selection changes while the modal is open.
 - [x] Search empty state: distinguish zero matching tasks from an empty active task list;
   avoid presenting creation onboarding for a search with no matches.
-- [ ] Bulk archive/restore failures: handle rejected task-manager operations with visible feedback.
+- [x] Bulk archive/restore failures: handle rejected task-manager operations with visible feedback.
 - [ ] Task-list accessibility: label search explicitly, identify row checkboxes by task name,
   and verify unchecked selectors remain visible on keyboard focus in a real renderer.
 
@@ -34,3 +34,8 @@
   with hidden worktree options and default destructive choices after a failed preflight.
 - [x] Task registration transitions: exclude unregistered records from bulk deletion
   confirmation with a real state guard; cover selected tasks changing registration state.
+
+- [ ] Individual archive/restore failures: task-row and sidebar handlers must consume rejected
+  manager operations and provide visible action-specific feedback.
+- [ ] Pending bulk mutations: prevent duplicate archive/restore requests while pending and
+  verify rollback ordering under overlapping actions in a real Electron journey.

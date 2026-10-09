@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Archive, RotateCcw, Trash2, X } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { useRef } from 'react';
+import { toast } from 'sonner';
 import { asMounted, getProjectStore } from '@renderer/features/projects/stores/project-selectors';
 import { useAppSettingsKey } from '@renderer/features/settings/use-app-settings-key';
 import { getTaskManagerStore } from '@renderer/features/tasks/stores/task-selectors';
@@ -148,21 +149,39 @@ export const TaskList = observer(function TaskList() {
 
   const clearSelection = () => taskView?.setSelectedIds(new Set());
 
-  const bulkArchive = () => {
-    if (!taskView) return;
+  const bulkUpdate = async (action: 'archive' | 'restore') => {
+    if (!taskView || !taskManager) return;
 
-    const ids = [...taskView.selectedIds];
-    ids.forEach((id) => void taskManager?.archiveTask(id));
+    const selection = taskView.selectedIds;
+    const ids = [...selection].filter((id) => {
+      const task = taskManager.tasks.get(id);
+      return task !== undefined && isRegistered(task);
+    });
+    if (ids.length === 0) return;
+
     clearSelection();
+    const clearedSelection = taskView.selectedIds;
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        if (action === 'archive') await taskManager.archiveTask(id);
+        else await taskManager.restoreTask(id);
+      })
+    );
+    const failedIds = ids.filter((_, index) => results[index]?.status === 'rejected');
+
+    // Row clicks mutate the Set; tab/search changes replace it. Respect both while pending.
+    if (taskView.selectedIds === clearedSelection && clearedSelection.size === 0) {
+      taskView.setSelectedIds(new Set(failedIds));
+    }
+    if (failedIds.length > 0) {
+      toast.error(
+        `Could not ${action} ${failedIds.length} of ${ids.length} tasks. Please try again.`
+      );
+    }
   };
 
-  const bulkRestore = () => {
-    if (!taskView) return;
-
-    const ids = [...taskView.selectedIds];
-    ids.forEach((id) => void taskManager?.restoreTask(id));
-    clearSelection();
-  };
+  const bulkArchive = () => bulkUpdate('archive');
+  const bulkRestore = () => bulkUpdate('restore');
 
   const bulkDelete = () => {
     if (!taskView) return;

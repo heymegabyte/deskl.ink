@@ -50,3 +50,11 @@ For search empty states, cover both tabs, empty projects, whitespace-only querie
 clear-search recovery. A no-match search must not render creation onboarding; keep
 onboarding for an empty active tab without an effective query. Component element tests
 prove branch/callback behavior only; retain separate real-renderer visual acceptance.
+
+For bulk archive/restore changes, consume every rejected operation and report action-specific
+failure counts. Test both actions with all success, all failure, mixed results and deferred
+requests; preserve failed IDs for retry without replacing newer selection after a tab/search
+or manual selection change. Filter missing/unregistered records at click time. Callback-unit
+tests do not establish toast rendering/announcement or real Electron persistence. A private
+display/compositor plus isolated XDG_CONFIG_HOME and EMDASH_DB_FILE are required for Electron
+journeys; missing runtime prerequisites remain incomplete gates.

@@ -145,3 +145,35 @@ was left untouched. Existing build bundle-size/outDir warnings remain. DeepSeek 
 unavailable through broker; no paid API fallback used. Router usage observations are stale.
 Next frontier: deletion preflight error/retry handling, bulk archive/restore feedback,
 keyboard-visible task selectors and named checkboxes, isolated real Electron journeys.
+
+
+## 2026-10-09 — bulk archive/restore failure feedback
+
+Run: heymegabyte--deskl.ink-37982431167-1. Remote main at 46441bd4 contains the prior
+verified fixes; failed Actions runs 37811159866/37847372525 failed in summary finalization,
+and their product commits are ancestors of origin/main. No retained recovery required.
+One bounded fallback iteration: grouped product/UX/a11y/docs, technical/security/hygiene,
+and validation/runtime/loop reviews; primary implementation/convergence, then independent
+adversarial review. No project run-the-loop command exists. Role reviews are code reviews,
+not evidence of completed runtime, visual, accessibility, or dependency-currency audits.
+
+Task list now filters registered operation IDs, settles every archive/restore request,
+reports failed/total counts through the existing toast system, and restores failed IDs for
+retry only while the immediately cleared selection remains unchanged and empty. New row,
+search and tab selections take precedence. Initial ten regressions reproduced; independent
+review exposed two more failures from same-Set row selection, then verified the corrected
+31-test focused suite. Immediate clearing retains the prior ordinary duplicate-click behavior.
+No new capability or flag required: this repairs existing mutation error handling.
+
+Loop improvement: durable bulk-rejection/mixed-result and deferred-selection acceptance
+checks, plus explicit callback/browser/Electron evidence separation. Backlog reconciled;
+individual archive handlers and pending-operation/rollback concurrency remain next slices.
+Current empty-state heuristic can restore failures if a user selects then deselects back to
+empty during the request; no full selection-history guarantee is claimed.
+
+Fresh core format/lint/typecheck and full suite passed (159 files, 1144 tests); build result
+and final commit recorded in the non-secret run report. This entry's containing commit is
+the verified result. Publication belongs to the outer runner; no push or deploy performed.
+Real Electron long journeys, toast rendering/announcements, six-breakpoint visual and runtime
+accessibility gates remain unverified: private Xvfb/xvfb-run/weston unavailable. DeepSeek
+credential check failed; no paid fallback used. Router usage is stale, not live headroom.
