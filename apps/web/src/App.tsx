@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { HomeOverlay } from './components/HomeOverlay.js';
 import { DesktopManager } from './components/DesktopManager.js';
 import { CommandPalette } from './components/CommandPalette.js';
-import { DistroMark } from './components/DistroMark.js';
+import { DistroLogo } from './components/DistroLogo.js';
 import { api } from './lib/api.js';
 import {
   desktopTestIds,
@@ -382,7 +382,7 @@ function TabStrip({
                 className="flex min-w-0 items-center gap-1.5 py-1 text-xs font-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
                 style={{ color: selected ? 'var(--color-white)' : 'var(--color-muted)' }}
               >
-                <DistroMark distro={t.desktop.distro} size={14} />
+                <DistroLogo distro={t.desktop.distro} size={14} />
                 <span className="truncate">{t.desktop.name}</span>
                 <span
                   className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"

@@ -18,8 +18,20 @@
  */
 
 import { Container } from '@cloudflare/containers';
-import { VNC_CONTAINER_PORT, TTYD_CONTAINER_PORT } from '@deskl/shared';
+import {
+  VNC_CONTAINER_PORT,
+  TTYD_CONTAINER_PORT,
+  SessionSnapshotSchema,
+  type McpToolName,
+  type McpToolResult,
+  type Participant,
+  type SessionSnapshot,
+} from '@deskl/shared';
 import type { Env } from '../env.js';
+import { SessionCoordinatorState, type ControlResult } from '../control/SessionCoordinatorState.js';
+
+/** DO storage key holding the persisted per-desktop session coordinator state. */
+const SESSION_STATE_KEY = 'control-plane:session' as const;
 
 export class DesktopContainer extends Container<Env> {
   /** websockify (noVNC + ws proxy) port inside the image. See the Dockerfile. */
@@ -64,6 +76,143 @@ export class DesktopContainer extends Container<Env> {
   /** Lifecycle breadcrumb — container shut down (idle-stop, stop, or destroy). */
   override onStop(): void {
     console.log('[deskl.ink DesktopContainer] stopped');
+  }
+
+  // -------------------------------------------------------------------------
+  // Agent control plane (feature-flagged OFF at the route; the DO itself is
+  // always safe to call). The per-desktop DO IS the single session coordinator
+  // + input arbiter: it persists the authoritative roster + control holder in
+  // `ctx.storage` and runs the PURE `SessionCoordinatorState` rules over it.
+  //
+  // Each method: load the snapshot → mutate via the arbiter → persist → return
+  // a typed result. Load/persist are tiny single-key reads/writes serialized by
+  // the DO's single-threaded execution, so no extra locking is needed.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Rehydrate the arbiter from persisted storage (empty session on first use / after eviction).
+   *
+   * The persisted blob is UNTRUSTED input to the arbiter's rules, so it is Zod-validated with
+   * `SessionSnapshotSchema.safeParse` rather than cast blindly: a corrupt / partially-written /
+   * schema-drifted record (e.g. a participant missing its `principal` after a shape change) starts
+   * a CLEAN empty session instead of seeding the arbiter with a malformed roster that could defeat
+   * the principal-binding check. The failure is logged structured (never silently swallowed).
+   */
+  private async loadCoordinator(): Promise<SessionCoordinatorState> {
+    const raw = await this.ctx.storage.get<unknown>(SESSION_STATE_KEY);
+    if (raw === undefined) return SessionCoordinatorState.fromSnapshot(undefined);
+    const parsed = SessionSnapshotSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.warn(
+        JSON.stringify({
+          at: 'DesktopContainer.loadCoordinator',
+          msg: 'discarding malformed persisted session snapshot; starting empty',
+          issues: parsed.error.issues.map((i) => ({ path: i.path.join('.'), code: i.code })),
+        })
+      );
+      return SessionCoordinatorState.fromSnapshot(undefined);
+    }
+    return SessionCoordinatorState.fromSnapshot(parsed.data);
+  }
+
+  /** Persist the arbiter's current snapshot as the authoritative per-desktop session state. */
+  private async saveCoordinator(coord: SessionCoordinatorState): Promise<SessionSnapshot> {
+    const snap = coord.snapshot();
+    await this.ctx.storage.put(SESSION_STATE_KEY, snap);
+    return snap;
+  }
+
+  /** Attach a participant (human or agent) to this desktop's session. Returns the new snapshot. */
+  async join(p: Participant): Promise<SessionSnapshot> {
+    const coord = await this.loadCoordinator();
+    coord.join(p);
+    return this.saveCoordinator(coord);
+  }
+
+  /** Detach a connection; auto-promotes control to the next controller if the holder left. */
+  async leave(connId: string): Promise<SessionSnapshot> {
+    const coord = await this.loadCoordinator();
+    coord.leave(connId);
+    return this.saveCoordinator(coord);
+  }
+
+  /**
+   * Request input control — granted only when control is free. The `connId` must belong to
+   * `callerPrincipal` (the authenticated session owner from `resolveAuth`); a cross-principal or
+   * absent connId is denied (server-bound identity).
+   */
+  async requestControl(connId: string, callerPrincipal: string): Promise<ControlResult> {
+    const coord = await this.loadCoordinator();
+    const result = coord.requestControl(connId, callerPrincipal);
+    if (result.ok) await this.saveCoordinator(coord);
+    return result;
+  }
+
+  /**
+   * Hand input control from the current holder to another participant. The caller must OWN
+   * `fromConnId` (server-bound identity) AND hold control; the target must be an existing
+   * participant (of any principal).
+   */
+  async handoff(
+    fromConnId: string,
+    toConnId: string,
+    callerPrincipal: string
+  ): Promise<ControlResult> {
+    const coord = await this.loadCoordinator();
+    const result = coord.handoff(fromConnId, toConnId, callerPrincipal);
+    if (result.ok) await this.saveCoordinator(coord);
+    return result;
+  }
+
+  /**
+   * Release input control. The `connId` must belong to `callerPrincipal` (a cross-principal connId
+   * is denied → `{ ok:false }`); only the actual holder frees control. On an authorized call returns
+   * the fresh snapshot (`{ ok:true, snapshot }`); on denial returns `{ ok:false, reason }`.
+   */
+  async releaseControl(
+    connId: string,
+    callerPrincipal: string
+  ): Promise<{ ok: true; snapshot: SessionSnapshot } | { ok: false; reason: string }> {
+    const coord = await this.loadCoordinator();
+    const verdict = coord.releaseControl(connId, callerPrincipal);
+    if (!verdict.ok) return { ok: false, reason: verdict.reason };
+    const snapshot = await this.saveCoordinator(coord);
+    return { ok: true, snapshot };
+  }
+
+  /** The current session roster + control holder. */
+  async getParticipants(): Promise<SessionSnapshot> {
+    return (await this.loadCoordinator()).snapshot();
+  }
+
+  /**
+   * Invoke an MCP tool on behalf of a connection. Authorizes against server-bound identity FIRST
+   * (the `connId` must belong to `callerPrincipal`), THEN input control (mutating tools require the
+   * control holder; read-only tools allowed to any bound participant); a denied call returns
+   * `{ ok:false, kind:'denied' }`.
+   *
+   * On an AUTHORIZED call the tool would be dispatched to the in-container command daemon — which is
+   * NOT built yet (ACP-EXEC) — so we return an HONEST `capability_gap` rather than faking a result.
+   * This is a real, typed outcome the caller can branch on, never a thrown error or a stubbed
+   * success. When the daemon lands, only this dispatch branch changes.
+   */
+  async invokeTool(
+    toolName: McpToolName,
+    _args: unknown,
+    connId: string,
+    callerPrincipal: string
+  ): Promise<McpToolResult> {
+    const coord = await this.loadCoordinator();
+    const verdict = coord.authorizeTool(connId, toolName, callerPrincipal);
+    if (!verdict.ok) {
+      return { ok: false, kind: 'denied', reason: verdict.reason };
+    }
+    return {
+      ok: false,
+      kind: 'capability_gap',
+      tool: toolName,
+      reason: 'container command daemon not yet deployed (ACP-EXEC)',
+    };
   }
 }
 

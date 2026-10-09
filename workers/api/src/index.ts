@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { requestLogger, type AppContext } from './observability.js';
 import desktops from './routes/desktops.js';
+import mcp from './routes/mcp.js';
 import auth from './routes/auth.js';
 
 // Container + registry Durable Objects must be exported from the Worker entry
@@ -132,6 +133,11 @@ app.route('/api/v1/auth', auth);
 
 // Desktop control-plane: create/list/get/start/stop/destroy + ticketed VNC proxy.
 app.route('/api/v1/desktops', desktops);
+
+// Agent control plane (flag-gated off): desktop-as-MCP tool surface + multi-connection roster +
+// human↔AI control handoff, all on the per-desktop coordinator DO. Same base; `POST /:id/mcp`
+// doesn't collide with any desktops route. Returns 404 while AGENT_CONTROL_PLANE !== '1'.
+app.route('/api/v1/desktops', mcp);
 
 /** JSON 404 for every unmatched route — never an HTML body. */
 app.notFound((c) =>

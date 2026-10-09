@@ -12,7 +12,7 @@ import {
   type DesktopSizeId,
   type ComputerForm,
 } from '@deskl/shared';
-import { DistroMark } from './DistroMark.js';
+import { DistroLogo } from './DistroLogo.js';
 
 interface OsPickerProps {
   /** Create a computer with the chosen form + distro + size. */
@@ -163,7 +163,7 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                           : 'border-[var(--color-border)] hover:-translate-y-px hover:border-white/20 hover:bg-white/5'
                       }`}
                     >
-                      <DistroMark distro={id} size={52} />
+                      <DistroLogo distro={id} size={52} />
                       <span className="font-display text-base font-700 text-white">{d.name}</span>
                       <span className="font-mono text-xs text-[var(--color-muted)]">{d.version}</span>
                       <span className="text-xs leading-snug text-[var(--color-muted)]">

@@ -51,7 +51,7 @@ import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
  * signed `deskl_session`) + admin flag, or `null` when the caller is not logged in (→ 401). The
  * `x-deskl-admin: ADMIN_TOKEN` header still allows cross-owner ops. owner id is threaded into logs.
  */
-async function resolveAuth(
+export async function resolveAuth(
   c: Context<AppContext>
 ): Promise<{ id: string; admin: boolean } | null> {
   if (isAdmin(c, c.env.ADMIN_TOKEN)) return { id: '__admin__', admin: true };
@@ -70,7 +70,7 @@ async function resolveAuth(
  * authenticated session so each user gets an isolated registry. For now a
  * single well-known id holds the whole fleet.
  */
-function getRegistry(env: Env): DurableObjectStub<DesktopRegistry> {
+export function getRegistry(env: Env): DurableObjectStub<DesktopRegistry> {
   // The `.get()` stub-proxy type over DesktopRegistry's RPC methods expands
   // recursively under exactOptionalPropertyTypes (TS2589). The function's return
   // annotation IS the authoritative contract, so cast the expression to it to

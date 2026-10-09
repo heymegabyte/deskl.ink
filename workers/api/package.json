@@ -8,16 +8,20 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.7",
     "@deskl/shared": "workspace:*",
-    "hono": "^4.6.14"
+    "aws4fetch": "^1.0.20",
+    "hono": "^4.6.14",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
     "typescript": "~5.7.2",
+    "vitest": "^5.0.3",
     "wrangler": "^4.0.0"
   }
 }

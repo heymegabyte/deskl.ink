@@ -15,6 +15,7 @@ import { getCookie } from 'hono/cookie';
 import type { AppContext } from '../observability.js';
 import { resolvePrincipal } from '../auth/principal.js';
 import { getRegistryStub } from '../containers/registry-stub.js';
+import { sendEmail } from '../email/ses.js';
 import {
   randomToken,
   signPayload,
@@ -234,38 +235,32 @@ app.post('/magic-link', async (c) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return c.json({ ok: true }); // always 200 — never disclose validity
   }
-  if (!c.env.RESEND_API_KEY) return c.json({ ok: false, error: 'email_not_configured' }, 501);
-
   const token = await signPayload(
     'magiclink',
     { email, exp: Math.floor(Date.now() / 1000) + 900 }, // 15 min
     secret
   );
   const link = `${appUrl(c)}/api/v1/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
-  const from = c.env.EMAIL_FROM ?? 'deskl.ink <login@megabyte.space>';
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject: 'Your deskl.ink sign-in link',
-        text: `Sign in to deskl.ink:\n\n${link}\n\nThis link expires in 15 minutes. If you didn't request it, ignore this email.`,
-        html: `<p>Sign in to <strong>deskl.ink</strong>:</p><p><a href="${link}">Open my workspace →</a></p><p style="color:#888;font-size:13px">This link expires in 15 minutes. If you didn't request it, you can ignore this email.</p>`,
-      }),
-    });
-    // Structured result so delivery is observable (never reveal to the caller, who always gets ok).
-    const detail = res.ok ? ((await res.json()) as { id?: string }).id : await res.text();
-    console.log(
-      JSON.stringify({ level: res.ok ? 'info' : 'error', msg: 'magic_link_send', status: res.status, id: res.ok ? detail : undefined, error: res.ok ? undefined : detail })
-    );
-  } catch (err) {
-    console.error('[auth] magic-link send failed', err);
-  }
+  const from = c.env.EMAIL_FROM ?? 'deskl.ink <login@deskl.ink>';
+
+  // Send via Amazon SES (the sole email rail). Structured result is logged (delivery observable);
+  // the caller always gets {ok:true} and never learns whether the address exists.
+  const result = await sendEmail(c.env, {
+    from,
+    to: email,
+    subject: 'Your deskl.ink sign-in link',
+    text: `Sign in to deskl.ink:\n\n${link}\n\nThis link expires in 15 minutes. If you didn't request it, ignore this email.`,
+    html: `<p>Sign in to <strong>deskl.ink</strong>:</p><p><a href="${link}">Open my workspace →</a></p><p style="color:#888;font-size:13px">This link expires in 15 minutes. If you didn't request it, you can ignore this email.</p>`,
+  });
+  console.log(
+    JSON.stringify({
+      level: result.ok ? 'info' : 'error',
+      msg: 'magic_link_send',
+      status: result.status,
+      id: result.messageId,
+      error: result.error,
+    })
+  );
   return c.json({ ok: true });
 });
 
@@ -284,9 +279,15 @@ app.get('/magic-link/verify', async (c) => {
 
 // --- Dev login (E2E only) ------------------------------------------------------------------------
 /**
- * Issues a session for a fixed test user WITHOUT OAuth — so the golden-path monitor can authenticate.
- * Gated by a constant-time match of `x-deskl-test-auth` against TEST_LOGIN_SECRET; returns 404 when
- * the secret is unset or wrong (indistinguishable from "no such route").
+ * Issues a session WITHOUT OAuth — so the golden-path monitor + authz regression suite can
+ * authenticate. Gated by a constant-time match of `x-deskl-test-auth` against TEST_LOGIN_SECRET;
+ * returns 404 when the secret is unset or wrong (indistinguishable from "no such route").
+ *
+ * Body is OPTIONAL: `{ email }` mints a session for THAT address (distinct test users, for
+ * cross-user/IDOR tests) via the SAME `userIdForEmail` path the real logins use, so a dev-login user
+ * and a Google/GitHub/magic-link user for the same email resolve to the same account + owned
+ * computers. With no body (or an invalid email) it keeps minting the fixed default user — back-compat
+ * with the golden path, and still fully gated, so behavior is unchanged when the secret is unset.
  */
 app.post('/dev-login', async (c) => {
   const secret = c.env.AUTH_SECRET ?? c.env.VNC_TICKET_SECRET ?? '';
@@ -295,7 +296,11 @@ app.post('/dev-login', async (c) => {
   if (!configured || !provided || !safeEqual(provided, configured)) {
     return c.json({ ok: false, error: 'not_found' }, 404);
   }
-  const email = 'e2e@deskl.ink';
+  // Optional `{ email }` → that test user; absent/invalid → the fixed default (back-compat). Same
+  // minimal shape check as magic-link; normalized to lowercase so ids match the real-login path.
+  const body = (await c.req.json().catch(() => ({}))) as { email?: unknown };
+  const requested = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const email = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(requested) ? requested : 'e2e@deskl.ink';
   const userId = await userIdForEmail(email, secret);
   c.header('Set-Cookie', await sessionCookie({ userId, email, provider: 'dev' }, secret));
   return c.json({ ok: true, user: { email, provider: 'dev' } });

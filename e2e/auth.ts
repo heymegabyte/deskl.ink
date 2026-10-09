@@ -8,10 +8,15 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 const TEST_AUTH = process.env['DESKL_TEST_AUTH'] ?? '';
 
 /** Authenticate an API request context (shares the page's cookie jar). Throws with guidance if the
- *  secret is missing/wrong so a misconfigured run fails loudly, not silently. */
-export async function devLogin(request: APIRequestContext): Promise<void> {
+ *  secret is missing/wrong so a misconfigured run fails loudly, not silently.
+ *
+ *  Pass `email` to mint a DISTINCT test user (cross-user / IDOR tests); omit it for the fixed
+ *  default user (the golden path). The endpoint derives userId = HMAC(email), so each distinct email
+ *  is an isolated owner. */
+export async function devLogin(request: APIRequestContext, email?: string): Promise<void> {
   const res = await request.post('/api/v1/auth/dev-login', {
     headers: { 'x-deskl-test-auth': TEST_AUTH },
+    ...(email ? { data: { email } } : {}),
   });
   if (!res.ok()) {
     throw new Error(

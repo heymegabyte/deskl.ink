@@ -104,8 +104,15 @@ export interface Env {
   /** GitHub OAuth App credentials (github.com/settings/developers). */
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
-  /** Resend API key for magic-link emails + the verified sender, e.g. "deskl.ink <login@deskl.ink>". */
-  RESEND_API_KEY?: string;
+  /**
+   * Amazon SES — the SOLE transactional email rail (magic-link sign-in). The sending domain
+   * (deskl.ink) is a verified SES identity with EasyDKIM. Credentials are wrangler secrets set
+   * from get-secret; `SES_REGION` + `EMAIL_FROM` are vars. SigV4 signing via aws4fetch.
+   */
+  AWS_ACCESS_KEY_ID?: string;
+  AWS_SECRET_ACCESS_KEY?: string;
+  SES_REGION?: string;
+  /** Verified SES sender, e.g. "deskl.ink <login@deskl.ink>". */
   EMAIL_FROM?: string;
   /** Secret that gates POST /api/v1/auth/dev-login (E2E auth without OAuth). Unset in normal prod. */
   TEST_LOGIN_SECRET?: string;
@@ -124,6 +131,16 @@ export interface Env {
    * Flip via a wrangler var to re-test without a code change.
    */
   COMPUTER_DO?: string;
+
+  /**
+   * Feature flag (default off, mirrors {@link COMPUTER_DO}): when `'1'`, expose the AGENT CONTROL
+   * PLANE — the per-desktop coordinator surface at `POST /api/v1/desktops/:id/mcp` (desktop-as-MCP
+   * tool calls, multi-connection roster, human↔AI control handoff). While unset/≠'1' the route
+   * returns 404 (never 403), so the whole surface is dark until deliberately enabled. Flip via a
+   * wrangler var — no code change — to turn it on once the container command daemon (ACP-EXEC)
+   * backs the tool calls with real execution.
+   */
+  AGENT_CONTROL_PLANE?: string;
 
   /** Deploy environment tag, e.g. "production" | "preview". */
   ENVIRONMENT?: string;

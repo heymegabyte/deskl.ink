@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
-import { desktopTestIds, type DesktopResource } from '../../../../packages/shared/src/desktop-api';
-import { DistroMark } from './DistroMark.js';
+import { DISTROS, desktopTestIds, type DesktopResource } from '../../../../packages/shared/src/desktop-api';
+import { DistroLogo } from './DistroLogo.js';
 
 /**
  * Command palette (⌘K / Ctrl+K) — fast keyboard navigation to any computer plus quick global
@@ -73,7 +73,9 @@ export function CommandPalette({
       label: `Open ${d.name}`,
       hint: `${d.form === 'server' ? 'Server' : 'Desktop'} · ${d.os}`,
       keywords: `open switch go to ${d.name} ${d.distro} ${d.os} ${d.form}`,
-      icon: <DistroMark distro={d.distro} size={16} />,
+      // Icon-only: the row shows the DESKTOP name ("Open My Box"), never the distro name, so label
+      // the mark with the distro display name ("Ubuntu") to announce it once (no double-announce).
+      icon: <DistroLogo distro={d.distro} size={16} label={DISTROS[d.distro].name} />,
       run: () => onOpenDesktop(d),
     }));
     const actions: Command[] = [

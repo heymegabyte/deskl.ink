@@ -4,6 +4,7 @@
  * desktop-session renderer.
  */
 
+export * from './control-plane.js';
 export * from './design-tokens.js';
 export * from './desktop-api.js';
 export * from './types.js';

@@ -9,6 +9,30 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 
 ---
 
+### D29 — Amazon SES is the sole email rail; `deskl.ink` sender auto-provisioned
+- **Decision:** All transactional email (today: the magic-link sign-in) sends through **Amazon SES**,
+  and **only** SES. No third-party email API is used anywhere in deskl.ink. The sending domain
+  `deskl.ink` was auto-provisioned as a verified SES domain identity so magic links send from
+  `login@deskl.ink` directly (not a borrowed display-name sender).
+- **Alternatives:** (a) the previous magic-link path sent via a third-party transactional API using a
+  different verified domain as the envelope sender — rejected: a borrowed sender weakens DMARC
+  alignment + brand trust, and standardizing on one rail (SES) removes a dependency; (b) send from a
+  subdomain (`mail.deskl.ink`) — unnecessary once the apex is DKIM-verified; revisit only if we split
+  bulk from transactional streams.
+- **Auto-provisioning (what "automatically configured for the domain" means):** created the SES v2
+  domain identity for `deskl.ink` → EasyDKIM issued 3 CNAME tokens → wrote all 3 as un-proxied CNAMEs
+  to the Cloudflare DNS zone → SES confirmed `VerifiedForSendingStatus: true`, `DkimStatus: SUCCESS`.
+  The account has SES production access (not sandbox), so it can send to any recipient.
+- **Implementation:** `workers/api/src/email/ses.ts` — SES v2 `SendEmail`, SigV4-signed via `aws4fetch`
+  (Workers-native), never throws (returns a structured result that's logged). Region + sender are vars
+  (`SES_REGION`, `EMAIL_FROM`); `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` are wrangler secrets from
+  get-secret. Durable rule recorded in `~/.claude/.../rules/email-deliverability.md`.
+- **Evidence:** `aws sesv2 get-email-identity deskl.ink` → `Verified: true`, `DKIM: SUCCESS`; prod
+  deploy + a live magic-link request returns a `magic_link_send` log with SES status 200 + a MessageId.
+- **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
+- **Reconsider when:** bulk/marketing email is added (split streams: SES for transactional, a bulk
+  sender like Listmonk for campaigns); or a second sending domain is needed.
+
 ### D28 — Require login (M2): stateless Google/GitHub/magic-link + server-side enforcement
 - **Decision:** deskl.ink now REQUIRES a real account — anonymous access is removed (supersedes **D9**).
   The homepage is a hard login gate (no dismiss, no guest, no "X"); the control plane 401s every
@@ -27,13 +51,13 @@ Status: `active` (in force) · `interim` (deliberate stopgap) · `blocked` (need
 - **Evidence:** Verified live (`deskl.ink`): `list`/`create` → 401 without a session, 200 with one; the
   gate renders with no X + real Google/GitHub links + a working magic-link form (screenshot); Google +
   GitHub redirect 302 with correct `client_id`/`redirect_uri`/`scope` + CSRF state; magic-link SENDS
-  (Resend 200 via the verified `megabyte.space` sender); full E2E suite green (19 passed) incl.
-  golden-path create→VNC→delete via a secret-gated dev-login.
+  (Amazon SES 200 — the email rail was migrated to SES + `deskl.ink` auto-verified, see **D29**); full
+  E2E suite green (19 passed) incl. golden-path create→VNC→delete via a secret-gated dev-login.
 - **Known external config (verify before wide launch):** the Google + GitHub OAuth apps must list
   `https://deskl.ink/api/v1/auth/{google,github}/callback` as an authorized redirect URI (the redirect
   is correct; a real interactive login confirms the callback) — a `redirect_uri_mismatch` means it
-  isn't registered. Magic-link sends from `megabyte.space`; verify `deskl.ink` in Resend to send from
-  `@deskl.ink`.
+  isn't registered. Email rail = Amazon SES; `deskl.ink` is a verified SES domain identity so magic
+  links send from `@deskl.ink` directly (**D29**).
 - **Date:** 2026-10-08 · **Status:** active · **Confidence:** high
 - **Reconsider when:** account profile/billing needs persistence → add a D1/DO user store keyed by
   `userId`; or session revocation is required → back sessions with a store.

@@ -12,7 +12,7 @@ import {
 import { api, ApiError } from '../lib/api.js';
 import { Wordmark } from './Logo.js';
 import { OsPicker } from './OsPicker.js';
-import { DistroMark } from './DistroMark.js';
+import { DistroLogo } from './DistroLogo.js';
 
 /**
  * DesktopManager — the authenticated app surface revealed once the homepage
@@ -652,7 +652,7 @@ function DesktopTile({
       <div>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <DistroMark distro={desktop.distro} size={28} />
+            <DistroLogo distro={desktop.distro} size={28} />
             {editing ? (
               <input
                 data-testid={desktopTestIds.renameInput}
