@@ -86,7 +86,23 @@ class Handler(BaseHTTPRequestHandler):
             # arbitrarily large /home never buffers in memory.
             log("backup: streaming tar -C /home -czf - .")
             proc = subprocess.Popen(
-                ["tar", "-C", HOME, "-czf", "-", "."],
+                [
+                    "tar",
+                    "-C", HOME,
+                    # A LIVE /home churns while we read it. Treat tar's non-fatal warnings as success
+                    # (files changed/removed mid-read, unreadable files) and SKIP volatile runtime cruft
+                    # that regenerates and often can't cleanly re-extract (caches, dbus/X sockets, VNC
+                    # pid/log). Without these, a hot backup exits rc 1 and a later restore's untar 502s.
+                    "--warning=no-file-changed",
+                    "--warning=no-file-removed",
+                    "--ignore-failed-read",
+                    "--exclude=*/.cache",
+                    "--exclude=*/.dbus",
+                    "--exclude=*/.Xauthority",
+                    "--exclude=*/.vnc/*.pid",
+                    "--exclude=*/.vnc/*.log",
+                    "-czf", "-", ".",
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -138,7 +154,15 @@ class Handler(BaseHTTPRequestHandler):
             # (setuid/setgid/world-writable) on extract — the DO owner is honored,
             # not the tar's stored metadata.
             proc = subprocess.Popen(
-                ["tar", "--no-same-owner", "--no-same-permissions", "-C", HOME, "-xzf", "-"],
+                [
+                    "tar",
+                    "--no-same-owner",
+                    "--no-same-permissions",
+                    # Tolerate benign extract warnings (timestamps, an existing dir) over a live /home.
+                    "--warning=no-timestamp",
+                    "-C", HOME,
+                    "-xzf", "-",
+                ],
                 stdin=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -168,11 +192,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
             rc = proc.wait()
             err = proc.stderr.read().decode("utf-8", "replace").strip() if proc.stderr else ""
-            if rc != 0:
-                log(f"restore: tar exited {rc}: {err}")
+            # GNU tar: 0 = ok, 1 = benign warnings (a file differed / an entry couldn't be recreated
+            # over a live /home) with the real files still extracted, 2 = fatal. Treat rc 1 as success
+            # (the restore DID land) so a hot restore doesn't 502 on non-fatal noise; only rc >= 2 fails.
+            if rc not in (0, 1):
+                log(f"restore: tar exited {rc} (fatal): {err}")
                 self._json(502, {"ok": False, "error": f"tar failed: {err}"})
                 return
-            log("restore: tar completed ok")
+            if rc == 1:
+                log(f"restore: tar completed with benign warnings: {err}")
+            else:
+                log("restore: tar completed ok")
             self._json(200, {"ok": True})
         finally:
             _tar_lock.release()
