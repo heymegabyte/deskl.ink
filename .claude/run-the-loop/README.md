@@ -81,3 +81,8 @@ For delete preflight changes, run the Chromium delete-task-preflight regression.
 show an alert and disable confirmation; retry stays disabled while pending, then recovers
 only on successful inspection. Keep cancellation available and discard stale effect responses.
 This component test mocks RPC and dialog layout; native worktree inspection remains a separate gate.
+
+For backend delete preflight changes, run operations/getDeletePreflight.test.ts alongside
+the Chromium modal regression. Worktree lookup/status failures and unavailable projects
+must reject inspection rather than report clean status. Preserve valid missing/shared
+worktree behavior. Passing mocked status tests does not prove local or SSH inspection.

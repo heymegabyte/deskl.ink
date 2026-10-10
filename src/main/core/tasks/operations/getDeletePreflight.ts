@@ -35,21 +35,21 @@ async function getTaskPreflight(
   let hasUncommittedChanges = false;
   if (hasWorktree) {
     const project = projectManager.getProject(projectId);
-    if (project) {
-      try {
-        const worktreePath = await project.worktreeService.getWorktree(task.taskBranch);
-        if (worktreePath) {
-          const { stdout } = await project.ctx.exec('git', [
-            '-C',
-            worktreePath,
-            'status',
-            '--porcelain',
-          ]);
-          hasUncommittedChanges = stdout.trim().length > 0;
-        }
-      } catch (e) {
-        log.warn('getDeletePreflight: git status check failed', { taskId, error: String(e) });
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+    try {
+      const worktreePath = await project.worktreeService.getWorktree(task.taskBranch);
+      if (worktreePath) {
+        const { stdout } = await project.ctx.exec('git', [
+          '-C',
+          worktreePath,
+          'status',
+          '--porcelain',
+        ]);
+        hasUncommittedChanges = stdout.trim().length > 0;
       }
+    } catch (e) {
+      log.warn('getDeletePreflight: git status check failed', { taskId, error: String(e) });
+      throw e;
     }
   }
 

@@ -233,3 +233,19 @@ This entry's containing commit is the result; outer runner owns publication.
 - Ignore responses from disposed effects; document preflight-specific future-loop checks.
 - Native journey remains unverified: no private display/compositor available.
 - Publication belongs to the outer runner; commit and final check evidence are in its receipt.
+
+## 2026-10-10 — backend deletion inspection failure
+
+- Reproduced three fail-open cases: Git status failure, rejected worktree lookup and unavailable
+  project; all returned successful preflight before the fix.
+- Propagate inspection failure to the modal's existing retry/error path. Preserve inspected
+  clean/dirty status and absent/shared-worktree behavior; ten focused regressions pass.
+- Fresh format, format:check, lint, typecheck, full tests (163 files, 1180 tests), build and
+  diff whitespace checks passed. Read-only adversarial review found no introduced blocker.
+- Review exposed existing swallowed fallback lookup errors and shared-branch bulk inspection
+  gaps; recorded those and disposed-store rollback integrity in the backlog.
+- Loop improvement: document backend preflight regression requirements; correct native package
+  name in quickstart. Native Electron golden/long journey remains incomplete because neither
+  Xvfb nor Weston is available. Chromium component tests do not establish native behavior.
+- This entry's containing commit is the result; outer runner owns publication. No deployment
+  or publication claimed. Fresh logs and the non-secret report are in the run directory.

@@ -54,5 +54,11 @@
 
 - [ ] Bulk delete rejection: consume manager rejection, show feedback and preserve retry
   selection without replacing newer user selection. Verify manager rollback separately.
-- [ ] Delete preflight Git-status failure: inspect backend error handling that currently
-  reports no uncommitted changes when Git status fails; encode explicit inspection failure.
+- [x] Delete preflight Git-status failure: reject failed status/lookup inspection and
+  unavailable projects so the modal requires successful retry before deletion.
+
+- [ ] Delete rollback integrity: verify failed deletion does not restore disposed task stores;
+  reconcile partial backend deletion with renderer state using a real Electron journey.
+
+- [ ] Preflight lookup completeness: distinguish missing worktrees from swallowed fallback
+  lookup errors in WorktreeService; inspect dirty shared branches when every sibling is selected.
