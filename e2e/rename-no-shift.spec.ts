@@ -101,8 +101,13 @@ test.describe('Inline rename — zero layout shift', () => {
     // AFTER: measure the edit-mode input.
     const after = await readMetrics(input);
 
-    // Box geometry: identical within 1px (the whole point of the fix).
-    expect(Math.abs(after.top - before.top), `top shift: ${before.top} → ${after.top}`).toBeLessThanOrEqual(1);
+    // Box geometry: identical within 1px (the whole point of the fix). On failure, print BOTH full
+    // rects so a fix fire sees height/left/width deltas at a glance (not just `top`).
+    const detail = `before=${JSON.stringify(before)} after=${JSON.stringify(after)}`;
+    expect(
+      Math.abs(after.top - before.top),
+      `top shift: ${before.top} → ${after.top} | ${detail}`
+    ).toBeLessThanOrEqual(1);
     expect(Math.abs(after.left - before.left), `left shift: ${before.left} → ${after.left}`).toBeLessThanOrEqual(1);
     expect(
       Math.abs(after.height - before.height),

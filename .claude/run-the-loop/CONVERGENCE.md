@@ -9,6 +9,23 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 5 (2026-10-10) — `/loop` fire: inline-edit geometry, overlay attempt
+- **Deployed the deterministic overlay fix** (prod `09510a23`): `<h3>` always-mounted (box anchor,
+  `invisible` while editing) + `<input>` `absolute inset-0 flex items-center`. All edit behaviors intact.
+- **VISUALLY CORRECT** — the live failure screenshot (`e2e/screenshots/.../rename-no-shift-*/test-failed-1.png`)
+  shows the "Pearl" input sitting right over the title; the shift is **imperceptible**. The user-facing
+  P0 intent (no visible font/size/layout change on edit) is met.
+- **BUT spec still RED at the SAME 2px** (title top 138 → input 136). **Precise diagnosis:** the input
+  overlays the `flex-1` NAME WRAPPER, which `align-items:stretch` makes as tall as the whole row, so
+  `items-center` sits the text ~2px above the block `<h3>`'s single-line box. Two no-delta iterations on
+  this 2px ⇒ stagnation breaker → STOPPED pixel-churn; NOT a 3rd blind deploy.
+- **CONFIDENT one-line fix for the NEXT fire:** overlay the input to the `<h3>` ELEMENT itself (make the
+  h3 the `relative` positioning context + `inset-0` the input to it), OR `self-start`/fixed-single-line-
+  height the name wrapper so wrapper box ≡ h3 line-box. Then the geometry spec goes GREEN ≤1px.
+- Loop-improvement (§7): the geometry spec now prints BOTH full rects on failure (height/left/width),
+  so the fix fire sees everything at a glance.
+- Gates: web build + typecheck green · deploy exit 0 · prod 200 · live E2E RED (2px, imperceptible) · screenshot = visual evidence.
+
 ## Iteration 4 (2026-10-10) — `/loop` fire: inline-edit font geometry (P0)
 - **P0 inline-edit geometry — PARTIAL (deployed, NOT yet converged; honest):** fixed the gross mismatch —
   rename `<input>` now shares `NAME_TYPOGRAPHY` with the `<h3>` title (identical family/size/weight/
