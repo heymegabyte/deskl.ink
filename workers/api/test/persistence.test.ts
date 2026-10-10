@@ -27,6 +27,7 @@ import {
   type HomeBackupDeps,
   type HomeBackupObject,
 } from '../src/persistence/homeBackup.js';
+import { persistenceAvailable } from '../src/persistence/backend.js';
 import type { RestoreResult, SnapshotManifest, SnapshotResult } from '@deskl/shared';
 
 const DESKTOP_ID = 'desk-123';
@@ -588,5 +589,20 @@ describe('restore ordering (P1: stop BEFORE the /restore POST, start after)', ()
     // Even on a failed restore the desktop is never left stopped: stop then start still ran.
     expect(order).toEqual(['stop', 'start']);
     expect(containerFetch).not.toHaveBeenCalled(); // no_backup → no /restore POST attempted
+  });
+});
+
+describe('persistenceAvailable — compute-backend gate (P1: no snapshot/restore vs a shadow /home)', () => {
+  it('is AVAILABLE on the default fleet backend (COMPUTER_DO unset or not "1")', () => {
+    expect(persistenceAvailable({})).toBe(true);
+    expect(persistenceAvailable({ COMPUTER_DO: '0' })).toBe(true);
+    expect(persistenceAvailable({ COMPUTER_DO: 'false' })).toBe(true);
+  });
+
+  it('is UNAVAILABLE under COMPUTER_DO=1 (Computer DO has no backup service yet → honest gap)', () => {
+    // The guard that turns the adversarial-review finding 2a from a latent data-loss-on-flag-flip
+    // into an honest capability_gap: when the live backend is the Computer DO, persistence must NOT
+    // target a shadow DesktopContainer.
+    expect(persistenceAvailable({ COMPUTER_DO: '1' })).toBe(false);
   });
 });

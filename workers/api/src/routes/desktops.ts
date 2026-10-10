@@ -46,6 +46,7 @@ import type { Env } from '../env.js';
 import type { AppContext } from '../observability.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
 import { imageKeyFor, instanceFor } from '../compute/catalog.js';
+import { persistenceAvailable } from '../persistence/backend.js';
 import { isAdmin } from '../auth/principal.js';
 import { resolveSession } from '../auth/session.js';
 import { mintVncTicket, verifyVncTicket } from './vnc-ticket.js';
@@ -242,11 +243,9 @@ function lifecycleFor(
  * Resolve the DURABLE-PERSISTENCE surface for a desktop — the `DesktopContainer` DO that exposes
  * `snapshotHome` / `restoreHome` / `stopWithCheckpoint` (streaming a gzip tar of /home ↔ R2).
  *
- * Persistence lives on the per-(distro × size × form) `DesktopContainer` fleet regardless of the
- * `COMPUTER_DO` compute flag: the methods (and the DO's `containerFetch` to the loopback backup
- * service) are defined on `DesktopContainer`, and the home tar is streamed by THIS DO, so snapshot/
- * restore always route here. (If/when the universal `Computer` DO grows the same surface, this is
- * the one place to branch — the routes below are unchanged.)
+ * Persistence (the loopback backup service + these methods) is wired ONLY on the per-(distro × size
+ * × form) `DesktopContainer` fleet. This is only a valid target when the fleet IS the live backend —
+ * i.e. when {@link persistenceAvailable} holds. Callers MUST guard on that first; see its contract.
  */
 function persistenceFor(
   env: Env,
@@ -485,22 +484,28 @@ app.post('/:id/stop', async (c) => {
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
-  // `persisting` while the checkpoint runs, so the UI shows "saving your work" rather than a bare
-  // "stopping" during the potentially-slow home tar → R2 stream.
-  await registry.updateStatus(id, 'persisting');
+  // When persistence is on the live backend, checkpoint FIRST and show `persisting` ("saving your
+  // work"); otherwise (COMPUTER_DO backend — no backup service yet) this is a plain `stopping` on the
+  // REAL backend, never a checkpoint against a shadow /home (see persistenceAvailable).
+  const persist = persistenceAvailable(c.env);
+  await registry.updateStatus(id, persist ? 'persisting' : 'stopping');
   try {
-    // Checkpoint-before-stop: the DO snapshots /home, waits for R2, THEN stops. Never reports
-    // stopped before the checkpoint resolves.
-    const result = await persistenceFor(
-      c.env,
-      id,
-      existing.distro,
-      existing.size,
-      existing.form
-    ).stopWithCheckpoint(id);
-    if (!result.checkpoint.ok) {
-      // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
-      console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
+    if (persist) {
+      // Checkpoint-before-stop: the DO snapshots /home, waits for R2, THEN stops. Never reports
+      // stopped before the checkpoint resolves.
+      const result = await persistenceFor(
+        c.env,
+        id,
+        existing.distro,
+        existing.size,
+        existing.form
+      ).stopWithCheckpoint(id);
+      if (!result.checkpoint.ok) {
+        // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
+        console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
+      }
+    } else {
+      await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
     }
   } catch (err) {
     // A stop failure shouldn't wedge the record — log, still mark stopped.
@@ -529,6 +534,17 @@ app.post('/:id/snapshot', async (c) => {
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
+  if (!persistenceAvailable(c.env)) {
+    // Honest: the active compute backend has no backup service yet (see persistenceAvailable).
+    return c.json(
+      SnapshotResultSchema.parse({
+        ok: false,
+        kind: 'capability_gap',
+        reason: 'persistence not available on the active compute backend',
+      })
+    );
+  }
+
   const result = await persistenceFor(
     c.env,
     id,
@@ -547,9 +563,10 @@ app.post('/:id/snapshot', async (c) => {
  * P1): the container is STOPPED first (a PLAIN stop — we're about to overwrite `/home` wholesale, so
  * a checkpoint-snapshot here would just capture, and later restore point at, the pre-restore state
  * we're discarding), THEN `restoreHome` POSTs the tar into the quiesced `/home`, THEN the container
- * is started again. All three target the SAME `DesktopContainer` stub (the one whose `/home` is
- * overwritten + which holds the loopback backup service) so ordering holds regardless of the
- * COMPUTER_DO compute flag. Idempotent: stop/start no-op in their target state.
+ * is started again. This path runs ONLY when {@link persistenceAvailable} holds (else an early,
+ * side-effect-free `capability_gap`), so all three target the SAME live `DesktopContainer` stub (the
+ * one whose `/home` is overwritten + which holds the loopback backup service) — never a shadow
+ * backend. Idempotent: stop/start no-op in their target state.
  *
  * Returns the typed {@link RestoreResult}: `{ ok: true, restoredKey }`, or `{ ok: false, kind, reason }`
  * (e.g. `error`/`no_backup` when nothing is stored, or a `capability_gap`). The container is ALWAYS
@@ -564,6 +581,17 @@ app.post('/:id/restore', async (c) => {
   const registry = getRegistry(c.env);
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  if (!persistenceAvailable(c.env)) {
+    // Side-effect-free honest gap: do NOT stop/overwrite anything on a backend we can't restore to.
+    return c.json(
+      RestoreResultSchema.parse({
+        ok: false,
+        kind: 'capability_gap',
+        reason: 'persistence not available on the active compute backend',
+      })
+    );
+  }
 
   const container = persistenceFor(c.env, id, existing.distro, existing.size, existing.form);
 
@@ -610,16 +638,23 @@ app.post('/:id/restart', async (c) => {
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
-  // Checkpoint-before-stop so the restart can never lose user work, even mid-cycle.
-  await registry.updateStatus(id, 'persisting');
+  // Checkpoint-before-stop so the restart can never lose user work — but only when persistence is on
+  // the live backend; under the COMPUTER_DO backend it's a plain stop on the REAL DO (no shadow
+  // checkpoint). See persistenceAvailable.
+  const persist = persistenceAvailable(c.env);
+  await registry.updateStatus(id, persist ? 'persisting' : 'stopping');
   try {
-    await persistenceFor(
-      c.env,
-      id,
-      existing.distro,
-      existing.size,
-      existing.form
-    ).stopWithCheckpoint(id);
+    if (persist) {
+      await persistenceFor(
+        c.env,
+        id,
+        existing.distro,
+        existing.size,
+        existing.form
+      ).stopWithCheckpoint(id);
+    } else {
+      await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
+    }
   } catch (err) {
     console.error('[deskl.ink desktops] restart checkpoint/stop failed', id, err);
   }
@@ -661,19 +696,22 @@ app.delete('/:id', async (c) => {
 
   // Best-effort checkpoint so a deleted computer stays recoverable (R2 = truth). NEVER blocks the
   // delete: a thrown error, an unreachable backup service, or unbound R2 is logged and ignored.
-  try {
-    const snap = await persistenceFor(
-      c.env,
-      id,
-      existing.distro,
-      existing.size,
-      existing.form
-    ).snapshotHome(id);
-    if (!snap.ok) {
-      console.warn('[deskl.ink desktops] pre-delete snapshot did not persist', id, snap);
+  // Skipped under the COMPUTER_DO backend (no backup service there yet → would snapshot a shadow).
+  if (persistenceAvailable(c.env)) {
+    try {
+      const snap = await persistenceFor(
+        c.env,
+        id,
+        existing.distro,
+        existing.size,
+        existing.form
+      ).snapshotHome(id);
+      if (!snap.ok) {
+        console.warn('[deskl.ink desktops] pre-delete snapshot did not persist', id, snap);
+      }
+    } catch (err) {
+      console.error('[deskl.ink desktops] pre-delete snapshot threw (continuing delete)', id, err);
     }
-  } catch (err) {
-    console.error('[deskl.ink desktops] pre-delete snapshot threw (continuing delete)', id, err);
   }
 
   try {
