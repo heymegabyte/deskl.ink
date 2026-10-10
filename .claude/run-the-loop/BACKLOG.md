@@ -37,7 +37,7 @@
 - [x] Task registration transitions: exclude unregistered records from bulk deletion
   confirmation with a real state guard; cover selected tasks changing registration state.
 
-- [ ] Individual archive/restore failures: task-row and sidebar handlers must consume rejected
+- [x] Individual archive/restore failures: task-row and sidebar handlers must consume rejected
   manager operations and provide visible action-specific feedback.
 - [ ] Pending bulk mutations: prevent duplicate archive/restore requests while pending and
   verify rollback ordering under overlapping actions in a real Electron journey.
@@ -46,3 +46,8 @@
   archive/restore requests are pending; cover both actions with the real task-view store.
 - [ ] Task-row interaction semantics: separate the nested checkbox/navigation buttons and
   add headless browser keyboard coverage alongside the real-renderer accessibility gate.
+
+- [x] Project directory sanitization: reject Windows device names with extensions and
+  remove trailing dots/spaces; preserve ordinary names in shared-helper regressions.
+- [ ] Individual archive/restore runtime: verify error toast visibility/announcement and
+  manager rollback in an isolated Electron journey; callback tests cover rejection handling only.

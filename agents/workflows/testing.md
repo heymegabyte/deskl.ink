@@ -35,6 +35,21 @@ pnpm run test
 - Tests use per-file `vi.mock()` setup.
 - Integration-style tests create temporary repos and worktrees in `os.tmpdir()`.
 
+## Native Journey Evidence
+
+The `browser` project checks renderer components in headless Chromium; it does not
+launch Electron or exercise the preload bridge, native PTY, or project/task workflow.
+Passing `pnpm test` alone is therefore not evidence of a complete desktop journey.
+
+For changes affecting that workflow, use a private display/compositor and isolate
+app data before launching `pnpm run dev`. On Linux, set `XDG_CONFIG_HOME` and
+`EMDASH_DB_FILE` to disposable paths. `--user-data-dir` alone is insufficient:
+`src/main/index.ts` sets userData from appData. Verify the affected path using
+a disposable Git repository: open the project,
+create a task, confirm terminal input/output, and check the changed interaction.
+Record which steps actually ran and any native dependency or display blocker.
+Keep component-test results and native journey results separate in the run report.
+
 ## CI Notes
 
 - `.github/workflows/code-consistency-check.yml` currently enforces:

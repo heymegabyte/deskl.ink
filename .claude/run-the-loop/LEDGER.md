@@ -207,3 +207,21 @@ No real Electron, Unicode selection or screen-reader speech claim: xvfb-run is u
 Loop improvement: add the focused browser regression path and announcement acceptance
 to orientation; split verified DOM semantics from pending runtime accessibility in backlog.
 This entry's containing commit is the result; outer runner owns publication.
+
+## 2026-10-10 — individual task failures and portable project names
+
+Task-row archive/restore and sidebar archive now consume rejected manager promises and
+show action-specific retry feedback. Existing rollback and sidebar navigation behavior
+are preserved. Callback regressions reproduced three failures before the fix, then passed
+all six cases without rejection suppressors. Windows reserved device basenames with
+extensions now fall back; trailing dots/spaces are removed while ordinary names remain.
+Shared-helper regressions reproduced six failures, then passed all 18 cases.
+
+Fresh format, lint and typecheck passed; the full suite passed (161 files, 1167 tests).
+Adversarial review passed both focused files (24 tests) and found no introduced regression.
+The build result is recorded in the run report. One overlapping build was stopped during
+observed cgroup memory throttling, then retried alone. No OOM kill was observed.
+No native Electron or screen-reader journey ran: xvfb-run and Weston are unavailable.
+The backlog retains native toast/rollback acceptance separately from callback evidence.
+Loop improvement: document isolated native journey setup and focused failure/path tests.
+This entry's containing commit is the result; outer runner owns publication.

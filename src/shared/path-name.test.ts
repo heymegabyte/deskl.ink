@@ -35,5 +35,24 @@ describe('path-name helpers', () => {
       expect(safePathSegment('NUL', 'project-id')).toBe('project-id');
       expect(safePathSegment('com1', 'project-id')).toBe('project-id');
     });
+
+    it.each(['NUL.txt', 'COM1.log', 'lpt9.tar.gz', 'CON.', 'aux... '])(
+      'falls back for reserved device name %s with an extension or trailing dots',
+      (name) => {
+        expect(safePathSegment(name, 'project-id')).toBe('project-id');
+      }
+    );
+
+    it('removes trailing dots and spaces from project names', () => {
+      expect(safePathSegment('project... ')).toBe('project');
+      expect(safePathSegment('... ', 'project-id')).toBe('project-id');
+    });
+
+    it.each(['console', 'com10', 'lpt10.txt', 'nul-project', 'project.name'])(
+      'preserves legitimate project name %s',
+      (name) => {
+        expect(safePathSegment(name)).toBe(name);
+      }
+    );
   });
 });

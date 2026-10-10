@@ -1,5 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { useRef } from 'react';
+import { toast } from 'sonner';
 import { AgentStatusIndicator } from '@renderer/features/tasks/components/agent-status-indicator';
 import { TaskContextMenu } from '@renderer/features/tasks/components/task-context-menu';
 import { TaskGitDiffStats } from '@renderer/features/tasks/components/task-git-diff-stats';
@@ -37,8 +38,20 @@ export const TaskRow = observer(function TaskRow({
   const taskManager = getTaskManagerStore(task.data.projectId);
   const shiftKeyRef = useRef(false);
 
-  const handleArchive = () => void taskManager?.archiveTask(task.data.id);
-  const handleRestore = () => void taskManager?.restoreTask(task.data.id);
+  const handleArchive = async () => {
+    try {
+      await taskManager?.archiveTask(task.data.id);
+    } catch {
+      toast.error('Could not archive task. Please try again.');
+    }
+  };
+  const handleRestore = async () => {
+    try {
+      await taskManager?.restoreTask(task.data.id);
+    } catch {
+      toast.error('Could not restore task. Please try again.');
+    }
+  };
   const handleProvision = () => void taskManager?.provisionTask(task.data.id);
   const handleDelete = () =>
     showDeleteTask({

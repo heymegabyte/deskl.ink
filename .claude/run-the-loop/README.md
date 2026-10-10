@@ -69,3 +69,10 @@ including select-then-deselect back to empty. Exercise the real TaskViewStore in
 archive and restore callback regressions; a final size check alone cannot track user intent.
 Row toggles replace the Set while retaining the range anchor. Test that captured Sets stay
 unchanged, so future changes cannot silently restore the stale retry race.
+
+For individual archive/restore changes, run src/renderer/tests/individual-task-archive.test.ts.
+Exercise both task-row actions and sidebar archive, success and rejection, without test-side
+rejection suppressors. Preserve existing sidebar navigation unless deliberately changing it.
+Native toast announcement and manager rollback remain separate Electron acceptance.
+For project directory names, cover Windows device basenames with extensions, trailing dots/spaces,
+and legitimate near-matches in src/shared/path-name.test.ts.

@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import { toast } from 'sonner';
 import { TaskSidebarAgentStatus } from '@renderer/features/sidebar/task-sidebar-agent-status';
 import { TaskContextMenu } from '@renderer/features/tasks/components/task-context-menu';
 import { TaskGitDiffStats } from '@renderer/features/tasks/components/task-git-diff-stats';
@@ -56,9 +57,13 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
     void taskManager?.provisionTask(taskId);
   };
 
-  const handleArchive = () => {
+  const handleArchive = async () => {
     if (isActive) navigate('project', { projectId });
-    void taskManager?.archiveTask(taskId);
+    try {
+      await taskManager?.archiveTask(taskId);
+    } catch {
+      toast.error('Could not archive task. Please try again.');
+    }
   };
 
   const handleRename = () => showRename({ projectId, taskId, currentName: taskName });
