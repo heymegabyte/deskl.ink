@@ -27,7 +27,6 @@ import {
   CreateDesktopRequestSchema,
   CreateDesktopResponseSchema,
   UpdateDesktopRequestSchema,
-  DESKTOP_SIZES,
   DISTROS,
   DesktopListResponseSchema,
   DesktopResponseSchema,
@@ -46,6 +45,7 @@ import type { Env } from '../env.js';
 import type { AppContext } from '../observability.js';
 import type { DesktopRegistry } from '../containers/DesktopRegistry.js';
 import { imageKeyFor, instanceFor } from '../compute/catalog.js';
+import { generateCodename } from '../compute/codename.js';
 import { persistenceAvailable } from '../persistence/backend.js';
 import { isAdmin } from '../auth/principal.js';
 import { resolveSession } from '../auth/session.js';
@@ -262,10 +262,6 @@ function newDesktopId(): string {
   return crypto.randomUUID();
 }
 
-/** Default label when the user doesn't name the computer, e.g. "Everyday desktop" / "Everyday server". */
-function defaultName(size: keyof typeof DESKTOP_SIZES, form: ComputerForm): string {
-  return `${DESKTOP_SIZES[size].friendlyName} ${form}`;
-}
 
 const app = new Hono<AppContext>();
 
@@ -307,10 +303,17 @@ app.post('/', async (c) => {
   }
   const { name, size, distro, form, disposable } = parsed.data;
 
+  // Display name: a user-supplied name wins; otherwise a memorable, workspace-unique CODENAME
+  // (e.g. "Atlas", "Ember") — never a generic "Everyday Desktop" type-label. Uniqueness is scoped to
+  // this owner's existing names. Best-effort under a concurrent-create race (names aren't a unique
+  // key — id is); the user can always rename.
+  const displayName =
+    name?.trim() || generateCodename((await registry.list(principalId)).map((d) => d.name));
+
   const id = newDesktopId();
   const created: DesktopResource = await registry.create({
     id,
-    name: name ?? defaultName(size, form),
+    name: displayName,
     // OS string is derived from the chosen distro (e.g. "Fedora 41") so the
     // registry's `os` field always matches the distro the container runs.
     os: DISTROS[distro].os,

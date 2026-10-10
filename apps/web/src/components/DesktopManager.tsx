@@ -110,6 +110,13 @@ export function DesktopManager({
   // forwards it so the fullscreen view can connect without re-minting.
   const ticketsRef = useRef<Map<string, string>>(new Map());
 
+  // Client-side TOMBSTONES — ids the user deleted this session. A delete can race an in-flight list
+  // poll whose response still contains the just-removed computer; without this guard that stale
+  // response reinserts the tile (the "disappears → reappears → disappears" flicker). Every list
+  // reconcile (`refresh`) filters these out, so a deleted computer can NEVER be resurrected by a
+  // stale/late/mid-cleanup response. Authoritative on the client for the session.
+  const tombstonedRef = useRef<Set<string>>(new Set());
+
   // The command palette (via App) requests the New-computer picker by bumping this signal.
   useEffect(() => {
     if (openPickerSignal) setPickerOpen(true);
@@ -120,7 +127,10 @@ export function DesktopManager({
     try {
       const { desktops: next } = await api.listDesktops(signal);
       if (signal?.aborted) return;
-      setDesktops(next);
+      // Drop any tombstoned (user-deleted) id so a stale / in-flight / mid-cleanup response can
+      // never resurrect it — the delete is authoritative on the client the moment it's requested.
+      const tombstones = tombstonedRef.current;
+      setDesktops(tombstones.size ? next.filter((d) => !tombstones.has(d.id)) : next);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -266,6 +276,9 @@ export function DesktopManager({
       setPendingDelete(null);
       const prevList = desktops;
       const removedName = desktops.find((d) => d.id === id)?.name ?? 'Computer';
+      // TOMBSTONE before the optimistic removal, so any list poll resolving between now and backend
+      // cleanup can't reinsert this id. `deleteDesktop` is idempotent server-side.
+      tombstonedRef.current.add(id);
       setDesktops((prev) => prev.filter((d) => d.id !== id));
       ticketsRef.current.delete(id);
       try {
@@ -273,7 +286,8 @@ export function DesktopManager({
         setAnnouncement(`${removedName} deleted.`);
         onDeleted?.(id); // close its tab if open (view follows the resource)
       } catch (err) {
-        // Roll back the optimistic removal on failure.
+        // The delete failed → the computer still exists. Un-tombstone + restore it so the grid is honest.
+        tombstonedRef.current.delete(id);
         setError(err instanceof ApiError ? err.message : 'Could not delete the computer.');
         setDesktops(prevList);
       }
