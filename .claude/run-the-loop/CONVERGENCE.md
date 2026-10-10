@@ -9,6 +9,20 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 7 (2026-10-10) — `/loop` fire: deletion-flicker regression E2E ✅
+- **P0 §1 deletion flicker — now VERIFIED LIVE** (was build-verified only). New `e2e/delete-no-resurrect.spec.ts`
+  (Golden Path A §11–12): create → two-step inline delete (trash → `pendingDelete` confirm) → assert the
+  tile is absent at EVERY sample across ~6s (≥3× `POLL_MS`) + list GET drops the id + reload confirms
+  server-side destroy. Invariant = "never non-zero". **GREEN twice on prod** (13.5s agent, 13.3s mine).
+  No defect — the tombstone holds against the 2s poll.
+- All three immediate P0s are now BOTH fixed AND live-E2E-verified (tombstone, codenames, inline-edit).
+- **Lead saturation:** 7 fires deep this session. Kept the lead minimal (delegated spec + verified). The
+  next BIG P0 — **PERSIST-1b restore-on-boot** — is a large slice (container `start.sh` boot-restore
+  coordination + DO streaming the tar pre-session + a full create→write→snapshot→replace→boot→verify
+  E2E) and deserves a FRESH session, not a saturated one. Precise plan recorded below (gaps). Smaller
+  verifiable 30-dimension slices (idle-stop, cost chip) are the alternative next unit.
+- Gates: `e2e/delete-no-resurrect` GREEN ×2 · prod 200. (No code/deploy this fire — a test-only verify slice.)
+
 ## Iteration 6 (2026-10-10) — `/loop` fire: inline-edit geometry CLOSED ✅
 - **P0 inline-edit font geometry — DONE + PROVEN LIVE.** `e2e/rename-no-shift.spec.ts` GREEN twice
   against prod (`76bbf37e`): the rename `<input>` matches the title geometry within ≤1px (zero shift),

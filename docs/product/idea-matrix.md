@@ -31,7 +31,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 
 | # | Dimension | Status | This-fire slices (shipped) · next unit |
 |---|-----------|--------|----------------------------------------|
-| 1 | State mgmt & UI correctness | **active** | ✅ delete-tombstone (no flicker). Next: cross-tab `BroadcastChannel` sync; adversarial UI-state E2E |
+| 1 | State mgmt & UI correctness | **done** (P0) | ✅ delete-tombstone + live regression E2E (`delete-no-resurrect`, GREEN ×2 — deleted computer never reappears). Next (P1): cross-tab `BroadcastChannel` sync; optimistic-rollback E2E |
 | 2 | Computer naming & identity | **done** (P0s) | ✅ codename generator (live). ✅ inline-edit geometry — live E2E GREEN ≤1px (zero shift); input overlays the `<h3>` as `absolute inset-0`, h3 className constant. Next (P1): legacy backfill via `isLegacyGenericName`; tags/aliases; search |
 | 3 | Global UI / nav / design system | queued | command palette exists; expand: org switcher, live cost chip, resizable panels |
 | 4 | Computer fleet dashboard | queued | cards + status exist; expand: table view, filters, saved views, bulk actions |
