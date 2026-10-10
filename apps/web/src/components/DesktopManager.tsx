@@ -679,27 +679,31 @@ function DesktopTile({
           {/* `relative` anchors the inline validation hint; wrapper geometry is otherwise unchanged. */}
           <div className="relative flex min-w-0 items-center gap-2.5">
             <DistroLogo distro={desktop.distro} size={28} />
-            {/* ZERO-SHIFT RENAME BY CONSTRUCTION: the <h3> is ALWAYS mounted as the sole layout anchor
-                for the name box in this flex row, so entering/leaving edit mode never changes the row
-                geometry. The h3 ITSELF is the positioning context (`relative min-w-0 flex-1`); while
-                editing we make its text `invisible` (NOT `hidden` — that would collapse the box) and
-                nest the <input> AS ITS CHILD with `absolute inset-0`. The input's border-box is thus
-                the h3's PADDING-box ≡ (h3 has zero padding) the h3's border-box, pixel-identical by
-                construction — it inherits the h3's exact top/left/width/height, never the taller
-                row-stretched/centered wrapper box that shifted it ~2px before. Because the input fills
-                that box and centers its single text line (`flex items-center`) under the shared
-                NAME_TYPOGRAPHY leading, the text lands on the h3's baseline too. */}
+            {/* ZERO-SHIFT RENAME BY CONSTRUCTION: the <h3>'s OWN box + className are BYTE-IDENTICAL in
+                view AND edit mode — it never toggles `truncate` (or anything geometry-affecting), so as
+                a flex item in this `items-center` row its cross-axis position (top) can never recompute.
+                It is ALWAYS mounted as the sole layout anchor + positioning context
+                (`relative min-w-0 flex-1`). Entering edit mode changes ONLY two things, neither of which
+                touches in-flow geometry: (1) the inner name <span> becomes `invisible` (keeps its box +
+                accessible name — NOT `hidden`, which would collapse it); (2) an `absolute inset-0`
+                <input> is added as the h3's child. An abs-positioned child takes its box from the h3's
+                padding-box ≡ (h3 has zero padding) the h3's border-box, so the input inherits the h3's
+                exact top/left/width/height. `truncate` lives on the SPAN (not the h3), so overflow
+                clipping is confined to the span; the h3 itself has NO overflow:hidden, so it can never
+                clip the abs-positioned input's box-shadow focus ring. */}
             <h3
-              className={`${NAME_TYPOGRAPHY} relative min-w-0 flex-1 text-white ${editing ? '' : 'truncate'}`}
+              className={`${NAME_TYPOGRAPHY} relative min-w-0 flex-1 text-white`}
               title={desktop.name}
             >
-              {/* The heading TEXT is the direct child we hide while editing (`invisible` keeps its box
-                  so the row geometry never moves); the overlaid <input> is a sibling that is NOT hidden
-                  from assistive tech, so the rename field keeps its own accessible name. `truncate`
-                  (which carries overflow:hidden) is dropped WHILE editing so it can't clip the input's
-                  box-shadow focus ring — the h3's own border-box is identical either way (overflow
-                  never changes an element's box), so this does not move or resize the measured box. */}
-              <span className={editing ? 'invisible' : undefined}>{desktop.name}</span>
+              {/* The name TEXT. `truncate` (overflow-hidden + text-ellipsis + whitespace-nowrap) lives
+                  HERE on the span — NOT the h3 — so truncation still works in view mode while the h3's
+                  box stays identical across modes. While editing the span goes `invisible` (keeps its
+                  box so the row geometry never moves) and the overlaid <input> renders as the h3's
+                  child; the input is NOT hidden from assistive tech, so the rename field keeps its own
+                  accessible name. The span's overflow:hidden clips only the span's own content — it
+                  cannot clip the input, which is an abs-positioned descendant of the h3 (the span is not
+                  its containing block), so the focus ring is never clipped. */}
+              <span className={`block truncate ${editing ? 'invisible' : ''}`}>{desktop.name}</span>
               {editing && (
                 <input
                   data-testid={desktopTestIds.renameInput}
@@ -745,8 +749,9 @@ function DesktopTile({
                   // single-line, so same box + same leading ⇒ same text position). Zero chrome (no
                   // border/padding/margin); the focus ring is a box-shadow — it never resizes the box.
                   // NB: NOT `font: inherit` — NAME_TYPOGRAPHY sets the font explicitly on both nodes;
-                  // `inherit` would pull the body font and break the match. `whitespace-normal` undoes
-                  // the h3's `truncate` (white-space: nowrap) so the input renders as a normal field.
+                  // `inherit` would pull the body font and break the match. `whitespace-normal` just
+                  // keeps the input rendering as a normal single-line field (the h3 no longer carries
+                  // `truncate` — that lives on the sibling span — so there is nothing to undo here).
                   className={`${NAME_TYPOGRAPHY} absolute inset-0 flex w-full appearance-none items-center overflow-visible whitespace-normal rounded-[3px] border-0 bg-transparent p-0 text-left text-white caret-[var(--color-cyan)] outline-none ${
                     invalid
                       ? 'shadow-[0_0_0_2px_var(--color-danger)]'
