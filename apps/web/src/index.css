@@ -80,6 +80,20 @@
     border: 1px solid rgba(0, 229, 255, 0.14);
   }
 
+  /* Pop-in for popovers/modals (command palette, OS picker, account menu): a brief rise + scale
+     from near-origin. The global prefers-reduced-motion rule below clamps its duration to ~0ms, so
+     reduced-motion users get the end state instantly (no transform settle). */
+  @keyframes ds-pop {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
   /* Static nebula fallback — used when WebGL/canvas is unavailable or when the
      user prefers reduced motion. Also the page's base backdrop. */
   .ds-nebula-fallback {

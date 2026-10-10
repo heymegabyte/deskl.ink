@@ -3,7 +3,7 @@ import { HomeOverlay } from './components/HomeOverlay.js';
 import { DesktopManager } from './components/DesktopManager.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { DistroLogo } from './components/DistroLogo.js';
-import { api } from './lib/api.js';
+import { api, type SessionState } from './lib/api.js';
 import {
   desktopTestIds,
   type DesktopResource,
@@ -51,6 +51,9 @@ interface OpenTab {
 export function App() {
   // null = still checking the session; false = show the login gate; true = show the app.
   const [authed, setAuthed] = useState<boolean | null>(null);
+  // The signed-in identity (email / name / provider) from the SAME session fetch that gates the app —
+  // captured here so the header's account menu can show "who am I" without a second /session round-trip.
+  const [user, setUser] = useState<SessionState['user']>(undefined);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null); // null = Home (the grid)
   const [paletteOpen, setPaletteOpen] = useState(false); // ⌘K command palette (§87)
@@ -76,7 +79,9 @@ export function App() {
     void api
       .getSession(controller.signal)
       .then((s) => {
-        if (!controller.signal.aborted) setAuthed(s.authenticated);
+        if (controller.signal.aborted) return;
+        setAuthed(s.authenticated);
+        setUser(s.user); // capture the identity for the header account menu (reused, never refetched)
       })
       .catch(() => {
         if (!controller.signal.aborted) setAuthed(false);
@@ -89,6 +94,7 @@ export function App() {
     setTabs([]);
     setActiveId(null);
     setPaletteOpen(false);
+    setUser(undefined);
     void api.logout().finally(() => setAuthed(false));
   }, []);
 
@@ -242,6 +248,7 @@ export function App() {
           onSignOut={signOut}
           onDeleted={closeTab}
           openPickerSignal={pickerNonce}
+          user={user}
         />
       </div>
 

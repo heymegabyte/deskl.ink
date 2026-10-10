@@ -9,7 +9,8 @@ import {
   type DesktopSizeId,
   type ComputerForm,
 } from '../../../../packages/shared/src/desktop-api';
-import { api, ApiError } from '../lib/api.js';
+import { api, ApiError, type SessionState } from '../lib/api.js';
+import { useFocusTrap } from '../lib/useFocusTrap.js';
 import { Wordmark } from './Logo.js';
 import { OsPicker } from './OsPicker.js';
 import { DistroLogo } from './DistroLogo.js';
@@ -89,6 +90,8 @@ interface DesktopManagerProps {
   onDeleted?: (id: string) => void;
   /** Bumped by the command palette to request opening the New-computer picker. */
   openPickerSignal?: number;
+  /** The signed-in identity (from App's session fetch) — shown in the header account menu. */
+  user?: SessionState['user'];
 }
 
 export function DesktopManager({
@@ -96,6 +99,7 @@ export function DesktopManager({
   onSignOut,
   onDeleted,
   openPickerSignal,
+  user,
 }: DesktopManagerProps) {
   const [desktops, setDesktops] = useState<DesktopResource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -497,28 +501,9 @@ export function DesktopManager({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={onSignOut}
-            aria-label="Sign out"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2.5 text-sm font-600 text-[var(--color-muted)] transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-            </svg>
-            {/* Label hides on mobile; the icon + aria-label carry it. */}
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
+          {/* Account menu — the signed-in identity + Sign out, folded into one compact avatar button
+              (replaces the bare header Sign-out to declutter and finally show WHO is signed in). */}
+          <AccountMenu user={user} onSignOut={onSignOut} />
         </div>
       </header>
 
@@ -566,6 +551,169 @@ export function DesktopManager({
 
 /** Statuses where a container is actually running → accruing cost. */
 const RUNNING_STATUSES: ReadonlySet<DesktopStatus> = new Set<DesktopStatus>(['ready', 'active']);
+
+/** Human label for each auth provider (the session's `provider` ∈ google|github|email|dev). */
+const PROVIDER_LABELS: Record<string, string> = {
+  google: 'Google',
+  github: 'GitHub',
+  email: 'Email',
+  dev: 'Dev',
+};
+
+/**
+ * Account menu (header) — a compact round avatar button (the email's first initial) that opens a
+ * small on-brand glass popover showing WHO is signed in (email + provider) and the Sign-out action.
+ * This replaces the old bare header "Sign out" button: the identity was previously invisible, and the
+ * lone button cluttered a tight header — folding both into one avatar declutters AND answers "who am
+ * I?". The Sign-out behavior is unchanged (same `onSignOut` handler, now a menu item).
+ *
+ * a11y — the ARIA menu-button pattern: the trigger is `aria-haspopup="menu"` + `aria-expanded`; on
+ * open focus moves into the menu (useFocusTrap), Tab is contained, Escape closes AND returns focus to
+ * the button (focus-trap restore), and a click outside closes it. Mobile-safe: the trigger is ONLY
+ * the fixed-size avatar (no inline email text), so the header still fits at 375px.
+ */
+function AccountMenu({
+  user,
+  onSignOut,
+}: {
+  user?: SessionState['user'];
+  onSignOut: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  // Arm the focus trap only while open: moves focus into the menu on open, contains Tab, and restores
+  // focus to the trigger on close (the exact "Esc returns focus to the button" behavior we want).
+  useFocusTrap(menuRef, open);
+
+  const email = user?.email ?? '';
+  // First initial (uppercase) for the avatar; a neutral dot if the email is somehow absent.
+  const initial = email.trim().charAt(0).toUpperCase() || '•';
+  const providerLabel = user?.provider ? (PROVIDER_LABELS[user.provider] ?? user.provider) : null;
+
+  // Click-outside closes (pointerdown so it fires before focus churn). Bound only while open.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || buttonRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    // Escape closes here too (belt-and-suspenders with the focus trap's restore): keydown on the
+    // document so it works wherever focus sits inside the menu.
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        data-testid={desktopTestIds.accountMenuButton}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label="Account"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--color-cyan)]/40 bg-[var(--color-black)]/60 font-display text-sm font-700 text-[var(--color-cyan)] shadow-[0_0_14px_rgba(0,229,255,0.15)] transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+      >
+        <span aria-hidden="true">{initial}</span>
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          aria-label="Account"
+          className="ds-glass absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 origin-top-right overflow-hidden rounded-xl border border-[var(--color-cyan)]/25 shadow-[0_12px_40px_rgba(0,0,0,0.55),0_0_28px_rgba(0,229,255,0.12)] [animation:ds-pop_140ms_var(--ease-expressive)]"
+          style={{ animationName: 'ds-pop' }}
+        >
+          {/* Identity header — email (truncates if long) + provider label. */}
+          <div className="border-b border-[var(--color-border)] px-3.5 py-3">
+            <p className="truncate text-sm font-600 text-white" title={email || undefined}>
+              {email || 'Signed in'}
+            </p>
+            {providerLabel && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
+                <ProviderGlyph provider={user?.provider} />
+                {providerLabel}
+              </p>
+            )}
+          </div>
+
+          {/* Sign out — the moved header action, now a menu item (same handler/behavior). */}
+          <button
+            type="button"
+            role="menuitem"
+            data-testid={desktopTestIds.accountSignOut}
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-cyan)]/10 hover:text-white focus-visible:bg-[var(--color-cyan)]/10 focus-visible:text-white focus-visible:outline-none"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Tiny per-provider glyph next to the provider label (aria-hidden; the label carries the name). */
+function ProviderGlyph({ provider }: { provider?: string | undefined }) {
+  const common = { width: 13, height: 13, 'aria-hidden': true as const };
+  if (provider === 'google') {
+    return (
+      <svg viewBox="0 0 24 24" {...common}>
+        <path fill="#4285F4" d="M23 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.2a5.3 5.3 0 0 1-2.3 3.48v2.9h3.72C21.78 18.9 23 15.9 23 12.27Z" />
+        <path fill="#34A853" d="M12 23c3.1 0 5.7-1.03 7.62-2.79l-3.72-2.9c-1.03.7-2.35 1.1-3.9 1.1-3 0-5.54-2.02-6.45-4.74H1.7v2.98A11 11 0 0 0 12 23Z" />
+        <path fill="#FBBC05" d="M5.55 13.67a6.6 6.6 0 0 1 0-4.22V6.47H1.7a11 11 0 0 0 0 9.86l3.85-2.66Z" />
+        <path fill="#EA4335" d="M12 5.4c1.69 0 3.2.58 4.4 1.72l3.3-3.3C17.7 1.98 15.1 1 12 1A11 11 0 0 0 1.7 6.47l3.85 2.98C6.46 7.42 9 5.4 12 5.4Z" />
+      </svg>
+    );
+  }
+  if (provider === 'github') {
+    return (
+      <svg viewBox="0 0 24 24" {...common} fill="currentColor">
+        <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.26-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.39.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85l-.01 2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
+      </svg>
+    );
+  }
+  // email / dev (and any fallback) — a neutral mail glyph.
+  return (
+    <svg viewBox="0 0 24 24" {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
 
 /**
  * Shared type geometry for a tile's name in BOTH view (<h3>) and edit (<input>) modes. Applying the

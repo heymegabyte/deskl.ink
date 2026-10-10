@@ -335,6 +335,10 @@ export const desktopTestIds = {
   tabNew: 'tab-new',
   stopAll: 'stop-all', // "stop everything costing money" (spec §40)
   stopAllConfirm: 'stop-all-confirm',
+  // Account menu — compact avatar button in the header opening a glass popover with the signed-in
+  // identity (email + provider) and the Sign-out action (moved off the bare header into the menu).
+  accountMenuButton: 'account-menu-button',
+  accountSignOut: 'account-signout',
   serverWorkspace: 'server-workspace', // headless server tab (terminal-native)
   serverTerminal: 'server-terminal', // the ttyd iframe in a server tab
   // Command palette (⌘K / Ctrl+K) — fast keyboard nav to any computer + quick actions (§87).

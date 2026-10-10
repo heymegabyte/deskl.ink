@@ -41,9 +41,14 @@ test.describe('Mobile (375px)', () => {
     await page.goto('/');
     await dismissOverlay(page);
     await expectNoHorizontalOverflow(page);
-    // The header's New-computer + Sign-out collapse to icon buttons but stay reachable.
+    // The header's New-computer collapses to an icon button but stays reachable, and the account
+    // menu (the compact avatar that now holds Sign out) opens to a reachable Sign-out menu item.
     await expect(page.getByTestId('new-computer-button')).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible();
+    const account = page.getByTestId('account-menu-button');
+    await expect(account).toBeVisible();
+    await account.click();
+    await expect(page.getByTestId('account-signout')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /sign out/i })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
     expect(results.violations.map((v) => v.id), 'manager WCAG @375').toEqual([]);
   });
