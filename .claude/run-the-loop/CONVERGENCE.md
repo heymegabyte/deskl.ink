@@ -9,6 +9,23 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 10 (2026-10-10) — `/loop` fire: independent regression review (Stage C) — CLEAN
+- **Consolidated adversarial review of the session's 5 accumulated `DesktopManager.tsx` features**
+  (tombstone, codenames, inline-edit, toast, restart) by a fresh independent agent. **VERDICT: 0 P0,
+  0 P1, 2 P2 — would not block.** Cross-feature state races: clean (only `refresh` re-adds + it filters
+  tombstones; stop/restart/rename use `prev.map` by id — can't resurrect). Toast: single live region,
+  `position:fixed` (no layout shift), no double-announce. Inline-rename behaviors intact.
+- **Broader-UI regression sweep (prod E2E I hadn't re-run this session): 6 passed (6.4s)** — a11y ×3,
+  command-palette, mobile ×2. No regression from the accumulated changes.
+- **Authz spot-check (`routes/desktops.ts`): CLEAN** — every per-`:id` route (get/patch/start/ticket/
+  stop/snapshot/restore/**restart**/delete) does `resolveAuth`→401 then `getOwned`→404; VNC/term use
+  HMAC tickets by design. No owner-scope gap.
+- This is **one clean independent review pass** over the frontend slices (toward the 2-consecutive-clean
+  convergence condition). No code change this fire — a verification fire.
+- **2 P2s tracked (not churned this fire):** (a) mid-restart the Stop/Restart buttons unmount (status
+  `persisting` ∉ `stoppable`) → the action row reflows ~60s; fix = keep them mounted + `disabled` on
+  transient states. (b) Restart has no confirm (acceptable for a reversible action; optional).
+
 ## Iteration 9 (2026-10-10) — `/loop` fire: Restart wired end-to-end ✅
 - **Completed LIFE-1 as a real feature** — `/:id/restart` was an API-only verb (dead backend feature);
   now it has a UI control. Shared `desktopApi.restart` + `desktopTestIds.restartButton`; `api.restartDesktop`;
