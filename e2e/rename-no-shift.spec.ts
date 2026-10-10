@@ -87,18 +87,27 @@ test.describe('Inline rename — zero layout shift', () => {
     const tile = page.locator(`[data-testid="desktop-tile"][data-desktop-id="${createdId}"]`);
     await expect(tile).toBeVisible({ timeout: 15_000 });
 
-    // BEFORE: measure the view-mode title.
+    // Hover FIRST, then measure both states. The tile root has a `hover:-translate-y-0.5` lift (-2px),
+    // and entering edit mode REQUIRES hovering (the rename pencil reveals on hover). Measuring the title
+    // at rest vs the input while hovered would attribute that whole-tile 2px lift to a rename "shift" it
+    // isn't. Both measurements are taken in the SAME hovered state so this isolates the rename geometry.
     const title = tile.getByRole('heading', { level: 3 });
     await expect(title).toBeVisible();
+    await tile.hover();
+    // Let the `hover:-translate-y-0.5` transform transition (duration-200) SETTLE before measuring —
+    // otherwise `before` is captured mid-lift (title ~2px lower than its settled position) while
+    // `after` lands settled, falsely reporting a 2px rename "shift". Both are now measured settled.
+    await page.waitForTimeout(350);
+
+    // BEFORE: the view-mode title (hovered + settled).
     const before = await readMetrics(title);
 
-    // Enter edit mode (the pencil reveals on hover).
-    await tile.hover();
+    // Enter edit mode (the pencil is revealed by the hover above).
     await tile.getByTestId('desktop-rename').click();
     const input = tile.getByTestId('desktop-rename-input');
     await expect(input).toBeVisible();
 
-    // AFTER: measure the edit-mode input.
+    // AFTER: the edit-mode input (still hovered — mouse stays over the tile through the click).
     const after = await readMetrics(input);
 
     // Box geometry: identical within 1px (the whole point of the fix). On failure, print BOTH full
