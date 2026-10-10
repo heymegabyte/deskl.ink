@@ -15,6 +15,18 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 12 (2026-10-10) — `/loop` fire: lifecycle action-row stability (P2 closed) ✅
+- **Closed the top tracked P2** (from iter-10 review): Stop + Restart used to UNMOUNT during a stop/
+  restart (status `persisting`/`stopping` ∉ `stoppable`), vanishing the action row for ~60s. Fix:
+  `showLifecycleControls = stoppable || isTransient` (reuses `TRANSIENT_STATUSES`) — both buttons stay
+  MOUNTED-but-DISABLED through transient states (`opacity-40` + `cursor-not-allowed`, byte-identical box
+  → zero geometry shift; `aria-disabled`/`aria-busy`; reduced-motion-gated spin on the restart glyph),
+  and vanish only at terminal `stopped`/`failed`. Handlers/testids untouched. Prod `4bc758a6`.
+- **Verified live:** build + typecheck green · `restart`+`delete-no-resurrect`+`rename-no-shift` **3 passed
+  (31.1s)** · a throwaway spec ASSERTED `desktop-restart` stays `toBeDisabled()` after the click (mounted,
+  not unmounted) · screenshot shows the stable dimmed row during "Saving" (card "Yarrow"). 1 of the 2
+  tracked P2s now resolved; the other (DesktopRegistry global-singleton) is a deliberate TODO(M2).
+
 ## Iteration 11 (2026-10-10) — `/loop` fire: 2nd consecutive clean pass → shipped slices CONVERGED ✅
 - **Second independent review pass — backend/data-integrity/security lens — CLEAN (0 P0, 0 P1, 2 P2
   intentional/tracked).** Confirmed: codename uniqueness owner-scoped (id is the key, names cosmetic);
