@@ -60,10 +60,13 @@ turn work lands.
   `POST /:id/{snapshot,restore,restart}` (401/404 non-leak); `/:id/stop` checkpoints first and never
   reports stopped before the checkpoint resolves; `DELETE` snapshots best-effort so a deleted computer
   stays recoverable. `BACKUPS` R2 binding live (`deskl-ink-backups`). **Verified:** typecheck clean;
-  41/41 unit; deployed prod v98ae02ed (Ubuntu image rebuilt incl. the agent); unauth routes 401 via
-  default-deny. Independent adversarial review 0 P0 / 1 P1 (shadow-restore under `COMPUTER_DO=1` →
-  closed by a `persistenceAvailable(env)` gate) / 3 P2. **Remaining (honest):** live sentinel
-  destroy+recreate E2E + auto-restore-on-boot. See **D30** + CONVERGENCE.md iteration 2.
+  43/43 unit; deployed prod v4cb33181 (Ubuntu image rebuilt incl. the agent); unauth routes 401 via
+  default-deny. A LIVE golden-path E2E on a real container found + fixed 3 P0s the unit fakes missed
+  (R2 length-unknown `put` → multipart; streamed POST → buffered; hot-untar rc). **SNAPSHOT is PROVEN
+  LIVE** (5× `ok:true`, ~1.07 MB real /home tars in R2). **RESTORE is NOT functional** — untar into a
+  live /home fails (rc≥2); the fix is restore-on-boot (extract into a quiescent /home on START), a
+  tracked P0-follow-up. Adversarial review 0 P0 / 1 P1 (shadow-restore under `COMPUTER_DO=1` → closed
+  by a `persistenceAvailable(env)` gate) / 3 P2. See **D30** + CONVERGENCE.md iteration 2.
 - Shared contract: `packages/shared/src/desktop-api.ts` (Zod SSOT for server + client + E2E).
 - Other milestones `[ ]` queued below.
 
@@ -171,7 +174,7 @@ container/agent     desklink-agent — in-container daemon (control, recording, 
 - [ ] Explicit include/exclude rules; `.gitignore` as a SIGNAL not a delete policy (keep `.env`, local DBs, creds, user-created ignored files) — v1 tars ALL of `/home`
 - [~] Graceful pre-stop: flush/close Chromium, checkpoint Firefox, flush SQLite, `sync`, signal user services, finalize recording, write manifest, verify integrity. Handle `SIGTERM` (CF can rehome containers) — **checkpoint-before-stop ordering + manifest + integrity verify shipped**; per-app flush choreography pending
 - [~] Persist: home, Chrome/Firefox profiles+extensions+settings, git repos, SSH (user's), IDE + AI-tool config, shell config/history, user apps, meaningful `/etc` + `/usr/local` + `/opt`, app DBs, desktop prefs. Skip unchanged OS files. — **all of `/home` persisted**; `/etc`+`/usr/local`+`/opt` + skip-unchanged pending
-- [~] Background checkpoints + final checkpoint on stop; restore onto a replacement host independent of CF snapshot — **final checkpoint-on-stop + manual restore shipped**; background checkpoints + AUTO-restore-on-replacement pending
+- [~] Background checkpoints + final checkpoint on stop; restore onto a replacement host independent of CF snapshot — **final checkpoint-on-stop shipped + SNAPSHOT→R2 proven live**; RESTORE not yet functional (untar into a live /home fails rc≥2 → needs restore-on-boot: extract into a quiescent /home on container START); background checkpoints + auto-restore-on-replacement fold into that
 - [ ] **10-minute idle auto-stop** — meaningful activity = human input / VNC interaction / authorized Computer Use / MCP activity / active agent task / explicit foreground keepalive (not meaningless polling). At threshold: indicate stopping → block new tasks → flush → persist → finalize recording → verify durable checkpoint → stop container → stop billing → retain metadata/screenshots/history
 - [x] **Never report "Stopped safely" before the durable checkpoint is confirmed** — `stopWithCheckpoint` resolves the R2 put (or a confirmed capability_gap) BEFORE `.stop()`; status `persisting` during the checkpoint
 - [~] Tests: persistence round-trip across container REPLACEMENT, interrupted write, failed restore, R2 transient failure — **unit round-trip + integrity + ordering + capability-gap covered (23 tests)**; live REPLACEMENT E2E pending
