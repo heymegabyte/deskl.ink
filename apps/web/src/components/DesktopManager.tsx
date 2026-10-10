@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   desktopTestIds,
   DESKTOP_SIZES,
@@ -482,6 +482,14 @@ export function DesktopManager({
 const RUNNING_STATUSES: ReadonlySet<DesktopStatus> = new Set<DesktopStatus>(['ready', 'active']);
 
 /**
+ * Shared type geometry for a tile's name in BOTH view (<h3>) and edit (<input>) modes. Applying the
+ * SAME classes (font family + size + weight + line-height, via Tailwind `text-base`) to both — plus
+ * the input's inline box reset (font/letter-spacing/line-height inherit, zero padding/border/margin)
+ * — is what guarantees ZERO layout shift when swapping between the two.
+ */
+const NAME_TYPOGRAPHY = 'font-display text-base font-700 tracking-normal';
+
+/**
  * Global financial bar (spec §39) — the always-visible answer to "what is costing money right now?".
  * Computed from the already-polled desktop list: running count, estimated hourly burn, and estimated
  * session spend. Every figure is an ESTIMATE from Cloudflare's published rate card
@@ -652,6 +660,9 @@ function DesktopTile({
   // Inline-rename cancel flag: Enter / click-away commit via onBlur; Escape sets this so the same
   // onBlur cancels instead. One blur path → exactly one of commit/cancel fires per edit session.
   const renameCancelledRef = useRef(false);
+  // Inline validation: true once the field is edited down to empty/whitespace (a no-op on commit).
+  const [invalid, setInvalid] = useState(false);
+  const renameHintId = useId();
   const { color, label, live } = statusPresentation(desktop.status);
   const openable = desktop.status === 'ready' || desktop.status === 'active';
   const stoppable = live || desktop.status === 'starting' || desktop.status === 'restoring';
@@ -665,7 +676,8 @@ function DesktopTile({
     >
       <div>
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
+          {/* `relative` anchors the inline validation hint; wrapper geometry is otherwise unchanged. */}
+          <div className="relative flex min-w-0 items-center gap-2.5">
             <DistroLogo distro={desktop.distro} size={28} />
             {editing ? (
               <input
@@ -674,10 +686,13 @@ function DesktopTile({
                 autoFocus
                 maxLength={60}
                 aria-label={`Rename ${desktop.name}`}
+                aria-invalid={invalid}
+                {...(invalid ? { 'aria-describedby': `${renameHintId}` } : {})}
                 onFocus={(e) => {
                   renameCancelledRef.current = false;
                   e.currentTarget.select();
                 }}
+                onChange={(e) => setInvalid(e.currentTarget.value.trim().length === 0)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -688,22 +703,44 @@ function DesktopTile({
                     e.currentTarget.blur(); // cancel via onBlur
                   }
                 }}
+                // Blur policy: SAVE-ON-BLUR-IF-CHANGED — committing on blur routes through
+                // renameComputer, which no-ops on empty/whitespace/unchanged (so click-away keeps
+                // a valid edit, discards a blank one); Escape sets the cancel flag so blur discards.
                 onBlur={(e) => {
                   if (renameCancelledRef.current) {
                     renameCancelledRef.current = false;
+                    setInvalid(false);
                     onEditCancel();
                   } else {
                     onRename(e.currentTarget.value);
                   }
                 }}
-                className="min-w-0 flex-1 rounded-md border border-[var(--color-cyan)]/50 bg-[var(--color-black)]/60 px-2 py-0.5 font-display text-base font-700 text-white outline-none focus-visible:border-[var(--color-cyan)]"
+                // Shares NAME_TYPOGRAPHY with the <h3> (identical font/size/weight/leading/tracking)
+                // and resets the input box to zero chrome so entering edit mode causes ZERO layout
+                // shift; the focus ring is a box-shadow (+ ring color) — it never changes box size.
+                // NB: we intentionally DON'T use `font: inherit` — NAME_TYPOGRAPHY sets the font
+                // explicitly on both nodes; `inherit` would pull the body font and break the match.
+                className={`${NAME_TYPOGRAPHY} min-w-0 flex-1 appearance-none rounded-[3px] border-0 bg-transparent p-0 align-middle leading-6 text-white caret-[var(--color-cyan)] outline-none ${
+                  invalid
+                    ? 'shadow-[0_0_0_2px_var(--color-danger)]'
+                    : 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-cyan)_70%,transparent)]'
+                }`}
+                style={{ margin: 0, boxSizing: 'border-box' }}
               />
-            ) : (
+            ) : null}
+            {editing && invalid && (
+              // Absolutely positioned so the hint never reflows the tile (keeps zero-shift intact).
+              <span
+                id={renameHintId}
+                role="alert"
+                className="absolute left-0 top-full mt-1 text-xs text-[var(--color-danger)]"
+              >
+                Name can't be empty
+              </span>
+            )}
+            {!editing && (
               <>
-                <h3
-                  className="truncate font-display text-base font-700 text-white"
-                  title={desktop.name}
-                >
+                <h3 className={`${NAME_TYPOGRAPHY} truncate text-white`} title={desktop.name}>
                   {desktop.name}
                 </h3>
                 <button
