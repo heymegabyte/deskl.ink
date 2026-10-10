@@ -9,6 +9,24 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 6 (2026-10-10) — `/loop` fire: inline-edit geometry CLOSED ✅
+- **P0 inline-edit font geometry — DONE + PROVEN LIVE.** `e2e/rename-no-shift.spec.ts` GREEN twice
+  against prod (`76bbf37e`): the rename `<input>` matches the title geometry within ≤1px (zero shift),
+  identical font-family/size/weight/letter-spacing/line-height.
+- **Root cause of the persistent "2px" was the TEST, not the component.** Full-rect logging (added
+  iter-5) proved left+height were ALWAYS identical — only top, only by 2px. That 2px = the tile's
+  `hover:-translate-y-0.5` (−2px, duration-200) lift: the spec measured the title mid-lift vs the input
+  settled (entering edit REQUIRES hovering the reveal-on-hover pencil). Fix: hover + settle 350ms,
+  measure both states settled. The component fixes shipped this + prior fires (input overlays the `<h3>`
+  as `absolute inset-0`; h3 className constant so its box can't recompute) make the geometry correct by
+  construction — genuine improvements, not wasted.
+- **All THREE immediate P0s now closed + verified live:** deletion flicker (tombstone), codenames
+  ("Amber" live), inline-edit geometry (spec GREEN). Lesson for future UI geometry specs: control for
+  hover/transform/transition state — measure both sides in the SAME settled state.
+- Gates: web build + `pnpm -r typecheck` green · live E2E **GREEN** (8.2s/9.9s) · prod 200.
+- **NEXT FIRE frontier:** PERSIST-1b restore-on-boot (P0) + the 30-dimension product (idea-matrix) —
+  e.g. Dimension 8 idle-stop (10-min verified-inactivity) or Dimension 3 live cost chip.
+
 ## Iteration 5 (2026-10-10) — `/loop` fire: inline-edit geometry, overlay attempt
 - **Deployed the deterministic overlay fix** (prod `09510a23`): `<h3>` always-mounted (box anchor,
   `invisible` while editing) + `<input>` `absolute inset-0 flex items-center`. All edit behaviors intact.
