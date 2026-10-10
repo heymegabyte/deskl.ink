@@ -5,9 +5,36 @@
 
 ## Status
 - **Converged:** PARTIAL. Iteration 1 (BRAND-1, AUTH-1, ACP-1/2/3) converged + prod-verified. Iteration 2 landed **SNAPSHOT (PERSIST-1 durable-truth half) — PROVEN LIVE** + **LIFE-1** (P1). The live golden-path E2E against a real container earned its keep: it found + fixed THREE P0s the unit fakes missed (R2 length-unknown `put`; streamed POST to container; hot-untar rc handling). **Honest NON-converged items:** PERSIST-1 **restore** is NOT functional end-to-end — the pipeline connects (manifest→R2→buffered POST→agent) but `tar -x` into a LIVE `/home` exits fatal (rc≥2); the correct design is **restore-on-boot** (extract into a quiescent `/home` before the session starts), now empirically justified → a tracked P0-follow-up. NOT a false "converged".
-- **Current iteration:** 2 — Stage B+C done for snapshot/LIFE-1 (independent review pass 1: 0 P0/1 P1-fixed/3 P2; pass 2: P1 guard confirmed closed, 0 new). Restore went through 4 live fix cycles (multipart → no-pre-stop → no-cycle → buffered-POST → agent rc-tolerance) — snapshot green, restore still blocked on hot-untar. A fresh Stage-C pass over the final restore code is the next fire's first task.
-- **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
-- **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
+- **Current iteration:** 11 (same session, `/loop` cron a2cc0f1f). Iters 3–9 landed the 3 immediate P0s
+  (tombstone, codenames, inline-edit — all live-E2E-verified) + toast + Restart wired end-to-end. Iters
+  10–11 = **two consecutive CLEAN independent passes** (frontend + backend/security) → that body of work
+  CONVERGED. Restore (PERSIST-1b) remains the open P0 for a fresh session.
+- **Budget:** 1 long session, 11 fires. Lead saturated — kept minimal (delegate + verify) past iter 6.
+  Default budgets in CONVERGENCE-PROTOCOL. Next: restore-on-boot (fresh session) OR more small verified
+  slices (clone/reset, settings, API-keys, connections) from the idea-matrix frontier.
+- **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
+  bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
+
+## Iteration 11 (2026-10-10) — `/loop` fire: 2nd consecutive clean pass → shipped slices CONVERGED ✅
+- **Second independent review pass — backend/data-integrity/security lens — CLEAN (0 P0, 0 P1, 2 P2
+  intentional/tracked).** Confirmed: codename uniqueness owner-scoped (id is the key, names cosmetic);
+  lifecycle ordering correct (checkpoint resolves before stop, never wedges, all verbs idempotent,
+  delete non-blocking); `persistenceAvailable` leaves NO shadow-backend path under `COMPUTER_DO=1`;
+  `homeBackup` has no data-loss window (`latest.json` written only after multipart `complete()` + the
+  gzip integrity gate; unique keys; retention safe); Zod at every boundary (`.strict()` bodies,
+  `safeParse` on the persisted session blob, HMAC-verified tokens); **IDOR clean** — every per-`:id`
+  route `resolveAuth`→`getOwned`→404 non-leak.
+- **Fresh evidence (verbatim):** `pnpm -C workers/api test` → **51/51** · `pnpm -r typecheck` → exit 0 ·
+  authz E2E on prod → **4 passed** (default-deny, ticket-gated VNC/term, cross-user IDOR 404, mcp gate).
+- **⇒ TWO consecutive clean independent passes (frontend lens iter-10 + backend/security lens iter-11).**
+  The shipped body of work — **the 3 immediate P0s (tombstone, codenames, inline-edit) + persistence
+  SNAPSHOT (PERSIST-1a) + lifecycle verbs (stop-checkpoint, restart) + toast — is CONVERGED** by the
+  protocol's exit criteria (zero P0, acceptance by fresh evidence, required tests pass, no known vuln,
+  journeys green, 2 clean passes).
+- **NOT converged (the honest remaining frontier):** PERSIST-1b restore-on-boot (P0 — restore doesn't
+  work end-to-end; needs a fresh focused session) + the broad 30-dimension product (orgs/teams, billing,
+  viewer, connections, notifications, …). 2 tracked P2s: cosmetic codename-dup under a create race;
+  `DesktopRegistry` global singleton (owner-column isolation today, DO-partition is a TODO(M2)).
 
 ## Iteration 10 (2026-10-10) — `/loop` fire: independent regression review (Stage C) — CLEAN
 - **Consolidated adversarial review of the session's 5 accumulated `DesktopManager.tsx` features**
