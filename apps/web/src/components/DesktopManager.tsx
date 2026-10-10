@@ -26,6 +26,9 @@ import { DistroLogo } from './DistroLogo.js';
 /** Poll cadence for the desktop list + in-flight desktops (ms). */
 const POLL_MS = 2000;
 
+/** How long the success toast stays visible before it auto-dismisses (ms). */
+const TOAST_MS = 3000;
+
 /** Statuses that are still settling — worth polling until they leave this set. */
 const TRANSIENT_STATUSES: ReadonlySet<DesktopStatus> = new Set<DesktopStatus>([
   'restoring',
@@ -102,8 +105,10 @@ export function DesktopManager({
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [confirmStopAll, setConfirmStopAll] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
-  // Polite screen-reader announcements for successful lifecycle actions (WCAG 4.1.3 Status
-  // Messages). Errors are announced separately via the role="alert" error banner below.
+  // Polite announcements for successful lifecycle actions (WCAG 4.1.3 Status Messages). This string
+  // feeds the ONE shared live region — which is ALSO the visible success toast below, so sighted and
+  // screen-reader users share a single source of truth (no double-announce). Errors are surfaced
+  // separately via the role="alert" error banner.
   const [announcement, setAnnouncement] = useState('');
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
@@ -117,10 +122,26 @@ export function DesktopManager({
   // stale/late/mid-cleanup response. Authoritative on the client for the session.
   const tombstonedRef = useRef<Set<string>>(new Set());
 
+  // Drives the visible toast's enter/exit: `true` just after a new announcement lands, flipped back
+  // to `false` ~TOAST_MS later so the toast fades out. The toast element stays mounted (it IS the
+  // persistent live region), so screen readers still read the latest message even once it's hidden.
+  const [toastShown, setToastShown] = useState(false);
+
   // The command palette (via App) requests the New-computer picker by bumping this signal.
   useEffect(() => {
     if (openPickerSignal) setPickerOpen(true);
   }, [openPickerSignal]);
+
+  // Show-then-auto-dismiss the success toast whenever a new announcement arrives. The timer is
+  // cleared on the next message (so rapid actions re-arm a fresh 3s window, not a stale one) and on
+  // unmount. Reduced-motion users get the same lifecycle — only the fade transition is suppressed
+  // (via `motion-reduce:` + the global reduced-motion CSS gate).
+  useEffect(() => {
+    if (!announcement) return;
+    setToastShown(true);
+    const timer = setTimeout(() => setToastShown(false), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [announcement]);
 
   /** Pull the full desktop list and reconcile into state. */
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -322,15 +343,49 @@ export function DesktopManager({
     <div className="ds-nebula-fallback flex h-full flex-col">
       {/* Page heading for assistive tech (the visible brand is the Wordmark logo). */}
       <h1 className="sr-only">Your computers</h1>
-      {/* Polite status announcer (WCAG 4.1.3) — created/stopped/deleted/renamed outcomes for SR users. */}
+      {/*
+        Success toast — created/stopped/deleted/renamed outcomes (WCAG 4.1.3 Status Messages). This is
+        ONE element serving BOTH audiences: it is the polite live region screen readers announce AND
+        the visible on-brand toast sighted users see — so there is exactly one announcement, never a
+        double. ZERO LAYOUT SHIFT: `fixed bottom-4 right-4` takes it out of flow entirely, so it can
+        never reflow the grid or header no matter how long the message is. It stays mounted (empty
+        string → nothing to read) so the live region is stable; `toastShown` only toggles its
+        visibility. `pointer-events-none` keeps it from ever blocking a click underneath.
+      */}
       <div
         data-testid={desktopTestIds.statusAnnouncer}
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        className="sr-only"
+        className="pointer-events-none fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] justify-end sm:max-w-sm"
       >
-        {announcement}
+        {announcement && (
+          <div
+            className={`ds-glass flex items-center gap-2.5 rounded-xl border border-[var(--color-cyan)]/30 px-4 py-2.5 text-sm font-600 text-white shadow-[0_8px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(0,229,255,0.12)] transition-[opacity,transform] duration-300 ease-[var(--ease-expressive)] motion-reduce:transition-none ${
+              toastShown ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+            }`}
+          >
+            {/* Cyan check glyph in a soft halo — the on-brand "success" cue. */}
+            <span
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--color-cyan)]/15 text-[var(--color-cyan)] ring-1 ring-inset ring-[var(--color-cyan)]/40"
+              aria-hidden="true"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
+            {announcement}
+          </div>
+        )}
       </div>
       {pickerOpen && (
         <OsPicker
