@@ -76,3 +76,8 @@ rejection suppressors. Preserve existing sidebar navigation unless deliberately 
 Native toast announcement and manager rollback remain separate Electron acceptance.
 For project directory names, cover Windows device basenames with extensions, trailing dots/spaces,
 and legitimate near-matches in src/shared/path-name.test.ts.
+
+For delete preflight changes, run the Chromium delete-task-preflight regression. Failure must
+show an alert and disable confirmation; retry stays disabled while pending, then recovers
+only on successful inspection. Keep cancellation available and discard stale effect responses.
+This component test mocks RPC and dialog layout; native worktree inspection remains a separate gate.

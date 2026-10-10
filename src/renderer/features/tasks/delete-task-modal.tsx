@@ -27,6 +27,8 @@ type Props = BaseModalProps<DeleteTaskModalResult> & DeleteTaskModalArgs;
 
 export function DeleteTaskModal({ projectId, tasks, onSuccess, onClose }: Props) {
   const [preflight, setPreflight] = useState<TaskDeletePreflightItem[] | null>(null);
+  const [preflightFailed, setPreflightFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [deleteWorktree, setDeleteWorktree] = useState(true);
   const [deleteBranch, setDeleteBranch] = useState(false);
 
@@ -37,14 +39,23 @@ export function DeleteTaskModal({ projectId, tasks, onSuccess, onClose }: Props)
   const taskIds = useMemo(() => tasks.map((t) => t.taskId), [tasks]);
 
   useEffect(() => {
+    let cancelled = false;
+    setPreflight(null);
+    setPreflightFailed(false);
     rpc.tasks.getDeletePreflight(projectId, taskIds).then(
-      (result) => setPreflight(result.tasks),
-      // On error, allow the modal to proceed without preflight info (no checkboxes shown).
-      () => setPreflight([])
+      (result) => {
+        if (!cancelled) setPreflight(result.tasks);
+      },
+      () => {
+        if (!cancelled) setPreflightFailed(true);
+      }
     );
-  }, [projectId, taskIds]);
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, taskIds, attempt]);
 
-  const isLoading = preflight === null;
+  const isLoading = preflight === null && !preflightFailed;
 
   const worktreeTasks = preflight?.filter((t) => t.hasWorktree) ?? [];
   const dirtyTasks = preflight?.filter((t) => t.hasUncommittedChanges) ?? [];
@@ -91,6 +102,15 @@ export function DeleteTaskModal({ projectId, tasks, onSuccess, onClose }: Props)
       <DialogContentArea className="flex flex-col gap-4 pt-0">
         <p className="text-sm text-foreground-muted">{description}</p>
 
+        {preflightFailed && (
+          <div role="alert" className="flex flex-col gap-2 text-sm text-foreground-warning">
+            <p>Could not check task worktrees and branches. Retry before deleting.</p>
+            <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         {(showWorktreeCheckbox || showBranchCheckbox) && (
           <div className="flex flex-col gap-3">
             {showWorktreeCheckbox && (
@@ -133,8 +153,11 @@ export function DeleteTaskModal({ projectId, tasks, onSuccess, onClose }: Props)
         </Button>
         <ConfirmButton
           variant="destructive"
-          disabled={isLoading}
-          onClick={() => onSuccess({ deleteWorktree, deleteBranch })}
+          disabled={isLoading || preflightFailed}
+          onClick={() => {
+            if (preflight === null || preflightFailed) return;
+            onSuccess({ deleteWorktree, deleteBranch });
+          }}
         >
           {isLoading ? 'Loading...' : isBulk ? `Delete ${count} tasks` : 'Delete'}
         </ConfirmButton>

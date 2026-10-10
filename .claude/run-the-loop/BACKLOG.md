@@ -32,7 +32,7 @@
 - [ ] Task-list accessibility: label search explicitly, identify row checkboxes by task name,
   and verify unchecked selectors remain visible on keyboard focus in a real renderer.
 
-- [ ] Delete preflight failure: require visible retry/error handling rather than proceeding
+- [x] Delete preflight failure: require visible retry/error handling rather than proceeding
   with hidden worktree options and default destructive choices after a failed preflight.
 - [x] Task registration transitions: exclude unregistered records from bulk deletion
   confirmation with a real state guard; cover selected tasks changing registration state.
@@ -51,3 +51,8 @@
   remove trailing dots/spaces; preserve ordinary names in shared-helper regressions.
 - [ ] Individual archive/restore runtime: verify error toast visibility/announcement and
   manager rollback in an isolated Electron journey; callback tests cover rejection handling only.
+
+- [ ] Bulk delete rejection: consume manager rejection, show feedback and preserve retry
+  selection without replacing newer user selection. Verify manager rollback separately.
+- [ ] Delete preflight Git-status failure: inspect backend error handling that currently
+  reports no uncommitted changes when Git status fails; encode explicit inspection failure.

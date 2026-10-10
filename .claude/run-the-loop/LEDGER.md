@@ -225,3 +225,11 @@ No native Electron or screen-reader journey ran: xvfb-run and Weston are unavail
 The backlog retains native toast/rollback acceptance separately from callback evidence.
 Loop improvement: document isolated native journey setup and focused failure/path tests.
 This entry's containing commit is the result; outer runner owns publication.
+
+## 2026-10-10 — deletion preflight failure
+
+- Reproduced missing error feedback in a failing Chromium component regression.
+- Fail closed after preflight rejection; expose retry, retain Cancel, and guard confirmation.
+- Ignore responses from disposed effects; document preflight-specific future-loop checks.
+- Native journey remains unverified: no private display/compositor available.
+- Publication belongs to the outer runner; commit and final check evidence are in its receipt.
