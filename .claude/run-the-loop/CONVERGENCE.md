@@ -9,6 +9,20 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 8 (2026-10-10) — `/loop` fire: visible success toast ✅
+- **Completed P0 §1's last UI detail — a visible success toast** (was sr-only only). The single
+  `role="status" aria-live="polite"` region is now ALSO the visible toast (no SR double-announce):
+  fixed bottom-right (`position:fixed` → **zero layout shift**), `ds-glass` + cyan check, 3s auto-dismiss,
+  motion-reduce safe. Reuses the existing announcement messages (create/stop/delete/rename); affordances
+  unchanged. Prod `752d3c50`.
+- **Verified live:** `pnpm -C apps/web build` + typecheck green · regression gate `rename-no-shift` +
+  `delete-no-resurrect` **2 passed (21.5s)** (no affordance change) · live screenshot shows the on-brand
+  glass toast "Fern created and starting." bottom-right with the layout unshifted (also re-confirms
+  codenames live: "Fern").
+- 8 fires deep; kept the lead minimal (delegated impl + verified). **Still the top open P0: PERSIST-1b
+  restore-on-boot** — a large slice best begun in a FRESH session (plan in gaps). Recommend cancelling/
+  pausing the cron (`CronDelete a2cc0f1f`) and starting restore-on-boot fresh for best quality.
+
 ## Iteration 7 (2026-10-10) — `/loop` fire: deletion-flicker regression E2E ✅
 - **P0 §1 deletion flicker — now VERIFIED LIVE** (was build-verified only). New `e2e/delete-no-resurrect.spec.ts`
   (Golden Path A §11–12): create → two-step inline delete (trash → `pendingDelete` confirm) → assert the
