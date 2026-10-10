@@ -51,6 +51,19 @@ turn work lands.
 - **Hero backdrop — living "network of workstations", LIVE (2026-10-08):** moved the hero toward the spec's cinematic vision (floating workstations connected by cyan pathways, agents moving between nodes) — but in the EXISTING 2D canvas, not a risky full Three.js rebuild. Over the drifting nebula + a dialed-back starfield, added ~7–16 luminous nodes (drift + bounce) joined by proximity-faded cyan pathways + a few pulses travelling node-to-node (you + your agents across computers). Subtle opacities keep the hero copy fully readable; zero-dep, lazy-loaded (LCP untouched), reduced-motion-gated, visibility-paused. Chunk 1.94→3.72KB (gz 1.67KB). **Verified live:** screenshot (network reads clearly, foreground crisp); 0 console errors; a11y/mobile/resilience/golden-path green. Partially delivers M1's "cinematic hero" (full WebGL deferred to a dedicated session). See **D26**.
 - **CSP violation reporting — completes security observability, LIVE (2026-10-08):** a strict CSP without reporting is fire-and-forget. Added `report-uri` + `report-to` + a `Reporting-Endpoints` header → `POST /api/v1/csp-report` sink that accepts both legacy + modern Reporting-API shapes, drops browser-extension noise, and logs each real violation as a structured `csp_violation` (observability.ts shape + correlation id — Sentry-ready). Always 204. New `e2e/security.spec.ts`. **Verified live:** headers present; a real violation logged with full context; chrome-extension noise filtered (0 logged); 204; security spec green + no regression. Completes the D13 CSP + D14 logger + D21 ui_crash story. See **D27**.
 - **M2 IDENTITY — login REQUIRED, LIVE (2026-10-08):** deskl.ink now requires a real account (supersedes the anonymous model, D9). The homepage is a hard login gate — no dismiss, no guest, X removed — and the control plane 401s every sensitive request without an authenticated session. STATELESS (no DB): a signed `deskl_session` cookie carries `{userId,email,provider,exp}`, `userId = HMAC(email)`, so Google / GitHub / email-magic-link logins unify by email. Hand-rolled on Web Crypto: `auth/crypto.ts` + `auth/session.ts` + `routes/auth.ts` (OAuth with CSRF `state`, VERIFIED email only; magic link via Amazon SES from `@deskl.ink`; `/session`, `/logout`, secret-gated `/dev-login` for E2E). Frontend gate in `App.tsx` + real `AuthPanel`. **Verified live:** 401 without session / 200 with; gate screenshot (no X, real buttons); OAuth 302 + state; magic-link SES 200; full E2E suite green (19 passed) incl. golden-path via dev-login. Follow-ups: register the OAuth callback URIs; profile/billing user store (D1) when needed. Email auto-provisioned to Amazon SES (D29). See **D28**.
+- **PERSIST-1 + LIFE-1 — durable `/home` persistence + durable restart, LIVE (2026-10-10):** the
+  biggest open P0 — the ephemeral `/home` now has a durable-truth path to R2 (M6 mechanism). A loopback
+  backup agent (`backup-agent.py`, `0.0.0.0:7070`, DO-only, not in EXPOSE) streams a gzip tar of
+  `/home`; the DO is the ONLY R2 toucher (no credential in the tenant container). Pure core
+  `homeBackup.ts` (23 unit tests): honest `capability_gap` typing, unique keys, newest-N retention, a
+  gzip integrity gate (never point `latest.json` at a corrupt archive). Owner-scoped routes
+  `POST /:id/{snapshot,restore,restart}` (401/404 non-leak); `/:id/stop` checkpoints first and never
+  reports stopped before the checkpoint resolves; `DELETE` snapshots best-effort so a deleted computer
+  stays recoverable. `BACKUPS` R2 binding live (`deskl-ink-backups`). **Verified:** typecheck clean;
+  41/41 unit; deployed prod v98ae02ed (Ubuntu image rebuilt incl. the agent); unauth routes 401 via
+  default-deny. Independent adversarial review 0 P0 / 1 P1 (shadow-restore under `COMPUTER_DO=1` →
+  closed by a `persistenceAvailable(env)` gate) / 3 P2. **Remaining (honest):** live sentinel
+  destroy+recreate E2E + auto-restore-on-boot. See **D30** + CONVERGENCE.md iteration 2.
 - Shared contract: `packages/shared/src/desktop-api.ts` (Zod SSOT for server + client + E2E).
 - Other milestones `[ ]` queued below.
 
@@ -141,17 +154,27 @@ container/agent     desklink-agent — in-container daemon (control, recording, 
 - [ ] Reconnect: browser refresh / dropped WS must NOT stop the computer; reconnecting/restored states; quality adaptation; mobile-network tolerant
 - [ ] Tests: refresh mid-session, WS interruption, forged-connection rejection
 
-## M6 — Persistence `[ ]`
+## M6 — Persistence `[~]` (PERSIST-1 mechanism LIVE 2026-10-10, D30)
 
-- [ ] Research + ADR: **restic → R2 (S3-compatible)** vs equivalent content-addressed (chunk dedup, integrity, encryption, atomic manifests, resumable, deterministic restore, versioned)
-- [ ] R2 = durable truth; container disk = ephemeral; CF snapshots = acceleration cache only (not sole recovery)
-- [ ] Explicit include/exclude rules; `.gitignore` as a SIGNAL not a delete policy (keep `.env`, local DBs, creds, user-created ignored files)
-- [ ] Graceful pre-stop: flush/close Chromium, checkpoint Firefox, flush SQLite, `sync`, signal user services, finalize recording, write manifest, verify integrity. Handle `SIGTERM` (CF can rehome containers)
-- [ ] Persist: home, Chrome/Firefox profiles+extensions+settings, git repos, SSH (user's), IDE + AI-tool config, shell config/history, user apps, meaningful `/etc` + `/usr/local` + `/opt`, app DBs, desktop prefs. Skip unchanged OS files.
-- [ ] Background checkpoints + final checkpoint on stop; restore onto a replacement host independent of CF snapshot
+- **PERSIST-1 — durable `/home` ↔ R2, LIVE (2026-10-10, prod v98ae02ed):** the ephemeral `/home`
+  now has a durable-truth path. A loopback backup agent (`container/ubuntu/backup-agent.py`,
+  `0.0.0.0:7070`, NOT in EXPOSE, DO-only, same posture as ttyd) streams a gzip tar of `/home`; the DO
+  is the ONLY R2 toucher (no credential in the tenant container). Pure core `homeBackup.ts` (23 unit
+  tests): honest `capability_gap` typing, unique keys, newest-N retention, a **gzip integrity gate**
+  (never point `latest.json` at a corrupt archive). Routes `POST /:id/{snapshot,restore,restart}`
+  (owner-scoped 401/404) + `/:id/stop` checkpoints first + `DELETE` best-effort pre-snapshot. `BACKUPS`
+  R2 binding live (bucket `deskl-ink-backups`). Adversarial review: 0 P0; the one P1 (shadow-restore
+  under `COMPUTER_DO=1`) closed by a `persistenceAvailable(env)` gate. **Remaining:** live sentinel
+  round-trip E2E + auto-restore-on-boot + restic-style dedup. See CONVERGENCE.md iteration 2.
+- [ ] Research + ADR: **restic → R2 (S3-compatible)** vs equivalent content-addressed (chunk dedup, integrity, encryption, atomic manifests, resumable, deterministic restore, versioned) — v1 ships a whole-`/home` gzip tar; restic-style dedup is the next step
+- [~] R2 = durable truth; container disk = ephemeral; CF snapshots = acceleration cache only (not sole recovery) — **R2-as-truth shipped**
+- [ ] Explicit include/exclude rules; `.gitignore` as a SIGNAL not a delete policy (keep `.env`, local DBs, creds, user-created ignored files) — v1 tars ALL of `/home`
+- [~] Graceful pre-stop: flush/close Chromium, checkpoint Firefox, flush SQLite, `sync`, signal user services, finalize recording, write manifest, verify integrity. Handle `SIGTERM` (CF can rehome containers) — **checkpoint-before-stop ordering + manifest + integrity verify shipped**; per-app flush choreography pending
+- [~] Persist: home, Chrome/Firefox profiles+extensions+settings, git repos, SSH (user's), IDE + AI-tool config, shell config/history, user apps, meaningful `/etc` + `/usr/local` + `/opt`, app DBs, desktop prefs. Skip unchanged OS files. — **all of `/home` persisted**; `/etc`+`/usr/local`+`/opt` + skip-unchanged pending
+- [~] Background checkpoints + final checkpoint on stop; restore onto a replacement host independent of CF snapshot — **final checkpoint-on-stop + manual restore shipped**; background checkpoints + AUTO-restore-on-replacement pending
 - [ ] **10-minute idle auto-stop** — meaningful activity = human input / VNC interaction / authorized Computer Use / MCP activity / active agent task / explicit foreground keepalive (not meaningless polling). At threshold: indicate stopping → block new tasks → flush → persist → finalize recording → verify durable checkpoint → stop container → stop billing → retain metadata/screenshots/history
-- [ ] **Never report "Stopped safely" before the durable checkpoint is confirmed**
-- [ ] Tests: persistence round-trip across container REPLACEMENT, interrupted write, failed restore, R2 transient failure
+- [x] **Never report "Stopped safely" before the durable checkpoint is confirmed** — `stopWithCheckpoint` resolves the R2 put (or a confirmed capability_gap) BEFORE `.stop()`; status `persisting` during the checkpoint
+- [~] Tests: persistence round-trip across container REPLACEMENT, interrupted write, failed restore, R2 transient failure — **unit round-trip + integrity + ordering + capability-gap covered (23 tests)**; live REPLACEMENT E2E pending
 
 ## M7 — DeskLink Memory `[ ]`
 

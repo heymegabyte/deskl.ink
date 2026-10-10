@@ -1,0 +1,15 @@
+{
+  "syncedFrom": "claude-skills/run-the-loop/_shared",
+  "masterSha": "06b6525",
+  "shared": [
+    "CONSTITUTION.md",
+    "CONVERGENCE-PROTOCOL.md",
+    "OPERATING-PRINCIPLES.md",
+    "RUNNER-AND-CRITICS.md",
+    "GENOME.md",
+    "BROWSER-OPERATING-LAYER.md",
+    "CF-RELEASES.md",
+    "ULTIMATE-REQUIREMENTS.md"
+  ],
+  "note": "Do NOT hand-edit the shared files in this repo — edit the master in the claude-skills plugin (~/.claude/plugins/heymegabyte-agent-skills/run-the-loop/_shared) + re-run bin/sync-run-the-loop.mjs."
+}
