@@ -192,3 +192,18 @@ journeys and visual/accessibility runtime proof remain unverified (xvfb-run unav
 Loop improvement: document identity/history invariants and real-store deferred regression
 acceptance. Added nested task-row controls/keyboard coverage to the next frontier.
 This entry's containing commit is the result; outer runner owns publication, no push/deploy.
+
+## 2026-10-10 — terminal search result announcements
+
+Chromium regressions reproduced the missing live region (two failed assertions before
+the fix). The open search overlay now keeps a polite, atomic status region mounted,
+announcing match position/count and no matches. Clearing the query clears its text; closing
+removes the overlay. The visual numeric counter is hidden from assistive technology to
+avoid duplicate output. Three browser component regressions passed after the fix.
+
+Fresh format, lint and typecheck passed; the full suite passed (160 files, 1150 tests).
+Electron main/preload/renderer build passed with outDir and large-bundle warnings.
+No real Electron, Unicode selection or screen-reader speech claim: xvfb-run is unavailable.
+Loop improvement: add the focused browser regression path and announcement acceptance
+to orientation; split verified DOM semantics from pending runtime accessibility in backlog.
+This entry's containing commit is the result; outer runner owns publication.

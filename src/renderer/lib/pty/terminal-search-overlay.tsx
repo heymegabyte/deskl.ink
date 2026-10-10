@@ -59,8 +59,18 @@ export function TerminalSearchOverlay({
         />
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
-        <span className="min-w-10 shrink-0 px-1 text-center text-[11px] text-foreground-muted">
+        <span
+          aria-hidden="true"
+          className="min-w-10 shrink-0 px-1 text-center text-[11px] text-foreground-muted"
+        >
           {searchQuery ? `${searchStatus.currentIndex}/${searchStatus.total}` : '0/0'}
+        </span>
+        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {searchQuery
+            ? searchStatus.total > 0
+              ? `Match ${searchStatus.currentIndex} of ${searchStatus.total}`
+              : 'No matches'
+            : ''}
         </span>
         <Button
           type="button"

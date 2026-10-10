@@ -30,6 +30,11 @@ cannot prove Unicode cell behavior; real Electron selection remains a separate g
 The verified renderer source map is agents/architecture/renderer.md; older conventions
 may still name retired core paths. Verify referenced files before copying their patterns.
 
+For terminal search announcements, run the browser component regression in
+src/renderer/tests/browser/terminal-search-overlay.test.tsx. Keep the live region mounted
+while the overlay is open; cover result changes, stepping, no results, clearing and closing.
+DOM semantics in Chromium do not prove screen-reader speech or real Electron selection.
+
 For task search changes, align query comparisons with TaskList's trim/lowercase filter.
 Test active and archived selections, clearing search, equivalent queries, and fresh range
 anchors. Changing the effective filter clears selection; raw text still updates for case

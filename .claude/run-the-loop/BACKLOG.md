@@ -19,8 +19,10 @@
 
 - [x] Renderer conventions: reconcile stale modal, view and PTY paths and ownership
   in agents/conventions/renderer-patterns.md; verify all explicit source paths exist.
-- [ ] Terminal search accessibility: announce result counts to assistive technology;
-  verify actual terminal selection in an isolated real Electron Unicode journey.
+- [x] Terminal search result semantics: expose a persistent polite, atomic status region;
+  cover matches, stepping, no matches, clearing and closing in real Chromium component tests.
+- [ ] Terminal search accessibility runtime: verify screen-reader announcements and actual
+  terminal selection in an isolated real Electron Unicode journey.
 
 - [x] Delete confirmation: capture confirmed task IDs rather than reading mutable selection
   in the success callback. Cover selection changes while the modal is open.
