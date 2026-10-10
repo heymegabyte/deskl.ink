@@ -681,20 +681,25 @@ function DesktopTile({
             <DistroLogo distro={desktop.distro} size={28} />
             {/* ZERO-SHIFT RENAME BY CONSTRUCTION: the <h3> is ALWAYS mounted as the sole layout anchor
                 for the name box in this flex row, so entering/leaving edit mode never changes the row
-                geometry. While editing we make the h3's text `invisible` (NOT `hidden` — that would
-                collapse the box) and overlay the <input> with `absolute inset-0`, so the input is
-                sized to the EXACT box the h3 defines. Because the input fills that box and centers its
-                own text vertically (`flex items-center`), its top/left/height match the h3's by
-                construction — not by matching intrinsic input line-box metrics. A `relative` wrapper
-                scopes the overlay to just the title (never the logo). */}
-            <div className="relative min-w-0 flex-1">
-              <h3
-                className={`${NAME_TYPOGRAPHY} truncate text-white ${editing ? 'invisible' : ''}`}
-                aria-hidden={editing ? true : undefined}
-                title={desktop.name}
-              >
-                {desktop.name}
-              </h3>
+                geometry. The h3 ITSELF is the positioning context (`relative min-w-0 flex-1`); while
+                editing we make its text `invisible` (NOT `hidden` — that would collapse the box) and
+                nest the <input> AS ITS CHILD with `absolute inset-0`. The input's border-box is thus
+                the h3's PADDING-box ≡ (h3 has zero padding) the h3's border-box, pixel-identical by
+                construction — it inherits the h3's exact top/left/width/height, never the taller
+                row-stretched/centered wrapper box that shifted it ~2px before. Because the input fills
+                that box and centers its single text line (`flex items-center`) under the shared
+                NAME_TYPOGRAPHY leading, the text lands on the h3's baseline too. */}
+            <h3
+              className={`${NAME_TYPOGRAPHY} relative min-w-0 flex-1 text-white ${editing ? '' : 'truncate'}`}
+              title={desktop.name}
+            >
+              {/* The heading TEXT is the direct child we hide while editing (`invisible` keeps its box
+                  so the row geometry never moves); the overlaid <input> is a sibling that is NOT hidden
+                  from assistive tech, so the rename field keeps its own accessible name. `truncate`
+                  (which carries overflow:hidden) is dropped WHILE editing so it can't clip the input's
+                  box-shadow focus ring — the h3's own border-box is identical either way (overflow
+                  never changes an element's box), so this does not move or resize the measured box. */}
+              <span className={editing ? 'invisible' : undefined}>{desktop.name}</span>
               {editing && (
                 <input
                   data-testid={desktopTestIds.renameInput}
@@ -731,16 +736,18 @@ function DesktopTile({
                       onRename(e.currentTarget.value);
                     }
                   }}
-                  // Overlaid `absolute inset-0` on the h3's box → identical top/left/width/height by
-                  // construction. Shares NAME_TYPOGRAPHY (identical font/size/weight/tracking/leading)
-                  // with the h3 — we do NOT override line-height (so the computed `line-height` stays
-                  // pixel-equal to the h3's, which the spec asserts). `flex items-center` centers the
-                  // input's single text line vertically in that exact box, landing on the h3's
-                  // baseline (the h3 is single-line, so same box + same leading ⇒ same text position).
-                  // Zero chrome (no border/padding/margin); the focus ring is a box-shadow — it never
-                  // resizes the box. NB: NOT `font: inherit` — NAME_TYPOGRAPHY sets the font explicitly
-                  // on both nodes; `inherit` would pull the body font and break the match.
-                  className={`${NAME_TYPOGRAPHY} absolute inset-0 flex w-full appearance-none items-center rounded-[3px] border-0 bg-transparent p-0 text-white caret-[var(--color-cyan)] outline-none ${
+                  // Overlaid `absolute inset-0` on the h3's OWN box (the input is the h3's child, and
+                  // the h3 has zero padding) → identical top/left/width/height by construction. Shares
+                  // NAME_TYPOGRAPHY (identical font/size/weight/tracking/leading) with the h3 — we do
+                  // NOT override line-height (so the computed `line-height` stays pixel-equal to the
+                  // h3's, which the spec asserts). `flex items-center` centers the input's single text
+                  // line vertically in that exact box, landing on the h3's baseline (the h3 is
+                  // single-line, so same box + same leading ⇒ same text position). Zero chrome (no
+                  // border/padding/margin); the focus ring is a box-shadow — it never resizes the box.
+                  // NB: NOT `font: inherit` — NAME_TYPOGRAPHY sets the font explicitly on both nodes;
+                  // `inherit` would pull the body font and break the match. `whitespace-normal` undoes
+                  // the h3's `truncate` (white-space: nowrap) so the input renders as a normal field.
+                  className={`${NAME_TYPOGRAPHY} absolute inset-0 flex w-full appearance-none items-center overflow-visible whitespace-normal rounded-[3px] border-0 bg-transparent p-0 text-left text-white caret-[var(--color-cyan)] outline-none ${
                     invalid
                       ? 'shadow-[0_0_0_2px_var(--color-danger)]'
                       : 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-cyan)_70%,transparent)]'
@@ -748,7 +755,7 @@ function DesktopTile({
                   style={{ margin: 0, boxSizing: 'border-box' }}
                 />
               )}
-            </div>
+            </h3>
             {editing && invalid && (
               // Absolutely positioned so the hint never reflows the tile (keeps zero-shift intact).
               <span
