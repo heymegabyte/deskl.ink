@@ -753,7 +753,16 @@ function DesktopTile({
   const renameHintId = useId();
   const { color, label, live } = statusPresentation(desktop.status);
   const openable = desktop.status === 'ready' || desktop.status === 'active';
+  // A desktop is in a settling lifecycle state (persisting | stopping | starting | restoring) —
+  // the SAME module-level set the poller uses, so "is it mid-operation?" has one definition.
+  const isTransient = TRANSIENT_STATUSES.has(desktop.status);
+  // Stop/Restart APPLY whenever the computer is running (live) OR already settling toward/away from
+  // running. We keep them RENDERED through the whole transient window (`|| isTransient`) and only
+  // DISABLE them there — so clicking Stop/Restart (which flips the tile to `persisting`/`stopping`)
+  // can't unmount the controls mid-operation and reflow the action row. They still disappear at a
+  // genuine terminal non-running state (`stopped` / `failed`), where neither verb applies.
   const stoppable = live || desktop.status === 'starting' || desktop.status === 'restoring';
+  const showLifecycleControls = stoppable || isTransient;
 
   return (
     <li
@@ -980,27 +989,41 @@ function DesktopTile({
             >
               Open
             </button>
-            <button
-              type="button"
-              data-testid={desktopTestIds.stopButton}
-              onClick={onStop}
-              disabled={!stoppable}
-              aria-label={`Stop ${desktop.name}`}
-              className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Stop
-            </button>
-            {/* Restart — checkpoint + stop→start. Shown only while the computer is running/settling
-                (same condition as Stop); compact icon-only so the action row never crowds. The
-                circular-arrow glyph reads as "restart"; the icon + aria-label/title carry the name. */}
-            {stoppable && (
+            {/* Stop + Restart stay MOUNTED through the whole running→settling window and only go
+                DISABLED while transient (persisting | stopping | starting | restoring) — so clicking
+                either (which optimistically flips the tile to persisting/stopping) can't unmount them
+                mid-operation and reflow the row. The `disabled` affordance is dim + not-allowed ONLY;
+                the button box (padding/border/size) is untouched, so geometry never shifts. They
+                vanish together only at a terminal non-running state (stopped / failed). */}
+            {showLifecycleControls && (
+              <button
+                type="button"
+                data-testid={desktopTestIds.stopButton}
+                onClick={onStop}
+                disabled={isTransient}
+                aria-disabled={isTransient}
+                aria-busy={desktop.status === 'stopping' || desktop.status === 'persisting'}
+                aria-label={`Stop ${desktop.name}`}
+                className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Stop
+              </button>
+            )}
+            {/* Restart — checkpoint + stop→start. Same mounted-through-transient / disabled-while-
+                settling policy as Stop; compact icon-only so the action row never crowds. The
+                circular-arrow glyph reads as "restart"; while settling the glyph spins (pure CSS,
+                gated by the global reduced-motion rule) as a subtle "working" cue — the button box is
+                unchanged so there's no geometry shift. */}
+            {showLifecycleControls && (
               <button
                 type="button"
                 data-testid={desktopTestIds.restartButton}
                 onClick={onRestart}
+                disabled={isTransient}
+                aria-disabled={isTransient}
                 aria-label={`Restart ${desktop.name}`}
                 title="Restart"
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-cyan)]/60 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-cyan)]/60 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -1012,6 +1035,11 @@ function DesktopTile({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
+                  // While settling, the circular-arrow glyph spins as a subtle "working" cue. It's the
+                  // SAME 15×15 glyph in the SAME 8×8 button box (only the icon's own transform animates),
+                  // so the row geometry is identical to the idle state. `animate-spin` is suppressed by
+                  // the global reduced-motion gate (same as <Spinner/>), honoring prefers-reduced-motion.
+                  className={isTransient ? 'animate-spin [animation-duration:1.4s]' : undefined}
                 >
                   <path d="M3 2v6h6" />
                   <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
