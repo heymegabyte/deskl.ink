@@ -9,6 +9,20 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 3 (2026-10-10) — `/loop` product-expansion fire (cron a2cc0f1f, every 15m)
+- Scope expanded to the full 30-dimension product spec; frontier seeded in `docs/product/idea-matrix.md`
+  (dimension status board + per-fire method — the loop drains it 1–2 dimensions/fire, no fabricated 900).
+- **P0 deletion flicker — FIXED + deployed:** authoritative client tombstones in `DesktopManager.tsx`
+  (delete tombstones the id before optimistic removal; `refresh` filters tombstoned ids → no stale/
+  in-flight poll can resurrect a deleted tile; rollback un-tombstones). Root-cause, not a timeout mask.
+  Verified: web build green. NEXT-FIRE verify: rapid-delete + slow-poll Playwright E2E.
+- **P0 generic names → codenames — FIXED + PROVEN LIVE:** `compute/codename.ts` (curated, owner-unique,
+  case-insensitive, suffix fallback, 8 unit tests) wired into `POST /desktops`; `defaultName` retired.
+  Live: no-name create → **"Amber"** (not "Everyday Desktop"). Legacy backfill gated by `isLegacyGenericName`.
+- **P0 inline-edit font geometry — DEFERRED (next fire's lead):** the rename input must match the title's
+  font metrics exactly (zero layout shift); component = the card title/input render in `DesktopManager.tsx`.
+- Gates: `pnpm -r typecheck` clean · `workers/api` **51/51** · `apps/web build` green · deploy exit 0 · prod 200.
+
 ## Requirements + acceptance criteria
 | id | pri | requirement | acceptance criterion | status | evidence |
 |----|-----|-------------|----------------------|--------|----------|
