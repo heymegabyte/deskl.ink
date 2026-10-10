@@ -279,6 +279,36 @@ export function DesktopManager({
     [refresh]
   );
 
+  /**
+   * Restart a running desktop: checkpoint `/home`, then stop→start (the backend drives it
+   * persisting→starting→ready before responding). Optimistically show `persisting` ("saving your
+   * work"); the settling poll then tracks starting→ready. Reconcile from the response; revert on
+   * failure. The success toast fires the instant the restart is requested (the request itself is
+   * long-running — a real checkpoint + boot — so announcing on request, not on resolve, keeps the
+   * UI responsive; the returned `ready` desktop reconciles the tile).
+   */
+  const restartComputer = useCallback(
+    async (id: string) => {
+      const current = desktops.find((d) => d.id === id);
+      const name = current?.name ?? 'Computer';
+      setDesktops((prev) => prev.map((d) => (d.id === id ? { ...d, status: 'persisting' } : d)));
+      setAnnouncement(`${name} restarting.`);
+      try {
+        const fresh = await api.restartDesktop(id);
+        setDesktops((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not restart the computer.');
+        // Revert the optimistic status (or reconcile from the server if we never had it).
+        if (current) {
+          setDesktops((prev) => prev.map((d) => (d.id === id ? current : d)));
+        } else {
+          void refresh();
+        }
+      }
+    },
+    [desktops, refresh]
+  );
+
   /** Stop EVERY running computer (spec §40 — "stop everything costing money"). */
   const stopAll = useCallback(async () => {
     setConfirmStopAll(false);
@@ -516,6 +546,7 @@ export function DesktopManager({
                 desktop={desktop}
                 onOpen={() => onOpen(desktop, ticketsRef.current.get(desktop.id))}
                 onStop={() => void stopComputer(desktop.id)}
+                onRestart={() => void restartComputer(desktop.id)}
                 onDelete={() => setPendingDelete(desktop.id)}
                 onConfirmDelete={() => void deleteComputer(desktop.id)}
                 onCancelDelete={() => setPendingDelete(null)}
@@ -683,6 +714,7 @@ interface DesktopTileProps {
   desktop: DesktopResource;
   onOpen: () => void;
   onStop: () => void;
+  onRestart: () => void;
   onDelete: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
@@ -700,6 +732,7 @@ function DesktopTile({
   desktop,
   onOpen,
   onStop,
+  onRestart,
   onDelete,
   onConfirmDelete,
   onCancelDelete,
@@ -957,6 +990,34 @@ function DesktopTile({
             >
               Stop
             </button>
+            {/* Restart — checkpoint + stop→start. Shown only while the computer is running/settling
+                (same condition as Stop); compact icon-only so the action row never crowds. The
+                circular-arrow glyph reads as "restart"; the icon + aria-label/title carry the name. */}
+            {stoppable && (
+              <button
+                type="button"
+                data-testid={desktopTestIds.restartButton}
+                onClick={onRestart}
+                aria-label={`Restart ${desktop.name}`}
+                title="Restart"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-cyan)]/60 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 2v6h6" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               data-testid={desktopTestIds.deleteButton}

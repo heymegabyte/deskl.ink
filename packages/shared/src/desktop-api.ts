@@ -271,6 +271,8 @@ export const desktopApi = {
   update: (id: string) => `/api/v1/desktops/${id}`,
   start: (id: string) => `/api/v1/desktops/${id}/start`,
   stop: (id: string) => `/api/v1/desktops/${id}/stop`,
+  /** checkpoint `/home`, then stop→start — a durable restart. Returns the ready desktop. */
+  restart: (id: string) => `/api/v1/desktops/${id}/restart`,
   destroy: (id: string) => `/api/v1/desktops/${id}`,
   /** mint a fresh VNC ticket for a running desktop (self-heal when no create-time ticket). */
   ticket: (id: string) => `/api/v1/desktops/${id}/ticket`,
@@ -311,6 +313,7 @@ export const desktopTestIds = {
   tileStatus: 'desktop-status',
   openButton: 'desktop-open',
   stopButton: 'desktop-stop',
+  restartButton: 'desktop-restart', // circular-arrow affordance → checkpoint + stop→start
   deleteButton: 'desktop-delete',
   deleteConfirm: 'desktop-delete-confirm',
   renameButton: 'desktop-rename', // pencil affordance on a tile → inline name edit

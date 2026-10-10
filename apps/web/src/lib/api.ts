@@ -232,6 +232,18 @@ export const api = {
     return desktop;
   },
 
+  /**
+   * POST /api/v1/desktops/:id/restart — checkpoint `/home`, then stop→start a running desktop.
+   * Returns the ready desktop (the backend drives it persisting→starting→ready before responding).
+   */
+  async restartDesktop(id: string, signal?: AbortSignal): Promise<DesktopResource> {
+    const { desktop } = await request(desktopApi.restart(id), DesktopResponseSchema, {
+      method: 'POST',
+      signal,
+    });
+    return desktop;
+  },
+
   /** PATCH /api/v1/desktops/:id — rename a computer (metadata only). Returns the updated desktop. */
   async renameDesktop(id: string, name: string, signal?: AbortSignal): Promise<DesktopResource> {
     // Validate our own request against the contract before it leaves the client (trims + bounds).
