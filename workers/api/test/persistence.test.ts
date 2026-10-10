@@ -92,11 +92,43 @@ function fakeBucket(): HomeBackupBucket & {
   const deleteSpy = vi.fn<HomeBackupBucket['delete']>(async (key) => {
     store.delete(key);
   });
+  // Multipart upload — mirrors R2: parts buffered by number, `complete` concatenates them IN ORDER
+  // into ONE durable object under `key` (so the integrity `get` + restore read it back exactly); an
+  // `abort` drops the buffered parts. This is the path the length-unknown tar stream MUST take (a bare
+  // ReadableStream can't go through `put` — R2 throws "must have a known length").
+  const createMultipartUpload: HomeBackupBucket['createMultipartUpload'] = async (key, options) => {
+    const byNum = new Map<number, Uint8Array>();
+    return {
+      uploadPart: async (partNumber, value) => {
+        const { bytes } = await drain(value);
+        byNum.set(partNumber, bytes);
+        return { partNumber, etag: `etag-${partNumber}` };
+      },
+      complete: async (uploaded) => {
+        const ordered = [...uploaded]
+          .sort((a, b) => a.partNumber - b.partNumber)
+          .map((p) => byNum.get(p.partNumber) ?? new Uint8Array());
+        const total = ordered.reduce((n, b) => n + b.byteLength, 0);
+        const buf = new Uint8Array(total);
+        let off = 0;
+        for (const b of ordered) {
+          buf.set(b, off);
+          off += b.byteLength;
+        }
+        store.set(key, { bytes: buf, contentType: options?.httpMetadata?.contentType });
+        return { size: buf.byteLength };
+      },
+      abort: async () => {
+        byNum.clear();
+      },
+    };
+  };
   return {
     put: putSpy,
     get,
     list: listSpy,
     delete: deleteSpy,
+    createMultipartUpload,
     store,
     putSpy,
     deleteSpy,
@@ -195,10 +227,10 @@ describe('homeBackup.snapshotHome — capture /home to R2', () => {
     expect(pointer?.contentType).toBe('application/json');
     expect(JSON.parse(pointer?.text ?? '')).toEqual(result.manifest);
 
-    // Exactly two puts: the tar, then the pointer.
-    expect(bucket.putSpy).toHaveBeenCalledTimes(2);
-    expect(bucket.putSpy.mock.calls[0]?.[0]).toBe(EXPECTED_TAR_KEY);
-    expect(bucket.putSpy.mock.calls[1]?.[0]).toBe(manifestKey(DESKTOP_ID));
+    // The tar goes up via MULTIPART (a length-unknown `tar -czf -` stream can't use `put` — R2 throws
+    // "must have a known length"), so `put` is called EXACTLY ONCE: the small, known-length pointer.
+    expect(bucket.putSpy).toHaveBeenCalledTimes(1);
+    expect(bucket.putSpy.mock.calls[0]?.[0]).toBe(manifestKey(DESKTOP_ID));
   });
 
   it('returns an HONEST capability_gap (no throw, no put) when the backup service is unreachable', async () => {
@@ -307,13 +339,22 @@ describe('stopWithCheckpoint — checkpoint-before-stop ordering (P0)', () => {
   it('snapshots BEFORE stopping, and reports the checkpoint', async () => {
     const order: string[] = [];
     const bucket = fakeBucket();
-    // Wrap the real (buffering) put so we record WHEN the tar lands in R2 — the point the stop must
-    // come strictly after — while still persisting durably (bufferingPut bypasses the spy, so no
-    // recursion).
-    bucket.putSpy.mockImplementation(async (key, value, options) => {
-      if (String(key).endsWith('.tar.gz')) order.push('snapshot:put-tar');
-      return bucket.bufferingPut(key, value, options);
-    });
+    // Record WHEN the tar lands durably in R2 — the point the stop must come strictly after. The tar
+    // is a multipart upload, so wrap `createMultipartUpload` to push the marker on `complete`,
+    // delegating to the real fake (which stores the object). `complete` = the tar is durable.
+    const realMpu = bucket.createMultipartUpload;
+    bucket.createMultipartUpload = async (key, options) => {
+      const up = await realMpu(key, options);
+      return {
+        uploadPart: up.uploadPart,
+        abort: up.abort,
+        complete: async (parts) => {
+          const r = await up.complete(parts);
+          order.push('snapshot:put-tar');
+          return r;
+        },
+      };
+    };
     const containerFetch = vi.fn<ContainerBackupFetch>(async () => {
       order.push('snapshot:fetch-backup');
       return new Response(tarStream(), { status: 200 });
@@ -604,5 +645,59 @@ describe('persistenceAvailable — compute-backend gate (P1: no snapshot/restore
     // into an honest capability_gap: when the live backend is the Computer DO, persistence must NOT
     // target a shadow DesktopContainer.
     expect(persistenceAvailable({ COMPUTER_DO: '1' })).toBe(false);
+  });
+});
+
+describe('snapshotHome — multipart tar upload (regression: R2 rejects a length-unknown put)', () => {
+  it('uploads the tar via createMultipartUpload (uploadPart→complete), NOT put', async () => {
+    const bucket = fakeBucket();
+    const calls = { mpu: 0, parts: 0, completes: 0 };
+    const realMpu = bucket.createMultipartUpload;
+    bucket.createMultipartUpload = async (key, options) => {
+      calls.mpu++;
+      const up = await realMpu(key, options);
+      return {
+        uploadPart: async (n, v) => {
+          calls.parts++;
+          return up.uploadPart(n, v);
+        },
+        complete: async (p) => {
+          calls.completes++;
+          return up.complete(p);
+        },
+        abort: up.abort,
+      };
+    };
+    const containerFetch = vi.fn<ContainerBackupFetch>(
+      async () => new Response(tarStream(), { status: 200 })
+    );
+    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    expect(result.ok).toBe(true);
+    // One small (< part-size) tar → exactly one part, one complete, one multipart session.
+    expect(calls).toEqual({ mpu: 1, parts: 1, completes: 1 });
+    // `put` is used ONLY for the pointer — NEVER for the tar key.
+    expect(bucket.putSpy.mock.calls.every((c) => !String(c[0]).endsWith('.tar.gz'))).toBe(true);
+  });
+
+  it('a multipart failure → typed error (snapshot_upload_failed), NEVER a throw/500', async () => {
+    const bucket = fakeBucket();
+    // The real-world failure class the live E2E hit (R2 rejecting the upload). `complete` rejects.
+    bucket.createMultipartUpload = async () => ({
+      uploadPart: async (n: number) => ({ partNumber: n, etag: `e${n}` }),
+      complete: async () => {
+        throw new Error('Provided readable stream must have a known length');
+      },
+      abort: async () => {},
+    });
+    const containerFetch = vi.fn<ContainerBackupFetch>(
+      async () => new Response(tarStream(), { status: 200 })
+    );
+    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.kind).toBe('error');
+    expect(result.reason).toBe('snapshot_upload_failed');
+    // latest.json was NOT advanced — a failed upload never repoints restore.
+    expect(bucket.store.get(manifestKey(DESKTOP_ID))).toBeUndefined();
   });
 });

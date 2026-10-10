@@ -46,6 +46,31 @@ export interface HomeBackupBucket {
   get(key: string, options?: { range?: { offset: number; length: number } }): Promise<HomeBackupObject | null>;
   list(options?: { prefix?: string }): Promise<{ objects: Array<{ key: string }> }>;
   delete(key: string): Promise<void>;
+  /**
+   * Begin a multipart upload — the ONLY way to stream a length-UNKNOWN body into R2. `put(key,
+   * stream)` throws `Provided readable stream must have a known length` for a bare `ReadableStream`
+   * (which the container's `tar -czf -` is), so the tar MUST go up as multipart. Structural subtype
+   * of the real `R2Bucket.createMultipartUpload`.
+   */
+  createMultipartUpload(
+    key: string,
+    options?: { httpMetadata?: { contentType?: string } }
+  ): Promise<HomeBackupMultipartUpload>;
+}
+
+/** The slice of `R2MultipartUpload` the streaming tar upload uses (uploadPart / complete / abort). */
+export interface HomeBackupMultipartUpload {
+  uploadPart(
+    partNumber: number,
+    value: ArrayBuffer | ArrayBufferView | string
+  ): Promise<HomeBackupUploadedPart>;
+  complete(uploadedParts: HomeBackupUploadedPart[]): Promise<{ size: number }>;
+  abort(): Promise<void>;
+}
+/** One completed part (`R2UploadedPart`) — carried back into `complete()`. */
+export interface HomeBackupUploadedPart {
+  partNumber: number;
+  etag: string;
 }
 
 /** The slice of an `R2ObjectBody` the helper reads: size + a streamable `body` + a typed `json()`. */
@@ -138,32 +163,107 @@ export async function snapshotHome(
   const createdAt = now().toISOString();
   const key = snapshotKey(desktopId, createdAt, suffix());
 
-  // Stream the tar body straight into R2 (no buffering — a /home tar can be large). The put result
-  // carries the stored object's authoritative size; if R2 returns null (shouldn't on success) fall
-  // back to 0 so the integrity check below rejects rather than this throwing.
-  const stored = await deps.bucket.put(key, res.body, {
-    httpMetadata: { contentType: 'application/gzip' },
-  });
-  const bytes = stored?.size ?? 0;
+  let bytes: number;
+  try {
+    // R2 cannot ingest a length-UNKNOWN stream via put() — it throws "Provided readable stream must
+    // have a known length" — and the container's `tar -czf -` is exactly that. So the tar goes up as a
+    // MULTIPART upload: bounded chunks flushed as parts, never the whole /home buffered in memory. The
+    // completed object's authoritative size comes back from `complete()`.
+    bytes = await streamTarToR2(deps.bucket, key, res.body);
+  } catch {
+    // A real failure of a configured capability (R2 put/stream/network) — typed, NEVER a thrown 500.
+    // No `latest.json` was advanced, so restore still points at the previous good snapshot (if any).
+    return { ok: false, kind: 'error', reason: 'snapshot_upload_failed' };
+  }
 
-  // INTEGRITY GATE (P2): never advance `latest.json` to a corrupt archive. A put can "succeed" yet
-  // store a truncated/empty object (upstream stream aborted mid-copy); point restore at that and a
-  // later restore silently destroys /home. Reject unless the stored object is a plausible gzip.
+  // INTEGRITY GATE: never advance `latest.json` to a corrupt archive. A completed upload can still be
+  // a truncated/empty object (the tar aborted mid-stream); point restore at that and a later restore
+  // silently destroys /home. Reject unless the stored object is a plausible gzip.
   if (!(await isStoredGzip(deps.bucket, key, bytes))) {
     return { ok: false, kind: 'error', reason: 'snapshot_integrity' };
   }
 
   const manifest: SnapshotManifest = { desktopId, key, createdAt, bytes };
-  // The pointer the restore path reads. JSON.stringify (not the object) so the fake bucket in tests
-  // — and R2 itself — store a plain string body that `.json()` round-trips.
-  await deps.bucket.put(manifestKey(desktopId), JSON.stringify(manifest), {
-    httpMetadata: { contentType: 'application/json' },
-  });
+  try {
+    // The pointer the restore path reads. JSON.stringify (not the object) so the fake bucket in tests
+    // — and R2 itself — store a plain string body that `.json()` round-trips. A small known-length
+    // string, so a plain `put` is correct here (no multipart needed).
+    await deps.bucket.put(manifestKey(desktopId), JSON.stringify(manifest), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+  } catch {
+    // The tar is durable but the pointer write failed — honest error (restore wouldn't find it), not
+    // a fake success. The orphaned tar is reclaimed by a later snapshot's retention walk.
+    return { ok: false, kind: 'error', reason: 'manifest_write_failed' };
+  }
 
   // Prune superseded tars AFTER the pointer is durable — best-effort, never fails the snapshot.
   await pruneOldSnapshots(deps.bucket, desktopId, key);
 
   return { ok: true, manifest };
+}
+
+/** R2 multipart part size — 8 MiB. R2 requires every NON-final part be ≥5 MiB; the final part may be
+ *  smaller. Bounded memory: at most ~one part (8 MiB) is held at a time regardless of /home size. */
+const MULTIPART_PART_SIZE = 8 * 1024 * 1024;
+
+/**
+ * Stream a length-UNKNOWN body into R2 as a multipart upload; return the stored object's size.
+ * Accumulates read chunks until ≥ {@link MULTIPART_PART_SIZE}, flushes a part, and uploads the
+ * remainder as the final part (which may be small; always ≥1 part so even a tiny archive completes a
+ * real object). ANY failure aborts the upload (no partial object lingers) and rethrows — the caller
+ * turns a throw into a typed `error`, never a 500.
+ */
+async function streamTarToR2(
+  bucket: HomeBackupBucket,
+  key: string,
+  body: ReadableStream
+): Promise<number> {
+  const mpu = await bucket.createMultipartUpload(key, {
+    httpMetadata: { contentType: 'application/gzip' },
+  });
+  const parts: HomeBackupUploadedPart[] = [];
+  const reader = body.getReader();
+  let pending: Uint8Array[] = [];
+  let pendingBytes = 0;
+  let partNumber = 1;
+  const flush = async (): Promise<void> => {
+    const part = concatChunks(pending, pendingBytes);
+    pending = [];
+    pendingBytes = 0;
+    parts.push(await mpu.uploadPart(partNumber++, part));
+  };
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = value instanceof Uint8Array ? value : new TextEncoder().encode(String(value));
+      pending.push(chunk);
+      pendingBytes += chunk.byteLength;
+      if (pendingBytes >= MULTIPART_PART_SIZE) await flush();
+    }
+    // Final part: upload the remainder. Skip a 0-byte trailing part (exact-multiple case) UNLESS
+    // nothing was uploaded yet — an empty body still needs ≥1 part to complete (tiny → integrity gate).
+    if (pendingBytes > 0 || parts.length === 0) await flush();
+    const obj = await mpu.complete(parts);
+    return obj.size;
+  } catch (err) {
+    await mpu.abort().catch(() => {});
+    throw err;
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+/** Concatenate buffered chunks into one contiguous Uint8Array (a multipart part body). */
+function concatChunks(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const ch of chunks) {
+    out.set(ch, off);
+    off += ch.byteLength;
+  }
+  return out;
 }
 
 /**

@@ -545,15 +545,21 @@ app.post('/:id/snapshot', async (c) => {
     );
   }
 
-  const result = await persistenceFor(
-    c.env,
-    id,
-    existing.distro,
-    existing.size,
-    existing.form
-  ).snapshotHome(id);
-  const body = SnapshotResultSchema.parse(result);
-  return c.json(body);
+  try {
+    const result = await persistenceFor(
+      c.env,
+      id,
+      existing.distro,
+      existing.size,
+      existing.form
+    ).snapshotHome(id);
+    return c.json(SnapshotResultSchema.parse(result));
+  } catch (err) {
+    // Final safety net: the contract is a typed result, NEVER a 500. An unexpected throw (RPC/R2/
+    // parse) becomes an honest typed error so the caller always gets a parseable SnapshotResult.
+    console.error('[deskl.ink desktops] snapshot route error', id, err);
+    return c.json(SnapshotResultSchema.parse({ ok: false, kind: 'error', reason: 'snapshot_failed' }));
+  }
 });
 
 /**
@@ -609,6 +615,11 @@ app.post('/:id/restore', async (c) => {
   let result: RestoreResult;
   try {
     result = await container.restoreHome(id);
+  } catch (err) {
+    // Never a 500: an unexpected throw (R2 get / RPC) becomes a typed error; the container is still
+    // restarted below so a failed restore never strands the desktop stopped.
+    console.error('[deskl.ink desktops] restore error', id, err);
+    result = { ok: false, kind: 'error', reason: 'restore_failed' };
   } finally {
     await registry.updateStatus(id, 'starting');
     try {
