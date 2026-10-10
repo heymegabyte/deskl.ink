@@ -565,19 +565,17 @@ app.post('/:id/snapshot', async (c) => {
 /**
  * POST /api/v1/desktops/:id/restore — restore the most recent `/home` snapshot from R2.
  *
- * Owner-scoped. ORCHESTRATED so the restore tar NEVER untars into a LIVE `/home` (adversarial-review
- * P1): the container is STOPPED first (a PLAIN stop — we're about to overwrite `/home` wholesale, so
- * a checkpoint-snapshot here would just capture, and later restore point at, the pre-restore state
- * we're discarding), THEN `restoreHome` POSTs the tar into the quiesced `/home`, THEN the container
- * is started again. This path runs ONLY when {@link persistenceAvailable} holds (else an early,
- * side-effect-free `capability_gap`), so all three target the SAME live `DesktopContainer` stub (the
- * one whose `/home` is overwritten + which holds the loopback backup service) — never a shadow
- * backend. Idempotent: stop/start no-op in their target state.
+ * Owner-scoped. The in-container backup agent performs the untar, so restore targets a RUNNING
+ * container (ensure-started, idempotent) and POSTs the pointed-at tar into `/home` — a HOT restore of
+ * the user's OWN `/home`. (The no-race design, restore-on-boot — the DO hands the tar to start.sh
+ * BEFORE the desktop session starts, or an agent-side staging + atomic swap — is a tracked PERSIST-1
+ * follow-up; the live E2E proved a pre-stop here makes the agent unreachable.) Runs ONLY when
+ * {@link persistenceAvailable} holds (else an early, side-effect-free `capability_gap`), so it targets
+ * the SAME live `DesktopContainer` stub that holds the loopback backup service — never a shadow backend.
  *
  * Returns the typed {@link RestoreResult}: `{ ok: true, restoredKey }`, or `{ ok: false, kind, reason }`
- * (e.g. `error`/`no_backup` when nothing is stored, or a `capability_gap`). The container is ALWAYS
- * restarted — even when the restore reports a gap/error — so a failed restore never leaves the
- * desktop wedged in a stopped state. 404 for an unknown OR not-owned desktop.
+ * (`error`/`no_backup` when nothing is stored; a `capability_gap` when the agent/object is unreachable;
+ * NEVER a 500). 404 for an unknown OR not-owned desktop.
  */
 app.post('/:id/restore', async (c) => {
   const id = c.req.param('id');
@@ -601,37 +599,30 @@ app.post('/:id/restore', async (c) => {
 
   const container = persistenceFor(c.env, id, existing.distro, existing.size, existing.form);
 
-  // 1. PLAIN stop (no checkpoint — we're discarding the live /home). Ensures /home is quiesced
-  //    before the tar is POSTed, so the untar can never race a running desktop writing files.
-  await registry.updateStatus(id, 'persisting');
+  // The in-container backup agent performs the untar, so restore REQUIRES a RUNNING container — a
+  // stopped one has no agent (the live E2E proved a pre-stop here yields "restore service
+  // unreachable"). Ensure it's up (idempotent start — no-op if running, boots a cold one), THEN POST
+  // the tar. HOT restore: the tar overwrites `/home` while the desktop runs — acceptable for an
+  // explicit owner-initiated restore; the no-race restore-on-boot design is a tracked follow-up.
+  await registry.updateStatus(id, 'restoring');
   try {
-    await container.stop();
+    await container.start();
   } catch (err) {
-    console.error('[deskl.ink desktops] restore pre-stop failed', id, err);
+    console.error('[deskl.ink desktops] restore pre-start failed', id, err);
   }
 
-  // 2. Restore into the stopped container. 3. Always restart afterward (in `finally`) so a failed
-  //    restore never strands the desktop stopped.
   let result: RestoreResult;
   try {
     result = await container.restoreHome(id);
   } catch (err) {
-    // Never a 500: an unexpected throw (R2 get / RPC) becomes a typed error; the container is still
-    // restarted below so a failed restore never strands the desktop stopped.
+    // Never a 500: an unexpected throw (R2 get / RPC) becomes a typed error.
     console.error('[deskl.ink desktops] restore error', id, err);
     result = { ok: false, kind: 'error', reason: 'restore_failed' };
-  } finally {
-    await registry.updateStatus(id, 'starting');
-    try {
-      await container.start();
-    } catch (err) {
-      console.error('[deskl.ink desktops] restore restart failed', id, err);
-    }
-    await registry.updateStatus(id, 'ready');
   }
+  // Back to a steady state regardless of outcome (the container stays running either way).
+  await registry.updateStatus(id, 'ready');
 
-  const body = RestoreResultSchema.parse(result);
-  return c.json(body);
+  return c.json(RestoreResultSchema.parse(result));
 });
 
 /**
