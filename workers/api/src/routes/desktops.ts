@@ -599,18 +599,13 @@ app.post('/:id/restore', async (c) => {
 
   const container = persistenceFor(c.env, id, existing.distro, existing.size, existing.form);
 
-  // The in-container backup agent performs the untar, so restore REQUIRES a RUNNING container — a
-  // stopped one has no agent (the live E2E proved a pre-stop here yields "restore service
-  // unreachable"). Ensure it's up (idempotent start — no-op if running, boots a cold one), THEN POST
-  // the tar. HOT restore: the tar overwrites `/home` while the desktop runs — acceptable for an
-  // explicit owner-initiated restore; the no-race restore-on-boot design is a tracked follow-up.
-  await registry.updateStatus(id, 'restoring');
-  try {
-    await container.start();
-  } catch (err) {
-    console.error('[deskl.ink desktops] restore pre-start failed', id, err);
-  }
-
+  // The in-container backup agent performs the untar, so restore POSTs the tar to the ALREADY-RUNNING
+  // container (exactly as snapshot GETs from it). We DON'T call `.start()` here: the live E2E showed
+  // that cycling a running container drops the agent right as the POST lands ("restore service
+  // unreachable"), whereas snapshot — which never starts — reaches the agent fine. So restore leaves
+  // lifecycle untouched; if the desktop is stopped (no agent) restoreHome returns an honest
+  // `capability_gap` and the caller starts it first. HOT restore of the owner's own `/home`; the
+  // no-race restore-on-boot design (extract before the session starts) is a tracked follow-up.
   let result: RestoreResult;
   try {
     result = await container.restoreHome(id);
@@ -619,8 +614,6 @@ app.post('/:id/restore', async (c) => {
     console.error('[deskl.ink desktops] restore error', id, err);
     result = { ok: false, kind: 'error', reason: 'restore_failed' };
   }
-  // Back to a steady state regardless of outcome (the container stays running either way).
-  await registry.updateStatus(id, 'ready');
 
   return c.json(RestoreResultSchema.parse(result));
 });
