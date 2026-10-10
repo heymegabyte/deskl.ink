@@ -26,9 +26,18 @@ import {
   type McpToolResult,
   type Participant,
   type SessionSnapshot,
+  type RestoreResult,
+  type SnapshotResult,
+  type StopWithCheckpointResult,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
 import { SessionCoordinatorState, type ControlResult } from '../control/SessionCoordinatorState.js';
+import {
+  restoreHome as restoreHomeCore,
+  snapshotHome as snapshotHomeCore,
+  type HomeBackupBucket,
+  type HomeBackupDeps,
+} from '../persistence/homeBackup.js';
 
 /** DO storage key holding the persisted per-desktop session coordinator state. */
 const SESSION_STATE_KEY = 'control-plane:session' as const;
@@ -213,6 +222,86 @@ export class DesktopContainer extends Container<Env> {
       tool: toolName,
       reason: 'container command daemon not yet deployed (ACP-EXEC)',
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Durable home-volume persistence (P0 "never destroy user work"). The home
+  // volume is ephemeral; these methods stream a gzip tar of /home ↔ R2
+  // (`BACKUPS`) so it survives an actual container REPLACEMENT, not just a
+  // graceful Stop. The in-container backup service (loopback, no R2 creds)
+  // produces/consumes the tar; the DO is the ONLY thing that touches R2.
+  //
+  // The CORE logic lives in the pure, dependency-injected `persistence/
+  // homeBackup.ts` (unit-tested without the Workers runtime). Each method here
+  // is a thin adapter: guard on BACKUPS being bound, then delegate with
+  // `this.env.BACKUPS` + `this.containerFetch` wired as the deps.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Bind this DO's R2 bucket + container fetch as the pure helper's deps — or `null` when `BACKUPS`
+   * is unbound (persistence not configured), so callers can return an HONEST `capability_gap`
+   * instead of dereferencing an undefined binding. `containerFetch` is bound to `this`; the pure
+   * helper supplies the loopback backup port and try/catches a throw (container down).
+   */
+  private backupDeps(): HomeBackupDeps | null {
+    const bucket = this.env.BACKUPS as HomeBackupBucket | undefined;
+    if (!bucket) return null;
+    return {
+      bucket,
+      containerFetch: (request: Request, port: number) => this.containerFetch(request, port),
+    };
+  }
+
+  /**
+   * Snapshot `/home` to R2. Streams the in-container backup service's gzip tar into `BACKUPS` and
+   * writes a `latest.json` manifest pointer. Returns a typed {@link SnapshotResult}: a
+   * `capability_gap` when R2 is unbound OR the backup service is unreachable (HONEST — never a
+   * thrown error / faked success), else `{ ok: true, manifest }`.
+   */
+  async snapshotHome(desktopId: string): Promise<SnapshotResult> {
+    const deps = this.backupDeps();
+    if (!deps) {
+      return { ok: false, kind: 'capability_gap', reason: 'persistence not configured' };
+    }
+    return snapshotHomeCore(deps, desktopId);
+  }
+
+  /**
+   * Restore the most recent `/home` snapshot into the (possibly freshly-replaced) container. Reads
+   * `latest.json` from `BACKUPS` and POSTs the pointed-at tar to the backup service's `/restore`.
+   * Returns a typed {@link RestoreResult}: `error`/`no_backup` when nothing is stored, a
+   * `capability_gap` when R2 is unbound or the service/object is unreachable, else
+   * `{ ok: true, restoredKey }`.
+   */
+  async restoreHome(desktopId: string): Promise<RestoreResult> {
+    const deps = this.backupDeps();
+    if (!deps) {
+      return { ok: false, kind: 'capability_gap', reason: 'persistence not configured' };
+    }
+    return restoreHomeCore(deps, desktopId);
+  }
+
+  /**
+   * Checkpoint-before-stop — the durable-persistence invariant. Snapshots `/home` FIRST and only
+   * AFTER the checkpoint RESOLVES (the R2 put completed, or the backup service / R2 is confirmably
+   * absent) proceeds to the normal container stop. NEVER reports stopped before the checkpoint
+   * resolves, so a graceful stop never loses data. The stop itself ALWAYS proceeds (a stop must
+   * never wedge on a backup failure); the returned `checkpoint` tells the caller exactly what was —
+   * or wasn't — durably captured. When R2 is unbound this is just a plain stop (no crash).
+   */
+  async stopWithCheckpoint(desktopId: string): Promise<StopWithCheckpointResult> {
+    // `snapshotHome` already returns a typed capability_gap when R2 is unbound / the service is
+    // unreachable (it never throws), so the checkpoint is always a resolved, honest outcome before
+    // we stop. Belt-and-suspenders: guard the await so even an unexpected throw can't block the stop.
+    let checkpoint: SnapshotResult;
+    try {
+      checkpoint = await this.snapshotHome(desktopId);
+    } catch (err) {
+      console.error('[deskl.ink DesktopContainer] checkpoint snapshot threw; stopping anyway', err);
+      checkpoint = { ok: false, kind: 'error', reason: 'checkpoint_failed' };
+    }
+    await this.stop();
+    return { stopped: true, checkpoint };
   }
 }
 

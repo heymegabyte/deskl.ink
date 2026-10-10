@@ -65,6 +65,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 #   tigervnc-standalone-server .... Xtigervnc headless X/VNC server (universe)
 #   tigervnc-common ............... tigervncserver wrapper + shared files
 #   novnc ......................... HTML5 VNC client → /usr/share/novnc (vnc.html)
+#   python3 ....................... stdlib interpreter for the loopback
+#                                   backup/restore agent (backup-agent.py). Pulled
+#                                   transitively by python3-websockify today;
+#                                   explicit so the agent never depends on that.
 #   python3-websockify ............ provides /usr/bin/websockify (HTML + WS proxy)
 #   python3-numpy ................. websockify HyBi fast-path (lower-CPU WebSocket)
 #   git curl ca-certificates nano  minimal in-desktop basics ONLY (stay LEAN)
@@ -89,6 +93,7 @@ RUN apt-get update \
       tigervnc-standalone-server \
       tigervnc-common \
       novnc \
+      python3 \
       python3-websockify \
       python3-numpy \
       git \
@@ -144,7 +149,13 @@ COPY assets/wallpaper-05060A.png /home/desklink/.local/share/wallpapers/deskl-da
 COPY start.sh /usr/local/bin/start.sh
 COPY xstartup /home/desklink/.vnc/xstartup
 
-RUN chmod +x /usr/local/bin/start.sh /home/desklink/.vnc/xstartup \
+# Backup/restore agent (started in the background by start.sh). System location
+# next to start.sh; binds 0.0.0.0 so the DO can reach it via the Container
+# runtime's getTcpPort/containerFetch (a 127.0.0.1 bind is unreachable from there,
+# same as ttyd). Port 7070 is deliberately NOT in EXPOSE — DO-only, NEVER public.
+COPY backup-agent.py /usr/local/bin/backup-agent.py
+
+RUN chmod +x /usr/local/bin/start.sh /home/desklink/.vnc/xstartup /usr/local/bin/backup-agent.py \
  && mkdir -p /home/desklink/.vnc /home/desklink/.cache /home/desklink/.local/share \
  && chown -R desklink:desklink /home/desklink/.vnc /home/desklink/.config /home/desklink/.cache /home/desklink/.local
 

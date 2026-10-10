@@ -31,11 +31,16 @@ import {
   DISTROS,
   DesktopListResponseSchema,
   DesktopResponseSchema,
+  SnapshotResultSchema,
+  RestoreResultSchema,
   VncTicketResponseSchema,
   type ComputerForm,
   type DesktopResource,
   type DistroId,
   type DesktopSizeId,
+  type RestoreResult,
+  type SnapshotResult,
+  type StopWithCheckpointResult,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
 import type { AppContext } from '../observability.js';
@@ -125,6 +130,10 @@ interface DesktopContainerStub {
   destroy(): Promise<void>;
   /** Stub `.fetch` — the ONLY WS-capable path. The DO routes by path: `/term` → ttyd, else VNC. */
   fetch(req: Request): Response | Promise<Response>;
+  /** Durable home-volume persistence (P0). The DO streams a gzip tar of /home ↔ R2. */
+  snapshotHome(desktopId: string): Promise<SnapshotResult>;
+  restoreHome(desktopId: string): Promise<RestoreResult>;
+  stopWithCheckpoint(desktopId: string): Promise<StopWithCheckpointResult>;
 }
 
 /**
@@ -227,6 +236,26 @@ function lifecycleFor(
     // its `/term` prefix INTACT and let the DO strip it.
     termFetch: (req) => cont.fetch(req),
   };
+}
+
+/**
+ * Resolve the DURABLE-PERSISTENCE surface for a desktop — the `DesktopContainer` DO that exposes
+ * `snapshotHome` / `restoreHome` / `stopWithCheckpoint` (streaming a gzip tar of /home ↔ R2).
+ *
+ * Persistence lives on the per-(distro × size × form) `DesktopContainer` fleet regardless of the
+ * `COMPUTER_DO` compute flag: the methods (and the DO's `containerFetch` to the loopback backup
+ * service) are defined on `DesktopContainer`, and the home tar is streamed by THIS DO, so snapshot/
+ * restore always route here. (If/when the universal `Computer` DO grows the same surface, this is
+ * the one place to branch — the routes below are unchanged.)
+ */
+function persistenceFor(
+  env: Env,
+  id: string,
+  distro: DistroId,
+  size: DesktopSizeId,
+  form: ComputerForm
+): DesktopContainerStub {
+  return getDesktopContainer(env, id, distro, size, form);
 }
 
 /** Generate a URL-safe desktop id (UUIDv4 — unpredictable, no info leak). */
@@ -438,8 +467,14 @@ app.post('/:id/ticket', async (c) => {
 });
 
 /**
- * POST /api/v1/desktops/:id/stop — stop the container (SIGTERM).
- * Idempotent: `.stop()` is a no-op if not running. Sets status `stopped`.
+ * POST /api/v1/desktops/:id/stop — CHECKPOINT then stop (P0 "never destroy user work").
+ *
+ * A graceful stop must never lose data, so this snapshots `/home` to R2 FIRST and only proceeds to
+ * the container stop once that checkpoint RESOLVES (the R2 put completed, or persistence is
+ * confirmably absent) — never reporting stopped before the checkpoint resolves. The checkpoint is
+ * honest + non-blocking: an unreachable backup service / unbound R2 yields a typed `capability_gap`
+ * and the stop still proceeds (a stop must never wedge). Idempotent: `.stop()` no-ops if not
+ * running. Sets status `persisting` during the checkpoint, then `stopped`.
  */
 app.post('/:id/stop', async (c) => {
   const id = c.req.param('id');
@@ -450,9 +485,23 @@ app.post('/:id/stop', async (c) => {
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
-  await registry.updateStatus(id, 'stopping');
+  // `persisting` while the checkpoint runs, so the UI shows "saving your work" rather than a bare
+  // "stopping" during the potentially-slow home tar → R2 stream.
+  await registry.updateStatus(id, 'persisting');
   try {
-    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
+    // Checkpoint-before-stop: the DO snapshots /home, waits for R2, THEN stops. Never reports
+    // stopped before the checkpoint resolves.
+    const result = await persistenceFor(
+      c.env,
+      id,
+      existing.distro,
+      existing.size,
+      existing.form
+    ).stopWithCheckpoint(id);
+    if (!result.checkpoint.ok) {
+      // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
+      console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
+    }
   } catch (err) {
     // A stop failure shouldn't wedge the record — log, still mark stopped.
     console.error('[deskl.ink desktops] stop failed', id, err);
@@ -465,9 +514,138 @@ app.post('/:id/stop', async (c) => {
 });
 
 /**
- * DELETE /api/v1/desktops/:id — destroy the container and forget the desktop.
- * Idempotent: destroying a stopped/unknown container + removing an unknown row
- * are both no-ops, so a double-delete is safe.
+ * POST /api/v1/desktops/:id/snapshot — capture `/home` to R2 (durable truth) on demand.
+ * Owner-scoped (same resolveAuth + getOwned pattern as every per-id route). Returns the typed
+ * {@link SnapshotResult}: `{ ok: true, manifest }` on success, or an HONEST
+ * `{ ok: false, kind: 'capability_gap' | 'error', reason }` when the backup service / R2 is absent
+ * (never a 500). 404 for an unknown OR not-owned desktop.
+ */
+app.post('/:id/snapshot', async (c) => {
+  const id = c.req.param('id');
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
+  const registry = getRegistry(c.env);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  const result = await persistenceFor(
+    c.env,
+    id,
+    existing.distro,
+    existing.size,
+    existing.form
+  ).snapshotHome(id);
+  const body = SnapshotResultSchema.parse(result);
+  return c.json(body);
+});
+
+/**
+ * POST /api/v1/desktops/:id/restore — restore the most recent `/home` snapshot from R2.
+ *
+ * Owner-scoped. ORCHESTRATED so the restore tar NEVER untars into a LIVE `/home` (adversarial-review
+ * P1): the container is STOPPED first (a PLAIN stop — we're about to overwrite `/home` wholesale, so
+ * a checkpoint-snapshot here would just capture, and later restore point at, the pre-restore state
+ * we're discarding), THEN `restoreHome` POSTs the tar into the quiesced `/home`, THEN the container
+ * is started again. All three target the SAME `DesktopContainer` stub (the one whose `/home` is
+ * overwritten + which holds the loopback backup service) so ordering holds regardless of the
+ * COMPUTER_DO compute flag. Idempotent: stop/start no-op in their target state.
+ *
+ * Returns the typed {@link RestoreResult}: `{ ok: true, restoredKey }`, or `{ ok: false, kind, reason }`
+ * (e.g. `error`/`no_backup` when nothing is stored, or a `capability_gap`). The container is ALWAYS
+ * restarted — even when the restore reports a gap/error — so a failed restore never leaves the
+ * desktop wedged in a stopped state. 404 for an unknown OR not-owned desktop.
+ */
+app.post('/:id/restore', async (c) => {
+  const id = c.req.param('id');
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
+  const registry = getRegistry(c.env);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  const container = persistenceFor(c.env, id, existing.distro, existing.size, existing.form);
+
+  // 1. PLAIN stop (no checkpoint — we're discarding the live /home). Ensures /home is quiesced
+  //    before the tar is POSTed, so the untar can never race a running desktop writing files.
+  await registry.updateStatus(id, 'persisting');
+  try {
+    await container.stop();
+  } catch (err) {
+    console.error('[deskl.ink desktops] restore pre-stop failed', id, err);
+  }
+
+  // 2. Restore into the stopped container. 3. Always restart afterward (in `finally`) so a failed
+  //    restore never strands the desktop stopped.
+  let result: RestoreResult;
+  try {
+    result = await container.restoreHome(id);
+  } finally {
+    await registry.updateStatus(id, 'starting');
+    try {
+      await container.start();
+    } catch (err) {
+      console.error('[deskl.ink desktops] restore restart failed', id, err);
+    }
+    await registry.updateStatus(id, 'ready');
+  }
+
+  const body = RestoreResultSchema.parse(result);
+  return c.json(body);
+});
+
+/**
+ * POST /api/v1/desktops/:id/restart — checkpoint, stop, then start (a durable restart). Owner-
+ * scoped + idempotent (double-restart is safe; both halves no-op when already in the target state).
+ * The stop half CHECKPOINTS `/home` first (never loses work); the start half boots the container.
+ * Returns the ready desktop. 404 for an unknown OR not-owned desktop.
+ */
+app.post('/:id/restart', async (c) => {
+  const id = c.req.param('id');
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  const { id: principalId, admin } = auth;
+  const registry = getRegistry(c.env);
+  const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
+  if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  // Checkpoint-before-stop so the restart can never lose user work, even mid-cycle.
+  await registry.updateStatus(id, 'persisting');
+  try {
+    await persistenceFor(
+      c.env,
+      id,
+      existing.distro,
+      existing.size,
+      existing.form
+    ).stopWithCheckpoint(id);
+  } catch (err) {
+    console.error('[deskl.ink desktops] restart checkpoint/stop failed', id, err);
+  }
+
+  // Boot again on the active compute backend (idempotent; `ready` = "boot accepted").
+  await registry.updateStatus(id, 'starting');
+  try {
+    await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).start();
+  } catch (err) {
+    console.error('[deskl.ink desktops] restart start failed', id, err);
+    const failed = await registry.updateStatus(id, 'failed');
+    return c.json({ ok: false, error: 'start_failed', desktop: failed }, 502);
+  }
+
+  const desktop = await registry.updateStatus(id, 'ready');
+  if (!desktop) return c.json({ ok: false, error: 'not_found' }, 404);
+  const body = DesktopResponseSchema.parse({ desktop });
+  return c.json(body);
+});
+
+/**
+ * DELETE /api/v1/desktops/:id — snapshot `/home` (best-effort), then destroy the container and
+ * forget the desktop. The pre-destroy snapshot makes even a DELETED computer recoverable from R2
+ * (the manifest/tar survive the row removal). It is BEST-EFFORT: a failed/absent backup NEVER
+ * blocks the delete — it is logged and the destroy proceeds. Idempotent: destroying a
+ * stopped/unknown container + removing an unknown row are both no-ops, so a double-delete is safe.
  */
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
@@ -480,6 +658,24 @@ app.delete('/:id', async (c) => {
   // the row so a GET during teardown 404s only once the container is actually gone.
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
+
+  // Best-effort checkpoint so a deleted computer stays recoverable (R2 = truth). NEVER blocks the
+  // delete: a thrown error, an unreachable backup service, or unbound R2 is logged and ignored.
+  try {
+    const snap = await persistenceFor(
+      c.env,
+      id,
+      existing.distro,
+      existing.size,
+      existing.form
+    ).snapshotHome(id);
+    if (!snap.ok) {
+      console.warn('[deskl.ink desktops] pre-delete snapshot did not persist', id, snap);
+    }
+  } catch (err) {
+    console.error('[deskl.ink desktops] pre-delete snapshot threw (continuing delete)', id, err);
+  }
+
   try {
     await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).destroy();
   } catch (err) {

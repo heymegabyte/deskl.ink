@@ -141,6 +141,32 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
+# ----------------------------- start backup/restore agent --------------------
+# A tiny stdlib HTTP service on 0.0.0.0:7070 the deskl.ink Durable Object uses
+# to snapshot/restore the user's /home to/from R2 (streams tar; never buffers).
+#
+# SECURITY: binds 0.0.0.0 with NO auth — the SAME trust model and network posture
+# as ttyd/websockify below. The bind MUST be 0.0.0.0: the DO reaches :7070 via the
+# Container runtime's getTcpPort/containerFetch, which connects from OUTSIDE the
+# container netns, so a 127.0.0.1 bind would be UNREACHABLE (same reason ttyd binds
+# 0.0.0.0). Safe HERE because port 7070 is deliberately NOT in the Dockerfile
+# EXPOSE and is reachable ONLY by the DO through the runtime's private port access
+# — never published, never public. The public entrypoint remains the Worker
+# (signed ticket + wss). No credentials live in the container — the DO owns all R2.
+#
+# Backgrounded + NON-FATAL: an agent crash must never take down the desktop
+# (websockify/VNC remain the foreground workload). It is NOT wired into the
+# shutdown trap — a short-lived helper, nothing to drain on SIGTERM.
+BACKUP_AGENT="/usr/local/bin/backup-agent.py"
+if command -v python3 >/dev/null 2>&1 && [ -f "${BACKUP_AGENT}" ]; then
+  log "starting backup/restore agent on 0.0.0.0:7070 (DO caller only, not in EXPOSE)"
+  python3 "${BACKUP_AGENT}" &
+  BACKUP_AGENT_PID=$!
+  log "backup/restore agent started (pid ${BACKUP_AGENT_PID})"
+else
+  log "python3 or backup-agent.py missing — backup/restore agent disabled for this image"
+fi
+
 # ----------------------------- start ttyd (browser terminal) -----------------
 # A browser terminal (xterm.js over WS) on :7681, running an interactive login
 # shell as the desktop user. Bound 0.0.0.0 so the deskl.ink Worker can proxy it

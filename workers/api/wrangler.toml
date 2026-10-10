@@ -268,9 +268,14 @@ new_sqlite_classes = ["FedoraServer", "DebianServer"]
 # database_id = "TODO-run: wrangler d1 create deskl-ink"
 
 # --- R2: object storage buckets ---
-# [[r2_buckets]]
-# binding = "BACKUPS"          # persisted desktop home-volume snapshots
-# bucket_name = "deskl-ink-backups"
+# BACKUPS is LIVE: durable truth for the home volume (P0 "never destroy user work"). The DO streams
+# a gzip tar of /home ↔ this bucket so a desktop survives an actual container replacement; no R2
+# credential ever enters the tenant container. Bucket already provisioned (deskl-ink-backups).
+[[r2_buckets]]
+binding = "BACKUPS"          # persisted desktop home-volume snapshots
+bucket_name = "deskl-ink-backups"
+
+# Still staged — uncomment + create each bucket (`wrangler r2 bucket create <name>`) as it lands.
 # [[r2_buckets]]
 # binding = "RECORDINGS"       # session screen recordings
 # bucket_name = "deskl-ink-recordings"
