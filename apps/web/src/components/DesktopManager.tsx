@@ -679,55 +679,76 @@ function DesktopTile({
           {/* `relative` anchors the inline validation hint; wrapper geometry is otherwise unchanged. */}
           <div className="relative flex min-w-0 items-center gap-2.5">
             <DistroLogo distro={desktop.distro} size={28} />
-            {editing ? (
-              <input
-                data-testid={desktopTestIds.renameInput}
-                defaultValue={desktop.name}
-                autoFocus
-                maxLength={60}
-                aria-label={`Rename ${desktop.name}`}
-                aria-invalid={invalid}
-                {...(invalid ? { 'aria-describedby': `${renameHintId}` } : {})}
-                onFocus={(e) => {
-                  renameCancelledRef.current = false;
-                  e.currentTarget.select();
-                }}
-                onChange={(e) => setInvalid(e.currentTarget.value.trim().length === 0)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.currentTarget.blur(); // commit via onBlur
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    renameCancelledRef.current = true;
-                    e.currentTarget.blur(); // cancel via onBlur
-                  }
-                }}
-                // Blur policy: SAVE-ON-BLUR-IF-CHANGED — committing on blur routes through
-                // renameComputer, which no-ops on empty/whitespace/unchanged (so click-away keeps
-                // a valid edit, discards a blank one); Escape sets the cancel flag so blur discards.
-                onBlur={(e) => {
-                  if (renameCancelledRef.current) {
+            {/* ZERO-SHIFT RENAME BY CONSTRUCTION: the <h3> is ALWAYS mounted as the sole layout anchor
+                for the name box in this flex row, so entering/leaving edit mode never changes the row
+                geometry. While editing we make the h3's text `invisible` (NOT `hidden` — that would
+                collapse the box) and overlay the <input> with `absolute inset-0`, so the input is
+                sized to the EXACT box the h3 defines. Because the input fills that box and centers its
+                own text vertically (`flex items-center`), its top/left/height match the h3's by
+                construction — not by matching intrinsic input line-box metrics. A `relative` wrapper
+                scopes the overlay to just the title (never the logo). */}
+            <div className="relative min-w-0 flex-1">
+              <h3
+                className={`${NAME_TYPOGRAPHY} truncate text-white ${editing ? 'invisible' : ''}`}
+                aria-hidden={editing ? true : undefined}
+                title={desktop.name}
+              >
+                {desktop.name}
+              </h3>
+              {editing && (
+                <input
+                  data-testid={desktopTestIds.renameInput}
+                  defaultValue={desktop.name}
+                  autoFocus
+                  maxLength={60}
+                  aria-label={`Rename ${desktop.name}`}
+                  aria-invalid={invalid}
+                  {...(invalid ? { 'aria-describedby': `${renameHintId}` } : {})}
+                  onFocus={(e) => {
                     renameCancelledRef.current = false;
-                    setInvalid(false);
-                    onEditCancel();
-                  } else {
-                    onRename(e.currentTarget.value);
-                  }
-                }}
-                // Shares NAME_TYPOGRAPHY with the <h3> (identical font/size/weight/leading/tracking)
-                // and resets the input box to zero chrome so entering edit mode causes ZERO layout
-                // shift; the focus ring is a box-shadow (+ ring color) — it never changes box size.
-                // NB: we intentionally DON'T use `font: inherit` — NAME_TYPOGRAPHY sets the font
-                // explicitly on both nodes; `inherit` would pull the body font and break the match.
-                className={`${NAME_TYPOGRAPHY} min-w-0 flex-1 appearance-none rounded-[3px] border-0 bg-transparent p-0 align-middle leading-6 text-white caret-[var(--color-cyan)] outline-none ${
-                  invalid
-                    ? 'shadow-[0_0_0_2px_var(--color-danger)]'
-                    : 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-cyan)_70%,transparent)]'
-                }`}
-                style={{ margin: 0, boxSizing: 'border-box' }}
-              />
-            ) : null}
+                    e.currentTarget.select();
+                  }}
+                  onChange={(e) => setInvalid(e.currentTarget.value.trim().length === 0)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur(); // commit via onBlur
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      renameCancelledRef.current = true;
+                      e.currentTarget.blur(); // cancel via onBlur
+                    }
+                  }}
+                  // Blur policy: SAVE-ON-BLUR-IF-CHANGED — committing on blur routes through
+                  // renameComputer, which no-ops on empty/whitespace/unchanged (so click-away keeps
+                  // a valid edit, discards a blank one); Escape sets the cancel flag so blur discards.
+                  onBlur={(e) => {
+                    if (renameCancelledRef.current) {
+                      renameCancelledRef.current = false;
+                      setInvalid(false);
+                      onEditCancel();
+                    } else {
+                      onRename(e.currentTarget.value);
+                    }
+                  }}
+                  // Overlaid `absolute inset-0` on the h3's box → identical top/left/width/height by
+                  // construction. Shares NAME_TYPOGRAPHY (identical font/size/weight/tracking/leading)
+                  // with the h3 — we do NOT override line-height (so the computed `line-height` stays
+                  // pixel-equal to the h3's, which the spec asserts). `flex items-center` centers the
+                  // input's single text line vertically in that exact box, landing on the h3's
+                  // baseline (the h3 is single-line, so same box + same leading ⇒ same text position).
+                  // Zero chrome (no border/padding/margin); the focus ring is a box-shadow — it never
+                  // resizes the box. NB: NOT `font: inherit` — NAME_TYPOGRAPHY sets the font explicitly
+                  // on both nodes; `inherit` would pull the body font and break the match.
+                  className={`${NAME_TYPOGRAPHY} absolute inset-0 flex w-full appearance-none items-center rounded-[3px] border-0 bg-transparent p-0 text-white caret-[var(--color-cyan)] outline-none ${
+                    invalid
+                      ? 'shadow-[0_0_0_2px_var(--color-danger)]'
+                      : 'shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-cyan)_70%,transparent)]'
+                  }`}
+                  style={{ margin: 0, boxSizing: 'border-box' }}
+                />
+              )}
+            </div>
             {editing && invalid && (
               // Absolutely positioned so the hint never reflows the tile (keeps zero-shift intact).
               <span
@@ -739,33 +760,28 @@ function DesktopTile({
               </span>
             )}
             {!editing && (
-              <>
-                <h3 className={`${NAME_TYPOGRAPHY} truncate text-white`} title={desktop.name}>
-                  {desktop.name}
-                </h3>
-                <button
-                  type="button"
-                  data-testid={desktopTestIds.renameButton}
-                  onClick={onEditStart}
-                  aria-label={`Rename ${desktop.name}`}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-cyan)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] group-hover:opacity-100"
+              <button
+                type="button"
+                data-testid={desktopTestIds.renameButton}
+                onClick={onEditStart}
+                aria-label={`Rename ${desktop.name}`}
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-cyan)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] group-hover:opacity-100"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="13"
-                    height="13"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                </button>
-              </>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
             )}
           </div>
           <span
