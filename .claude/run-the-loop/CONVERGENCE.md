@@ -9,6 +9,21 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 4 (2026-10-10) — `/loop` fire: inline-edit font geometry (P0)
+- **P0 inline-edit geometry — PARTIAL (deployed, NOT yet converged; honest):** fixed the gross mismatch —
+  rename `<input>` now shares `NAME_TYPOGRAPHY` with the `<h3>` title (identical family/size/weight/
+  line-height/tracking) + box chrome zeroed (the old border + px-2/py-0.5 + opaque bg were the shift
+  source) + save-on-blur-if-changed + inline validation. Deployed prod `a79b6972`.
+  **BUT the LIVE geometry E2E (`e2e/rename-no-shift.spec.ts`, run against prod) is RED:** a residual
+  **2px top shift** (title top 138 → input 136; gate is ≤1px). The fix is a strict improvement but the
+  "zero shift" acceptance is unmet. Goalpost NOT moved. Delegated-agent fix caught by the real-browser
+  measurement the build couldn't see.
+- **NEXT FIRE (clean RED→GREEN TDD target):** the spec is the gate — tighten the input's line-box vs the
+  block `<h3>` (input baseline/line-height vs block line-box is the likely 2px source; try explicit
+  matched `height`/`line-height`, drop `align-middle`, or stack h3+input in one grid cell). Drive the
+  spec GREEN at ≤1px across chromium + mobile projects.
+- Gates this fire: web build + `pnpm -r typecheck` green; deploy exit 0; prod 200; live E2E RED (2px) — the finding.
+
 ## Iteration 3 (2026-10-10) — `/loop` product-expansion fire (cron a2cc0f1f, every 15m)
 - Scope expanded to the full 30-dimension product spec; frontier seeded in `docs/product/idea-matrix.md`
   (dimension status board + per-fire method — the loop drains it 1–2 dimensions/fire, no fabricated 900).

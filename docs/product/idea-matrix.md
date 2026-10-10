@@ -32,7 +32,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | # | Dimension | Status | This-fire slices (shipped) · next unit |
 |---|-----------|--------|----------------------------------------|
 | 1 | State mgmt & UI correctness | **active** | ✅ delete-tombstone (no flicker). Next: cross-tab `BroadcastChannel` sync; adversarial UI-state E2E |
-| 2 | Computer naming & identity | **active** | ✅ codename generator (owner-unique, curated, suffix-fallback). Next: **inline-edit font geometry (P0, deferred)**; legacy-name backfill via `isLegacyGenericName`; tags/aliases |
+| 2 | Computer naming & identity | **active** | ✅ codename generator (live). ◧ inline-edit geometry: deployed, shared typography — but live E2E RED at **2px** top residual (gate ≤1px); next fire drives it GREEN. Then: legacy backfill via `isLegacyGenericName`; tags/aliases |
 | 3 | Global UI / nav / design system | queued | command palette exists; expand: org switcher, live cost chip, resizable panels |
 | 4 | Computer fleet dashboard | queued | cards + status exist; expand: table view, filters, saved views, bulk actions |
 | 5 | New computer creation | queued | quick-create + OS picker exist; expand: multi-step wizard, version selector, cost estimate |
