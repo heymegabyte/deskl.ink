@@ -169,7 +169,7 @@ export const TaskList = observer(function TaskList() {
     );
     const failedIds = ids.filter((_, index) => results[index]?.status === 'rejected');
 
-    // Row clicks mutate the Set; tab/search changes replace it. Respect both while pending.
+    // Selection changes replace the Set, even when toggling back to an empty selection.
     if (taskView.selectedIds === clearedSelection && clearedSelection.size === 0) {
       taskView.setSelectedIds(new Set(failedIds));
     }

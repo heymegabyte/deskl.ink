@@ -88,3 +88,19 @@ describe('TaskViewStore search selection', () => {
     expect(store.lastSelectedId).toBe('new-2');
   });
 });
+
+describe('TaskViewStore selection identity', () => {
+  it('replaces selection identity even after selecting then deselecting a task', () => {
+    const store = new ProjectViewStore().taskView;
+    const initial = store.selectedIds;
+    store.toggleSelect('task-1');
+    const selected = store.selectedIds;
+    store.toggleSelect('task-1');
+    expect(store.selectedIds).not.toBe(initial);
+    expect(store.selectedIds).not.toBe(selected);
+    expect([...initial]).toEqual([]);
+    expect([...selected]).toEqual(['task-1']);
+    expect([...store.selectedIds]).toEqual([]);
+    expect(store.lastSelectedId).toBe('task-1');
+  });
+});

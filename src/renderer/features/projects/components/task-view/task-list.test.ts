@@ -14,7 +14,13 @@ const mocks = vi.hoisted(() => {
     archiveTask: vi.fn(),
     restoreTask: vi.fn(),
   };
-  return { view, manager, showDeleteTask: vi.fn(), toastError: vi.fn() };
+  return {
+    view,
+    manager,
+    currentView: null as unknown,
+    showDeleteTask: vi.fn(),
+    toastError: vi.fn(),
+  };
 });
 
 // Keep the real task registration guard while isolating Electron-backed store dependencies.
@@ -32,7 +38,7 @@ vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
 vi.mock('mobx-react-lite', () => ({ observer: (component: unknown) => component }));
 vi.mock('@tanstack/react-hotkeys', () => ({ useHotkey: vi.fn() }));
 vi.mock('@renderer/features/projects/stores/project-selectors', () => ({
-  getProjectStore: () => ({ view: { taskView: mocks.view } }),
+  getProjectStore: () => ({ view: { taskView: mocks.currentView ?? mocks.view } }),
   asMounted: (store: unknown) => store,
 }));
 vi.mock('@renderer/features/tasks/stores/task-selectors', () => ({
@@ -64,6 +70,7 @@ vi.mock('@renderer/lib/ui/toggle-group', () => ({
 vi.mock('./task-list-empty-state', () => ({ TaskListEmptyState: () => null }));
 vi.mock('./task-row', () => ({ TaskRow: () => null }));
 
+import { ProjectViewStore } from '../../stores/project-view';
 import { TaskList } from './task-list';
 
 function openDeleteConfirmation() {
@@ -315,6 +322,34 @@ describe.each([
     finish();
     await pending;
     expect(mocks.view.setSelectedIds).not.toHaveBeenCalled();
+  });
+
+  it('respects selection followed by deselection while failure is pending', async () => {
+    const view = new ProjectViewStore().taskView;
+    view.setTab(action === 'archive' ? 'active' : 'archived');
+    view.setSelectedIds(new Set(['a']));
+    mocks.currentView = view;
+    let rejectPending!: (reason: Error) => void;
+    mocks.manager[method].mockImplementation(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectPending = reject;
+        })
+    );
+    try {
+      const pending = runAction();
+      view.toggleSelect('b');
+      view.toggleSelect('b');
+      rejectPending(new Error('backend failure'));
+      await pending;
+      expect([...view.selectedIds]).toEqual([]);
+      expect(view.lastSelectedId).toBe('b');
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        `Could not ${action} 1 of 1 tasks. Please try again.`
+      );
+    } finally {
+      mocks.currentView = null;
+    }
   });
 
   it('ignores missing and unregistered selected records', async () => {

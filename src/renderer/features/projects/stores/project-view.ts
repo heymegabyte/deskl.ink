@@ -57,11 +57,13 @@ class TaskViewStore {
   }
 
   toggleSelect(id: string) {
-    if (this.selectedIds.has(id)) {
-      this.selectedIds.delete(id);
+    const selectedIds = new Set(this.selectedIds);
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
     } else {
-      this.selectedIds.add(id);
+      selectedIds.add(id);
     }
+    this.selectedIds = selectedIds;
     this.lastSelectedId = id;
   }
 

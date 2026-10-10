@@ -177,3 +177,18 @@ the verified result. Publication belongs to the outer runner; no push or deploy 
 Real Electron long journeys, toast rendering/announcements, six-breakpoint visual and runtime
 accessibility gates remain unverified: private Xvfb/xvfb-run/weston unavailable. DeepSeek
 credential check failed; no paid fallback used. Router usage is stale, not live headroom.
+
+## 2026-10-09 — pending bulk retry respects selection history
+
+Reproduced archive and restore failures that reselected tasks after the user selected and
+then deselected another row while pending. Three new regressions failed before the fix.
+Row toggles now replace the selection Set, preserving the range anchor and captured Sets.
+Real-store callback regressions cover both active archive and archived restore.
+
+Fresh core format/lint/typecheck passed; full suite passed (159 files, 1147 tests), final
+focused tests passed (46 tests), and Electron build passed with outDir/large-bundle warnings.
+Grouped source/adversarial reviews found no blocking regression; real Electron golden/long
+journeys and visual/accessibility runtime proof remain unverified (xvfb-run unavailable).
+Loop improvement: document identity/history invariants and real-store deferred regression
+acceptance. Added nested task-row controls/keyboard coverage to the next frontier.
+This entry's containing commit is the result; outer runner owns publication, no push/deploy.

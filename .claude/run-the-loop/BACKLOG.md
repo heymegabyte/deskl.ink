@@ -39,3 +39,8 @@
   manager operations and provide visible action-specific feedback.
 - [ ] Pending bulk mutations: prevent duplicate archive/restore requests while pending and
   verify rollback ordering under overlapping actions in a real Electron journey.
+
+- [x] Bulk retry selection history: preserve a user's select-then-deselect intent while
+  archive/restore requests are pending; cover both actions with the real task-view store.
+- [ ] Task-row interaction semantics: separate the nested checkbox/navigation buttons and
+  add headless browser keyboard coverage alongside the real-renderer accessibility gate.

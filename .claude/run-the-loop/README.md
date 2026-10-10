@@ -58,3 +58,9 @@ or manual selection change. Filter missing/unregistered records at click time. C
 tests do not establish toast rendering/announcement or real Electron persistence. A private
 display/compositor plus isolated XDG_CONFIG_HOME and EMDASH_DB_FILE are required for Electron
 journeys; missing runtime prerequisites remain incomplete gates.
+
+For asynchronous selection recovery, preserve selection identity on every user mutation,
+including select-then-deselect back to empty. Exercise the real TaskViewStore in deferred
+archive and restore callback regressions; a final size check alone cannot track user intent.
+Row toggles replace the Set while retaining the range anchor. Test that captured Sets stay
+unchanged, so future changes cannot silently restore the stale retry race.
