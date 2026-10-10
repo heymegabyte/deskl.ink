@@ -82,6 +82,8 @@ function fakeBucket(): HomeBackupBucket & {
       size: entry.bytes.byteLength,
       body: bytesToStream(sliced),
       json: async <T,>() => JSON.parse(entry.text ?? new TextDecoder().decode(entry.bytes)) as T,
+      // Full object bytes as a clean ArrayBuffer (restore buffers the tar to POST with a known length).
+      arrayBuffer: async () => entry.bytes.slice().buffer,
     } satisfies HomeBackupObject;
   };
   const listSpy = vi.fn<HomeBackupBucket['list']>(async (options) => {

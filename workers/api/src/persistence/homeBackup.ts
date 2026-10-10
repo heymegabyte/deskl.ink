@@ -73,11 +73,13 @@ export interface HomeBackupUploadedPart {
   etag: string;
 }
 
-/** The slice of an `R2ObjectBody` the helper reads: size + a streamable `body` + a typed `json()`. */
+/** The slice of an `R2ObjectBody` the helper reads: size + a streamable `body` + a typed `json()` +
+ *  `arrayBuffer()` (restore buffers the tar to POST it with a KNOWN length — see restoreHome). */
 export interface HomeBackupObject {
   size: number;
   body: ReadableStream | null;
   json<T = unknown>(): Promise<T>;
+  arrayBuffer(): Promise<ArrayBuffer>;
 }
 
 /**
@@ -349,14 +351,21 @@ async function pruneOldSnapshots(
   }
 }
 
+/** Largest tar restoreHome will BUFFER-and-POST (128 MiB DO memory, leave headroom). A bigger /home
+ *  needs the streaming restore-on-boot path (tracked follow-up) — here it's an honest capability_gap. */
+const MAX_BUFFERED_RESTORE_BYTES = 100 * 1024 * 1024;
+
 /**
- * Restore the most recent `/home` snapshot into the (freshly-replaced) container.
+ * Restore the most recent `/home` snapshot into the RUNNING container.
  *
- * Reads `latest.json`; if absent → `error`/`no_backup` (nothing to restore — a real, configured-
- * capability failure, not a gap). Otherwise fetches the pointed-at tar object and POSTs its body to
- * the container's `POST /restore` (which untars into /home). A missing tar object, an empty body, a
- * throw, or a non-2xx restore response → `capability_gap` (service/object unreachable). On success
- * returns `{ ok: true, restoredKey }`.
+ * Reads `latest.json`; if absent → `error`/`no_backup` (nothing to restore). Otherwise reads the
+ * pointed-at tar object, BUFFERS it, and POSTs it (known length) to the container's `POST /restore`
+ * (which untars into /home). Buffering (not streaming) is deliberate: a STREAMING request body
+ * (`duplex:'half'`) is not reliably carried by `containerFetch` — the live E2E showed GET /backup
+ * (response streaming) reaches the agent but a streamed POST /restore is "unreachable". Bounded by
+ * {@link MAX_BUFFERED_RESTORE_BYTES}; a larger /home → honest `capability_gap` pending restore-on-boot.
+ * A missing object / unreachable agent → `capability_gap`; a non-2xx untar → `error`. Success →
+ * `{ ok: true, restoredKey }`.
  */
 export async function restoreHome(
   deps: HomeBackupDeps,
@@ -373,29 +382,33 @@ export async function restoreHome(
   }
 
   const tar = await deps.bucket.get(manifest.key);
-  if (!tar || !tar.body) {
+  if (!tar) {
     return { ok: false, kind: 'capability_gap', reason: 'snapshot object unreachable' };
+  }
+
+  // Buffer the tar, then POST with a KNOWN length (see the doc: a streamed request body to the
+  // container isn't reliably carried by containerFetch).
+  let body: ArrayBuffer;
+  try {
+    body = await tar.arrayBuffer();
+  } catch {
+    return { ok: false, kind: 'capability_gap', reason: 'snapshot object unreachable' };
+  }
+  if (body.byteLength > MAX_BUFFERED_RESTORE_BYTES) {
+    return { ok: false, kind: 'capability_gap', reason: 'restore_too_large_for_buffered_path' };
   }
 
   let res: Response;
   try {
     res = await deps.containerFetch(
-      // `duplex: 'half'` is REQUIRED by the Fetch spec (and enforced by workerd + undici) whenever a
-      // request carries a streaming `ReadableStream` body — without it `new Request(...)` THROWS and
-      // the restore would silently degrade to a capability_gap. Cast: the lib.dom `RequestInit`
-      // predates `duplex`, but the Workers runtime honors it.
-      new Request('http://c/restore', {
-        method: 'POST',
-        body: tar.body,
-        duplex: 'half',
-      } as RequestInit & { duplex: 'half' }),
+      new Request('http://c/restore', { method: 'POST', body }),
       BACKUP_CONTAINER_PORT
     );
   } catch {
     return { ok: false, kind: 'capability_gap', reason: 'restore service unreachable' };
   }
   if (!res.ok) {
-    return { ok: false, kind: 'capability_gap', reason: 'restore service unreachable' };
+    return { ok: false, kind: 'error', reason: `restore_untar_failed_${res.status}` };
   }
 
   return { ok: true, restoredKey: manifest.key };
