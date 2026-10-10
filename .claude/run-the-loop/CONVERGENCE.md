@@ -9,6 +9,20 @@
 - **Budget:** 2 sessions. Default budgets now explicit in CONVERGENCE-PROTOCOL (≤3 Stage-A passes · ≤5 A→B→C iters · ≤6 mutating agents · 2-no-delta breaker). Stagnation breaker fired on restore (3 cycles no green) → STOPPED + documented restore-on-boot as the redesign. Next fire: restore-on-boot + auto-restore-on-replacement + ACP-EXEC + P2s.
 - **Prod version:** `4cb33181` (iteration-2 worker + rebuilt Ubuntu image incl. hardened backup-agent; bucket `deskl-ink-backups` bound) · health 200 · snapshot verified live 5× (~1.07 MB real /home tars) · **Last updated:** 2026-10-10 (iteration 2)
 
+## Iteration 9 (2026-10-10) — `/loop` fire: Restart wired end-to-end ✅
+- **Completed LIFE-1 as a real feature** — `/:id/restart` was an API-only verb (dead backend feature);
+  now it has a UI control. Shared `desktopApi.restart` + `desktopTestIds.restartButton`; `api.restartDesktop`;
+  a compact circular-arrow button in the card between Stop and trash (shown when running), optimistic
+  `persisting` + success toast + reconcile, revert-on-failure. Prod `2ed919fa`.
+- **Verified LIVE end-to-end:** build + typecheck green · new `e2e/restart.spec.ts` drives a REAL
+  checkpoint+stop+start (create → click `desktop-restart` → ready→transient→ready) — **3 passed (30.0s)**
+  alongside `rename-no-shift` + `delete-no-resurrect` (no regression) · screenshot confirms the on-brand
+  Open·Stop·⟲·🗑 action row (card "Otis" — codename live again).
+- Note: idle-stop (10-min) is ALREADY implemented via the container `sleepAfter='10m'` (DesktopContainer.ts);
+  the remaining nuance (distinguish authorized background work from viewing) is a P1 refinement, not absent.
+- Gates: `restart`+`rename-no-shift`+`delete-no-resurrect` GREEN · prod 200 · screenshot inspected.
+- **Still the top open P0: PERSIST-1b restore-on-boot** — needs a fresh focused session (plan in gaps).
+
 ## Iteration 8 (2026-10-10) — `/loop` fire: visible success toast ✅
 - **Completed P0 §1's last UI detail — a visible success toast** (was sr-only only). The single
   `role="status" aria-live="polite"` region is now ALSO the visible toast (no SR double-announce):

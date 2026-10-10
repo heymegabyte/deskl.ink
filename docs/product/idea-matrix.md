@@ -38,7 +38,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 5 | New computer creation | queued | quick-create + OS picker exist; expand: multi-step wizard, version selector, cost estimate |
 | 6 | Desktop viewer & streaming | queued | noVNC live; evaluate Selkies 2.x WS transport; resolution/clipboard/DnD |
 | 7 | Headless servers & terminal | queued | ttyd live; expand: multi-tab, SSH keys, port previews, metrics |
-| 8 | Lifecycle management | **partial** | ✅ restart (LIFE-1); stop checkpoints. Next: 10-min idle auto-stop (verified-activity), schedules |
+| 8 | Lifecycle management | **partial** | ✅ restart (LIFE-1) now UI-wired + live-E2E (`restart.spec.ts`); stop checkpoints; idle-stop LIVE via container `sleepAfter='10m'`. Next (P1): distinguish authorized background work from idle viewing; schedules; clone/reset |
 | 9 | Persistence, backups, recovery | **partial** | ✅ snapshot→R2 (PERSIST-1a, live). Next: **restore-on-boot (P0)**, backup mgmt UI, retention |
 | 10 | File management | queued | file explorer, upload/download, resumable transfers |
 | 11 | Joined computers (BYOC) | queued | secure companion + outbound pairing; per-platform adapters |
