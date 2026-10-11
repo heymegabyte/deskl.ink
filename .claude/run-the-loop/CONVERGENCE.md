@@ -15,6 +15,19 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 22 (2026-10-10) — `/loop` fire: QA deliverables (Golden-Path map + convergence report)
+- The safely-achievable non-churn FEATURE scope is exhausted (anti-stagnation breaker); rather than
+  manufacture a marginal slice, produced the two **prompt-listed §19 deliverables that didn't exist**
+  (real, honest, non-churn documentation):
+  - **`docs/qa/golden-paths.md`** — Golden Paths A–H mapped to their live prod E2E + honest status
+    (A/B ✅ converged; D ◧ foundation; E/F/G/H ◧ single-tenant/display/snapshot halves done, billing/
+    agent-exec/restore/multi-tenant halves net-new or the open P0; C ⛔ orgs not built).
+  - **`docs/qa/convergence-report.md`** — the session digest + verdict (points to CONVERGENCE.md as SSOT,
+    no duplication): what converged + evidence (51/51, 20/20 E2E, 3 clean passes) + the honest remaining
+    frontier.
+- No code change — a documentation/capstone fire. Accurately records that the shipped body CONVERGES and
+  the one journey-gating P0 (restore-on-boot, Golden Path G) is designed + handed off for a fresh session.
+
 ## Iteration 21 (2026-10-10) — `/loop` fire: Settings → Appearance → Reduce motion (Dim 28) ✅
 - **Functional per-app reduced-motion override** (a11y; extends iter-20 Settings). `lib/prefs.ts` persists
   to `localStorage['desklink:reduce-motion']` + `applyReduceMotion` sets `<html data-reduce-motion>`;
