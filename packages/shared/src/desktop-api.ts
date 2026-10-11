@@ -342,7 +342,14 @@ export const desktopTestIds = {
   // Account menu — compact avatar button in the header opening a glass popover with the signed-in
   // identity (email + provider) and the Sign-out action (moved off the bare header into the menu).
   accountMenuButton: 'account-menu-button',
+  accountSettings: 'account-settings', // menu item → opens the Settings modal
   accountSignOut: 'account-signout',
+  // Settings modal — account (read-only) + a functional "Default new computer" (distro + size)
+  // persisted to localStorage['desklink:defaults'] and used to pre-seed the New-computer picker.
+  settingsDialog: 'settings-dialog',
+  settingsDefaultDistro: 'settings-default-distro', // one per distro, carries data-distro=<id>
+  settingsDefaultSize: 'settings-default-size', // one per size, carries data-size=<id>
+  settingsClose: 'settings-close', // the Done / close button
   serverWorkspace: 'server-workspace', // headless server tab (terminal-native)
   serverTerminal: 'server-terminal', // the ttyd iframe in a server tab
   // Command palette (⌘K / Ctrl+K) — fast keyboard nav to any computer + quick actions (§87).

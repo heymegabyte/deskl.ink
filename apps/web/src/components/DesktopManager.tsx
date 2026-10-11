@@ -13,6 +13,7 @@ import { api, ApiError, type SessionState } from '../lib/api.js';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
 import { Wordmark } from './Logo.js';
 import { OsPicker } from './OsPicker.js';
+import { SettingsModal } from './SettingsModal.js';
 import { DistroLogo } from './DistroLogo.js';
 
 /**
@@ -106,6 +107,9 @@ export function DesktopManager({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Settings modal (account read-only + functional New-computer defaults) — lifted here like the
+  // other modals so it renders at the manager level (outside any transformed tile ancestor).
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [confirmStopAll, setConfirmStopAll] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -483,6 +487,10 @@ export function DesktopManager({
           creating={creating}
         />
       )}
+      {/* Settings — account (read-only) + functional New-computer defaults. Rendered at the manager
+          level (not inside the AccountMenu/header) so its `fixed` overlay centers against the viewport
+          and its focus trap restores to the "Settings" menu item (the activeElement at open) on close. */}
+      {settingsOpen && <SettingsModal user={user} onClose={() => setSettingsOpen(false)} />}
       {/*
         Destructive-confirmation dialog — rendered ONCE here at the manager level, OUTSIDE every tile.
         A tile carries a `hover:-translate-y-0.5` transform, and a transformed ancestor makes a
@@ -577,9 +585,14 @@ export function DesktopManager({
             </span>
           </button>
 
-          {/* Account menu — the signed-in identity + Sign out, folded into one compact avatar button
-              (replaces the bare header Sign-out to declutter and finally show WHO is signed in). */}
-          <AccountMenu user={user} onSignOut={onSignOut} />
+          {/* Account menu — the signed-in identity + Settings + Sign out, folded into one compact
+              avatar button (replaces the bare header Sign-out to declutter and show WHO is signed in).
+              Opening Settings closes the menu and raises the manager-level SettingsModal. */}
+          <AccountMenu
+            user={user}
+            onSignOut={onSignOut}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         </div>
       </header>
 
@@ -650,9 +663,12 @@ const PROVIDER_LABELS: Record<string, string> = {
 function AccountMenu({
   user,
   onSignOut,
+  onOpenSettings,
 }: {
   user?: SessionState['user'];
   onSignOut: () => void;
+  /** Open the Settings modal (menu item above Sign out). Closes the menu first. */
+  onOpenSettings: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -728,6 +744,36 @@ function AccountMenu({
               </p>
             )}
           </div>
+
+          {/* Settings — opens the manager-level Settings modal (account + New-computer defaults).
+              Above Sign out, same menu-item styling; closing the menu first restores focus flow into
+              the modal's own focus trap. */}
+          <button
+            type="button"
+            role="menuitem"
+            data-testid={desktopTestIds.accountSettings}
+            onClick={() => {
+              setOpen(false);
+              onOpenSettings();
+            }}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-cyan)]/10 hover:text-white focus-visible:bg-[var(--color-cyan)]/10 focus-visible:text-white focus-visible:outline-none"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+            </svg>
+            Settings
+          </button>
 
           {/* Sign out — the moved header action, now a menu item (same handler/behavior). */}
           <button

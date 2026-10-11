@@ -14,6 +14,7 @@ import {
   type ComputerForm,
 } from '@deskl/shared';
 import { DistroLogo } from './DistroLogo.js';
+import { readDefaults } from '../lib/defaults.js';
 
 interface OsPickerProps {
   /** Create a computer with the chosen form + distro + size. */
@@ -39,9 +40,14 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
  * actually provisions that much VM — it is not a cosmetic label.
  */
 export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps) {
+  // Seed distro + size from the user's saved defaults (Settings → "Default new computer"), read ONCE
+  // via the lazy useState initializer so opening the picker reflects "my default" — not always
+  // Ubuntu · Everyday. `readDefaults()` always returns a fully-valid {distro,size} (falls back to the
+  // golden path for a missing / stale entry), so these are safe seeds even on a fresh account. `form`
+  // stays Desktop (defaults scope the distro + size; the form is an in-picker choice).
   const [form, setForm] = useState<ComputerForm>('desktop');
-  const [distro, setDistro] = useState<DistroId>('ubuntu');
-  const [size, setSize] = useState<DesktopSizeId>('everyday');
+  const [distro, setDistro] = useState<DistroId>(() => readDefaults().distro);
+  const [size, setSize] = useState<DesktopSizeId>(() => readDefaults().size);
   // Modal focus management (ARIA dialog): contain Tab within the dialog + restore focus on close.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef);
