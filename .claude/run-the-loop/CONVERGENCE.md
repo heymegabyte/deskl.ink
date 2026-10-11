@@ -15,6 +15,18 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 14 (2026-10-10) — `/loop` fire: "Back up now" on-demand snapshot ✅
+- **Surfaced the proven persistence capability (Dim 9 / Golden Path G user-visible half):** a subtle
+  "· Back up now" text affordance in the card metadata footer (NOT the crowded icon row), shown when
+  running, disabled + "Backing up…" in flight. `api.snapshotDesktop` returns the TYPED `SnapshotResult`;
+  honest branching — `ok`→"Backed up <name>" toast · `capability_gap`→neutral "<name> must be running to
+  back up" (not an error) · `error`→error toast. No boot-path/backend change (the `/snapshot` route
+  already existed + is proven). Prod `ad1a6a97`.
+- **Verified live:** build + typecheck + `workers/api` 51/51 green · new `e2e/backup.spec.ts` asserts the
+  snapshot POST returns `ok:true` + the toast — **backup + mobile + a11y 6 passed (14.0s)** · screenshot
+  shows the clean text affordance on card "Hugo" (no icon-row crowding, mobile-safe).
+- Safe slice. **Top open P0 unchanged: PERSIST-1b restore-on-boot** (boot-path risk → fresh session).
+
 ## Iteration 13 (2026-10-10) — `/loop` fire: account menu (identity in header) ✅
 - **Added product breadth (Dim 12/16): the header now shows the signed-in identity** — was a real gap
   (only a bare "Sign out"). New `AccountMenu`: a compact 36px avatar (email initial, cyan ring) → on-brand
