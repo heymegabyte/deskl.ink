@@ -4,6 +4,7 @@ import { DesktopManager } from './components/DesktopManager.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { DistroLogo } from './components/DistroLogo.js';
 import { api, type SessionState } from './lib/api.js';
+import { readReduceMotion, applyReduceMotion } from './lib/prefs.js';
 import {
   desktopTestIds,
   type DesktopResource,
@@ -87,6 +88,14 @@ export function App() {
         if (!controller.signal.aborted) setAuthed(false);
       });
     return () => controller.abort();
+  }, []);
+
+  // Apply the saved "Reduce motion" override ONCE on mount, before anything animates — mirrors the
+  // pref onto <html data-reduce-motion> so the additive CSS rule clamps motion site-wide (the login
+  // gate animates too, so this runs regardless of auth state). The Settings toggle keeps it in sync
+  // live by writing localStorage AND re-applying the attribute itself; this just seeds it on load.
+  useEffect(() => {
+    applyReduceMotion(readReduceMotion());
   }, []);
 
   // Sign out: clear the server session, drop local state, return to the gate.

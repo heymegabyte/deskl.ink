@@ -349,6 +349,7 @@ export const desktopTestIds = {
   settingsDialog: 'settings-dialog',
   settingsDefaultDistro: 'settings-default-distro', // one per distro, carries data-distro=<id>
   settingsDefaultSize: 'settings-default-size', // one per size, carries data-size=<id>
+  settingsReduceMotion: 'settings-reduce-motion', // Appearance → "Reduce motion" switch (role=switch)
   settingsClose: 'settings-close', // the Done / close button
   serverWorkspace: 'server-workspace', // headless server tab (terminal-native)
   serverTerminal: 'server-terminal', // the ttyd iframe in a server tab

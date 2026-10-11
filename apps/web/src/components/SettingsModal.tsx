@@ -8,20 +8,25 @@ import {
 } from '@deskl/shared';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
 import { readDefaults, writeDefaults, type ComputerDefaults } from '../lib/defaults.js';
+import { readReduceMotion, writeReduceMotion, applyReduceMotion } from '../lib/prefs.js';
 import { DistroLogo } from './DistroLogo.js';
 import type { SessionState } from '../lib/api.js';
 
 /**
- * Settings — a focused, HONEST modal with exactly two sections:
+ * Settings — a focused, HONEST modal with three functional sections:
  *   1. Account (read-only) — WHO is signed in (email · provider · name), echoed from the session the
  *      app already holds. Nothing to edit here (identity is managed by the auth provider).
  *   2. Default new computer (FUNCTIONAL) — the distro + size a fresh "New computer" starts on,
  *      persisted to `localStorage['desklink:defaults']` and read back by {@link OsPicker} to pre-seed
  *      its selection. Set "Power" here → every new picker opens on Power, across reloads.
+ *   3. Appearance (FUNCTIONAL) — a "Reduce motion" switch persisted to
+ *      `localStorage['desklink:reduce-motion']`. Toggling it writes the pref AND flips
+ *      `<html data-reduce-motion>` live, so the additive CSS rule clamps animations immediately +
+ *      across reloads. Purely additive — the OS `prefers-reduced-motion` setting is always respected.
  *
- * There are deliberately NO placeholder toggles (notifications / billing / theme): billing is M3, and
- * a dead switch would violate the "no stubs / dead controls" bar. Sections are added here when they
- * become real.
+ * Every control here is REAL — there are deliberately NO placeholder toggles (notifications /
+ * billing / theme): billing is M3, and a dead switch would violate the "no stubs / dead controls"
+ * bar. Sections are added here when they become real.
  *
  * Modal conventions mirror {@link OsPicker} / the manager's DeleteDialog: `role="dialog"`
  * `aria-modal`, a dimmed click-away backdrop, Esc-to-close, {@link useFocusTrap} (focus in on open,
@@ -49,6 +54,9 @@ export function SettingsModal({ user, onClose }: SettingsModalProps) {
   // Live local mirror of the saved defaults — seeded from localStorage, written back on every change
   // so the preference persists immediately (the Done button only closes; there is no separate "Save").
   const [defaults, setDefaults] = useState<ComputerDefaults>(() => readDefaults());
+  // Live mirror of the "Reduce motion" override — seeded from localStorage, written back + applied to
+  // <html> on every toggle so motion changes immediately (no "Save"; the attribute is the effect).
+  const [reduceMotion, setReduceMotion] = useState<boolean>(() => readReduceMotion());
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef);
 
@@ -66,6 +74,17 @@ export function SettingsModal({ user, onClose }: SettingsModalProps) {
     setDefaults((prev) => {
       const next = { ...prev, ...patch };
       writeDefaults(next); // validated + persisted in the helper
+      return next;
+    });
+  };
+
+  /** Flip "Reduce motion": persist the pref AND reflect it onto <html> immediately, so animations
+   *  clamp live (and stay clamped across reloads via the mount effect in App.tsx). */
+  const toggleReduceMotion = () => {
+    setReduceMotion((prev) => {
+      const next = !prev;
+      writeReduceMotion(next); // localStorage['desklink:reduce-motion']
+      applyReduceMotion(next); // <html data-reduce-motion> → additive CSS rule fires now
       return next;
     });
   };
@@ -241,6 +260,54 @@ export function SettingsModal({ user, onClose }: SettingsModalProps) {
                   </button>
                 );
               })}
+            </div>
+          </section>
+
+          {/* ───────────── Appearance (functional) ───────────── */}
+          <section aria-labelledby="settings-appearance-label" className="mt-7">
+            <h3
+              id="settings-appearance-label"
+              className="mb-3 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-[var(--color-muted)]"
+            >
+              Appearance
+            </h3>
+            {/* A labelled row: text on the left, the switch on the right. The whole row's label is
+                wired to the switch via aria-labelledby/-describedby for AT. */}
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-white/[0.02] px-4 py-3.5">
+              <div className="min-w-0">
+                <p id="settings-reduce-motion-label" className="text-sm font-600 text-white">
+                  Reduce motion
+                </p>
+                <p
+                  id="settings-reduce-motion-help"
+                  className="mt-0.5 text-xs leading-relaxed text-[var(--color-muted)]"
+                >
+                  Minimize animations. Your system setting is always respected; this forces it on.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={reduceMotion}
+                aria-labelledby="settings-reduce-motion-label"
+                aria-describedby="settings-reduce-motion-help"
+                data-testid={desktopTestIds.settingsReduceMotion}
+                onClick={toggleReduceMotion}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-200 ease-[var(--ease-expressive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] ${
+                  reduceMotion
+                    ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/25 shadow-[0_0_18px_rgba(0,229,255,0.28)]'
+                    : 'border-[var(--color-border)] bg-white/5'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`inline-block h-4 w-4 transform rounded-full shadow transition-transform duration-200 ease-[var(--ease-expressive)] ${
+                    reduceMotion
+                      ? 'translate-x-6 bg-[var(--color-cyan)]'
+                      : 'translate-x-1 bg-[var(--color-muted)]'
+                  }`}
+                />
+              </button>
             </div>
           </section>
         </div>

@@ -116,3 +116,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* In-app "Reduce motion" override (Settings → Appearance). ADDITIVE to the @media block above: when
+   the user forces it on, <html> gets data-reduce-motion="1" and motion is clamped even if the OS flag
+   is NOT set. We only ever turn motion DOWN, so a user's system preference is never overridden. */
+:root[data-reduce-motion='1'] *,
+:root[data-reduce-motion='1'] *::before,
+:root[data-reduce-motion='1'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
