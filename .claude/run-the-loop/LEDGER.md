@@ -266,3 +266,21 @@ on SUID sandbox helper configuration. No screen-reader, visual or native rollbac
 is claimed. Outer runner owns publication; no deployment URL exists for this iteration.
 Next: individual deletion feedback, disposed-store rollback integrity and shared-branch
 bulk-preflight safety remain open. Commit containing this entry is the slice reference.
+
+## 2026-10-11 — individual deletion rejection feedback
+
+One bounded native-app iteration: task-row and sidebar confirmation callbacks consume
+deletion failures and show action-specific retry feedback. Confirmed task IDs and cleanup
+options remain covered; deferred regressions protect immediate sidebar navigation and
+feedback timing. Regression failed before fixes; focused 3-file suite passed 65 tests.
+Independent discovery and adversarial review found no blocking introduced regression.
+Loop improvement: README records individual deletion callback gates; architecture overview
+now points to the actual renderer IPC client. No failed receipts or retained worktrees
+needed recovery; base commit is present in origin/main.
+
+Native golden/long journey remains incomplete: no private Xvfb/Weston/Cage compositor
+is available. Callback and Chromium tests do not establish toast announcement, native
+disposed-store rollback or partial backend deletion safety. Those remain backlog items.
+Final full suite passed 164 files / 1206 tests. Other final gate evidence and resulting
+commit belong to the non-secret run report and outer
+runner receipt. Outer runner owns publication; no native release deployment is claimed.

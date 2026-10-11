@@ -92,3 +92,9 @@ mocked setters. Capture the stored selection after setSelectedIds: MobX wraps ra
 so comparing against the input Set silently defeats recovery. Cover modal-time and pending
 selection changes, select-then-deselect, and missing/unregistered rollback records.
 Feedback/selection tests do not establish native rollback integrity or partial deletion safety.
+
+For individual deletion feedback, run src/renderer/tests/individual-task-delete.test.ts.
+Cover task-row and sidebar confirmation callbacks, success and rejection, and exact
+confirmed IDs/worktree/branch options. Await the manager inside a consumed callback;
+voiding a rejecting promise leaves an unhandled rejection. Keep cancellation quiet.
+Callback tests do not prove native toast announcement or disposed-store rollback safety.

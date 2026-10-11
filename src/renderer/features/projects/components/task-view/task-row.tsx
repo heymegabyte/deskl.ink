@@ -57,8 +57,13 @@ export const TaskRow = observer(function TaskRow({
     showDeleteTask({
       projectId: task.data.projectId,
       tasks: [{ taskId: task.data.id, taskName: task.data.name }],
-      onSuccess: ({ deleteWorktree, deleteBranch }) =>
-        void taskManager?.deleteTasks([task.data.id], { deleteWorktree, deleteBranch }),
+      onSuccess: async ({ deleteWorktree, deleteBranch }) => {
+        try {
+          await taskManager?.deleteTasks([task.data.id], { deleteWorktree, deleteBranch });
+        } catch {
+          toast.error('Could not delete task. Please try again.');
+        }
+      },
     });
   const handleRename = () =>
     showRename({

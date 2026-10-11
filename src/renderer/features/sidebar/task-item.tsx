@@ -72,9 +72,14 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
     showDeleteTask({
       projectId,
       tasks: [{ taskId, taskName }],
-      onSuccess: ({ deleteWorktree, deleteBranch }) => {
-        void taskManager?.deleteTasks([taskId], { deleteWorktree, deleteBranch });
-        if (isActive) navigate('project', { projectId });
+      onSuccess: async ({ deleteWorktree, deleteBranch }) => {
+        try {
+          const deletion = taskManager?.deleteTasks([taskId], { deleteWorktree, deleteBranch });
+          if (isActive) navigate('project', { projectId });
+          await deletion;
+        } catch {
+          toast.error('Could not delete task. Please try again.');
+        }
       },
     });
 

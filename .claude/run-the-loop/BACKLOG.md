@@ -63,5 +63,5 @@
 - [ ] Preflight lookup completeness: distinguish missing worktrees from swallowed fallback
   lookup errors in WorktreeService; inspect dirty shared branches when every sibling is selected.
 
-- [ ] Individual delete rejection: consume task-row manager rejection and show action-specific
+- [x] Individual delete rejection: consume task-row and sidebar manager rejection and show action-specific
   feedback. Keep native rollback/partial backend deletion verification separate.

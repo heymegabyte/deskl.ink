@@ -15,7 +15,7 @@
 - `index.ts` — Loads `.env`, normalizes PATH, initializes database, registers all RPC controllers via `src/main/rpc.ts`, creates the main window.
 - `src/main/rpc.ts` — Assembles the typed RPC router from domain controllers (`src/main/core/*/controller.ts`).
 - `src/preload/index.ts` — Exposes `window.electronAPI` (`invoke`, `eventSend`, `eventOn`) via `contextBridge`.
-- `src/renderer/core/ipc.ts` — Creates the typed RPC client and event emitter used throughout the renderer.
+- `src/renderer/lib/ipc.ts` — Creates the typed RPC client and event emitter used throughout the renderer.
 
 ## Build Tooling
 
