@@ -15,6 +15,21 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 20 (2026-10-10) — `/loop` fire: Settings surface (Dim 16 / Golden Path D) ✅
+- **First Settings surface** (the IA required it; none existed) — a real product expansion, not churn.
+  AccountMenu gains a "Settings" item (`account-settings`) → a focus-trapped centered `SettingsModal`:
+  **Account** (read-only email · provider · name) + **Default new computer** (functional distro + size
+  selectors). `lib/defaults.ts` persists `{distro,size}` to `localStorage['desklink:defaults']` (validated
+  against shared ID enums, fallback ubuntu/everyday); `OsPicker` seeds its state from it → a chosen default
+  PRE-SELECTS in the picker + survives reload. Honest copy ("this just sets the default"). Prod `b45d2e15`.
+- **Verified live:** build + typecheck green · `settings` E2E proves set-default-size-power → picker
+  pre-selects Power → reload → still Power (localStorage persisted); `distro-picker`+`a11y`+`mobile`
+  **6 passed (6.6s)** (picker-from-defaults unregressed, axe-clean, mobile fits) · screenshot shows the
+  clean modal (Account + Defaults + Done).
+- SAFE (modal pattern, no auth-boundary/boot-path/backend change). Advances Golden Path D (Settings
+  persist real preferences). **Top open P0 unchanged: PERSIST-1b restore-on-boot** (fresh-session slice;
+  designed in `docs/architecture/compute-and-persistence.md`).
+
 ## Iteration 19 (2026-10-10) — `/loop` fire: transparent cost estimates in creation (Dim 5) ✅
 - **Filled a prompt-named gap** ("Transparent cost estimates before creation"): the OS picker now shows
   each size's hourly estimate — Everyday ~$0.04 · Developer ~$0.06 · Power ~$0.08 · Heavy ~$0.11/hr

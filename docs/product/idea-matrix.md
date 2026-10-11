@@ -46,7 +46,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 13 | Orgs, teams, workspaces | queued | foundational multi-tenant; personal stays simple (progressive disclosure) |
 | 14 | Permissions & collaboration | **partial** | ✅ control-plane arbiter (ACP-1/2/3). Next: RBAC roles, observer sessions, expiring deep links |
 | 15 | Enterprise identity & admin | queued | Better Auth SSO/SCIM (verify licensing first); domain verify; audit export |
-| 16 | Personal & org settings | queued | profile, appearance, defaults, privacy — persisted; progressive disclosure |
+| 16 | Personal & org settings | **partial** | ✅ Settings modal: account identity + functional default-new-computer prefs (localStorage, pre-selects in picker; live-E2E + screenshot). Next: appearance, notifications, privacy, API tokens; org settings |
 | 17 | Connections & integrations | queued | common framework; truthful connected/disconnected state; GitHub/Drive/Slack/Infisical first |
 | 18 | Notifications | queued | in-app inbox + email + push matrix; quiet hours; retry/dedupe pipeline |
 | 19 | AI agents & computer-use | **partial** | ✅ MCP tools endpoint (ACP-3, flag-gated). Next: container command daemon (ACP-EXEC), approvals |
