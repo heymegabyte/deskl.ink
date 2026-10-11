@@ -15,6 +15,22 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 17 (2026-10-10) — `/loop` fire: comprehensive regression review (Stage C) — CLEAN + 20/20 E2E
+- **Independent adversarial review of the iter-13–16 features** (account menu, "Back up now",
+  persisted "Backed up <time>" indicator, rich delete dialog) by a fresh agent told to break them.
+  **VERDICT: 0 P0, 0 P1, 0 P2 — would not block.** Cross-feature state sound (tombstone added before
+  optimistic removal + `refresh` filters it → no resurrection; `backingUp` is an id-keyed Set; handlers
+  list `desktops` in deps → no stale closure; `pendingDeleteTarget` resolves from the live list). No
+  dead controls (capability_gap is a neutral announce, not an error; delete copy makes no false recovery
+  promise). a11y intact (account menu + delete dialog both proper focus-trapped dialogs). `App.tsx`
+  `user` fetched once + cleared on sign-out; `ds-pop` keyframe present. Backend `setLastBackup`
+  owner-scoped + `recordBackupTime` best-effort + additive migration.
+- **Broad PROD E2E sweep: 20/20 passed (27.5s)** — a11y ×3, authz ×4, backup (real container + reload-
+  persistence), branding, command-palette, focus ×2, mobile ×2, offline, pwa ×2, security, seo ×2.
+  Full run, not flaky → the WHOLE app is regression-free end-to-end after 16 feature fires.
+- One clean independent pass over iter-13–16; combined with the broad sweep this is strong health
+  evidence. No code change — a verification fire.
+
 ## Iteration 16 (2026-10-10) — `/loop` fire: rich delete confirmation dialog (completes P0 §1) ✅
 - **Completed the P0 §1 confirmation-dialog requirement** (delete was a minimal inline confirm). New
   `DeleteDialog`: centered viewport modal + dimmed backdrop, danger trash glyph, "Delete <name>?", the
