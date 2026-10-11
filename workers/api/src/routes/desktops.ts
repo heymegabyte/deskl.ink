@@ -85,6 +85,26 @@ export function getRegistry(env: Env): DurableObjectStub<DesktopRegistry> {
   return env.REGISTRY.get(id) as unknown as DurableObjectStub<DesktopRegistry>;
 }
 
+/**
+ * Best-effort: record the time of a successful backup so the tile shows a lasting "Backed up <time>"
+ * indicator. NEVER throws into the caller — this is a nice-to-have indicator, so a failure here (e.g.
+ * the warm global registry DO still running PRE-deploy code without `setLastBackup` during the ~100s
+ * code-propagation lag) must never turn a SUCCESSFUL snapshot / stop / restart into a reported
+ * failure. The indicator simply updates late, once the DO evicts + reloads the new code.
+ */
+async function recordBackupTime(
+  registry: DurableObjectStub<DesktopRegistry>,
+  id: string,
+  isoTimestamp: string,
+  owner: string | undefined
+): Promise<void> {
+  try {
+    await registry.setLastBackup(id, isoTimestamp, owner);
+  } catch (err) {
+    console.warn('[deskl.ink desktops] lastBackupAt update failed (DO code-propagation lag?)', id, err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Compute backend. TWO implementations behind one `Lifecycle` surface + a flag:
 //
@@ -506,11 +526,7 @@ app.post('/:id/stop', async (c) => {
       if (result.checkpoint.ok) {
         // Record the checkpoint time (owner-scoped; admin unscoped) so the tile shows a lasting
         // "Backed up <time>" indicator — the stop checkpoint IS a durable backup.
-        await registry.setLastBackup(
-          id,
-          result.checkpoint.manifest.createdAt,
-          admin ? undefined : principalId
-        );
+        await recordBackupTime(registry, id, result.checkpoint.manifest.createdAt, admin ? undefined : principalId);
       } else {
         // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
         console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
@@ -566,7 +582,7 @@ app.post('/:id/snapshot', async (c) => {
     ).snapshotHome(id);
     // Persist the backup time (owner-scoped; admin path unscoped) so the tile shows a lasting
     // "Backed up <time>" indicator — the on-demand backup's durable confirmation. Only on success.
-    if (result.ok) await registry.setLastBackup(id, result.manifest.createdAt, admin ? undefined : principalId);
+    if (result.ok) await recordBackupTime(registry, id, result.manifest.createdAt, admin ? undefined : principalId);
     return c.json(SnapshotResultSchema.parse(result));
   } catch (err) {
     // Final safety net: the contract is a typed result, NEVER a 500. An unexpected throw (RPC/R2/
@@ -664,11 +680,7 @@ app.post('/:id/restart', async (c) => {
       // Record the checkpoint time (owner-scoped; admin unscoped) on success — the restart's
       // pre-stop checkpoint IS a durable backup, so the tile shows a lasting "Backed up <time>".
       if (result.checkpoint.ok) {
-        await registry.setLastBackup(
-          id,
-          result.checkpoint.manifest.createdAt,
-          admin ? undefined : principalId
-        );
+        await recordBackupTime(registry, id, result.checkpoint.manifest.createdAt, admin ? undefined : principalId);
       }
     } else {
       await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
