@@ -336,6 +336,11 @@ export function DesktopManager({
       try {
         const result = await api.snapshotDesktop(id);
         if (result.ok) {
+          // Optimistically stamp the tile's "Backed up <time>" indicator with the manifest's time so
+          // it appears immediately — the list poll reconciles the persisted server value afterward.
+          setDesktops((prev) =>
+            prev.map((d) => (d.id === id ? { ...d, lastBackupAt: result.manifest.createdAt } : d))
+          );
           setAnnouncement(`Backed up ${name}.`);
         } else if (result.kind === 'capability_gap') {
           // Not an error — the computer must be running for its backup agent to answer.
@@ -1152,6 +1157,25 @@ function DesktopTile({
               {desktop.persistent ? 'Persistent' : 'Disposable'}
             </dd>
           </div>
+          {/* PERSISTED backup confirmation — "Backed up <relative>" — the lasting proof that the
+              on-demand "Back up now" action (and every stop/restart checkpoint) durably captured
+              /home to R2. Driven by the server's `lastBackupAt` (stamped on every successful
+              snapshot/checkpoint) and set optimistically right after a "Back up now" so it appears
+              instantly. Rendered ONLY when a backup has actually happened — when absent we show
+              nothing (never a dead "never"/empty label). Small muted text, reading as part of the
+              metadata row via a leading "·", sitting next to the "Back up now" affordance. */}
+          {desktop.lastBackupAt && (
+            <div className="flex items-center gap-1.5">
+              <dt className="sr-only">Last backed up</dt>
+              <dd
+                className="flex items-center gap-1.5"
+                title={new Date(desktop.lastBackupAt).toLocaleString()}
+              >
+                <span aria-hidden="true">·</span>
+                Backed up {relativeTime(desktop.lastBackupAt)}
+              </dd>
+            </div>
+          )}
           {/* "Back up now" — a SUBTLE TEXT affordance (deliberately NOT another icon in the crowded
               Open/Stop/Restart/trash row). It lives in the metadata footer, reading as part of the
               "~$x/hr · Created … · Persistent" row via a leading "·", so it never crowds the action

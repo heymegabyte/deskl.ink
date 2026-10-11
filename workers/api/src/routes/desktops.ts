@@ -503,7 +503,15 @@ app.post('/:id/stop', async (c) => {
         existing.size,
         existing.form
       ).stopWithCheckpoint(id);
-      if (!result.checkpoint.ok) {
+      if (result.checkpoint.ok) {
+        // Record the checkpoint time (owner-scoped; admin unscoped) so the tile shows a lasting
+        // "Backed up <time>" indicator — the stop checkpoint IS a durable backup.
+        await registry.setLastBackup(
+          id,
+          result.checkpoint.manifest.createdAt,
+          admin ? undefined : principalId
+        );
+      } else {
         // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
         console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
       }
@@ -556,6 +564,9 @@ app.post('/:id/snapshot', async (c) => {
       existing.size,
       existing.form
     ).snapshotHome(id);
+    // Persist the backup time (owner-scoped; admin path unscoped) so the tile shows a lasting
+    // "Backed up <time>" indicator — the on-demand backup's durable confirmation. Only on success.
+    if (result.ok) await registry.setLastBackup(id, result.manifest.createdAt, admin ? undefined : principalId);
     return c.json(SnapshotResultSchema.parse(result));
   } catch (err) {
     // Final safety net: the contract is a typed result, NEVER a 500. An unexpected throw (RPC/R2/
@@ -643,13 +654,22 @@ app.post('/:id/restart', async (c) => {
   await registry.updateStatus(id, persist ? 'persisting' : 'stopping');
   try {
     if (persist) {
-      await persistenceFor(
+      const result = await persistenceFor(
         c.env,
         id,
         existing.distro,
         existing.size,
         existing.form
       ).stopWithCheckpoint(id);
+      // Record the checkpoint time (owner-scoped; admin unscoped) on success — the restart's
+      // pre-stop checkpoint IS a durable backup, so the tile shows a lasting "Backed up <time>".
+      if (result.checkpoint.ok) {
+        await registry.setLastBackup(
+          id,
+          result.checkpoint.manifest.createdAt,
+          admin ? undefined : principalId
+        );
+      }
     } else {
       await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
     }

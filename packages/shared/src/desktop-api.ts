@@ -212,6 +212,8 @@ export const DesktopResourceSchema = z.object({
   status: DesktopStatusSchema,
   createdAt: z.string(),
   lastActiveAt: z.string().optional(),
+  /** ISO datetime of the most recent durable `/home` → R2 backup; omitted when never backed up. */
+  lastBackupAt: z.string().optional(),
   persistent: z.boolean(),
 });
 export type DesktopResource = z.infer<typeof DesktopResourceSchema>;

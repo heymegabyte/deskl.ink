@@ -51,6 +51,8 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
   status: string;
   created_at: string;
   last_active_at: string | null;
+  /** ISO datetime of the most recent durable `/home` → R2 backup; NULL until first backed up. */
+  last_backup_at: string | null;
   persistent: number;
   /** Owning principal id (see auth/principal.ts); NULL on pre-auth legacy rows (admin-only). */
   owner: string | null;
@@ -92,7 +94,8 @@ export class DesktopRegistry extends DurableObject<Env> {
         last_active_at TEXT,
         persistent INTEGER NOT NULL DEFAULT 0,
         owner TEXT,
-        form TEXT
+        form TEXT,
+        last_backup_at TEXT
       );`
     );
     // Additive migrations for registries created before a column existed. `ADD COLUMN` throws
@@ -113,6 +116,11 @@ export class DesktopRegistry extends DurableObject<Env> {
       this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN form TEXT;`);
     } catch {
       // column already present — pre-server rows read as 'desktop'.
+    }
+    try {
+      this.ctx.storage.sql.exec(`ALTER TABLE desktops ADD COLUMN last_backup_at TEXT;`);
+    } catch {
+      // column already present — legacy rows read as never-backed-up (NULL → omitted).
     }
     // Fixed-window rate-limit counters (cost-abuse guard on create). Keyed by an
     // arbitrary bucket string (e.g. per-IP or global). Idempotent create.
@@ -264,6 +272,31 @@ export class DesktopRegistry extends DurableObject<Env> {
   }
 
   /**
+   * Record the most recent durable `/home` → R2 backup time (ISO datetime). Owner-scoped exactly like
+   * {@link rename}: the `AND owner = ?` clause means a foreign/unknown id affects 0 rows, so a
+   * non-owner can't stamp (or probe) another principal's computer. Passing no `owner` (admin/ops)
+   * updates unscoped. Returns the updated resource, or undefined when nothing matched. Called after
+   * every successful snapshot / stop / restart checkpoint with the manifest's `createdAt`.
+   */
+  setLastBackup(id: string, isoTimestamp: string, owner?: string): DesktopResource | undefined {
+    if (owner === undefined) {
+      this.ctx.storage.sql.exec(
+        `UPDATE desktops SET last_backup_at = ? WHERE id = ?;`,
+        isoTimestamp,
+        id
+      );
+      return this.get(id);
+    }
+    this.ctx.storage.sql.exec(
+      `UPDATE desktops SET last_backup_at = ? WHERE id = ? AND owner = ?;`,
+      isoTimestamp,
+      id,
+      owner
+    );
+    return this.getOwned(id, owner);
+  }
+
+  /**
    * Reassign every computer owned by `fromOwner` to `toOwner` — used by claim-on-login so computers
    * created under an anonymous principal aren't orphaned once the user signs in. Idempotent.
    */
@@ -301,8 +334,11 @@ function rowToResource(row: DesktopRow): DesktopResource {
     createdAt: row.created_at,
     persistent: row.persistent === 1,
   };
-  // Only attach the optional field when present — never set it to `undefined`.
-  return row.last_active_at ? { ...base, lastActiveAt: row.last_active_at } : base;
+  // Only attach optional fields when present — never set them to `undefined`
+  // (exactOptionalPropertyTypes). Both are independent (a legacy row may have one, the other, or
+  // neither), so layer each in conditionally.
+  const withActive = row.last_active_at ? { ...base, lastActiveAt: row.last_active_at } : base;
+  return row.last_backup_at ? { ...withActive, lastBackupAt: row.last_backup_at } : withActive;
 }
 
 /** Coerce a stored distro to a known id; NULL (legacy rows) or unknown → Ubuntu. */

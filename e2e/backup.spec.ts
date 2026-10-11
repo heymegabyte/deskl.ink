@@ -127,7 +127,29 @@ test.describe('Back up now — the on-demand snapshot verb, through the UI', () 
       await expect(tile.getByTestId(T.backupButton)).toHaveText('Back up now');
     });
 
-    await test.step('6 · clean up (delete the computer we created)', async () => {
+    await test.step('6 · the card shows a "Backed up" indicator (optimistic, just now)', async () => {
+      // The lasting confirmation on the tile itself — set optimistically the instant the snapshot
+      // resolves ok. Scope to THIS tile so the global success toast ("Backed up <name>.") can't
+      // satisfy it. The relative time is fresh → "just now".
+      await expect(tile).toContainText('Backed up', { timeout: 10_000 });
+      await expect(tile).toContainText(/Backed up\s+just now/i);
+    });
+
+    await test.step('7 · reload + re-enter → the indicator PERSISTS (proves server-side storage)', async () => {
+      // A reload drops all React state, so the indicator can only reappear if the server persisted
+      // `lastBackupAt` and returned it on the list fetch — the real persistence proof (not the
+      // optimistic value, which is gone after reload).
+      await page.reload();
+      await expect(page.getByTestId(T.newComputerButton).first()).toBeVisible({ timeout: 15_000 });
+      const reloadedTile = page.locator(
+        `[data-testid="${T.tile}"][data-desktop-id="${desktopId}"]`
+      );
+      await expect(reloadedTile).toBeVisible({ timeout: 20_000 });
+      await expect(reloadedTile).toContainText('Backed up', { timeout: 10_000 });
+      await page.screenshot({ path: path.join(SHOT_DIR, 'backup-03-persisted.png') });
+    });
+
+    await test.step('8 · clean up (delete the computer we created)', async () => {
       const del = await page.request.delete(`/api/v1/desktops/${desktopId}`);
       expect(del.ok(), 'cleanup delete should succeed').toBeTruthy();
       // Confirmed destroyed — nothing for afterEach to sweep.
