@@ -15,6 +15,22 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 13 (2026-10-10) — `/loop` fire: account menu (identity in header) ✅
+- **Added product breadth (Dim 12/16): the header now shows the signed-in identity** — was a real gap
+  (only a bare "Sign out"). New `AccountMenu`: a compact 36px avatar (email initial, cyan ring) → on-brand
+  glass popover with the email + provider (Google/GitHub/Email/Dev) + the Sign-out action moved into it
+  (declutters the header). Reuses `App.tsx`'s existing `/session` fetch (captured the previously-discarded
+  `user`, threaded via a `user` prop — no refetch). a11y: `useFocusTrap` + Esc-restore + click-outside +
+  native-button keyboard + `aria-haspopup/expanded/menu/menuitem`. Mobile-safe (avatar-only trigger fits
+  375px). Also restored a MISSING `@keyframes ds-pop` in `index.css` (the palette/OS-picker pop animation).
+  Prod `22ecb6ad`.
+- **Verified live:** build + typecheck green · `a11y`(×3) + `mobile`(×2) + `command-palette` **6 passed
+  (6.6s)** (header change + moved sign-out + ds-pop regressed nothing; the palette's own signout action is
+  independent) · screenshot shows the open menu (`e2e@deskl.ink · Dev · Sign out`), on-brand + aligned.
+- SAFE slice (no boot-path risk). **Top open P0 unchanged: PERSIST-1b restore-on-boot** — touches the
+  container boot path (a half-baked version risks wedging ALL boots) → correctly deferred to a fresh
+  focused session, not avoidance.
+
 ## Iteration 12 (2026-10-10) — `/loop` fire: lifecycle action-row stability (P2 closed) ✅
 - **Closed the top tracked P2** (from iter-10 review): Stop + Restart used to UNMOUNT during a stop/
   restart (status `persisting`/`stopping` ∉ `stoppable`), vanishing the action row for ~60s. Fix:

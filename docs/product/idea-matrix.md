@@ -42,7 +42,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 9 | Persistence, backups, recovery | **partial** | ✅ snapshot→R2 (PERSIST-1a, live). Next: **restore-on-boot (P0)**, backup mgmt UI, retention |
 | 10 | File management | queued | file explorer, upload/download, resumable transfers |
 | 11 | Joined computers (BYOC) | queued | secure companion + outbound pairing; per-platform adapters |
-| 12 | Auth & account identity | **partial** | ✅ Google/GitHub/magic-link (M2, live). Next: passkeys, sessions/devices, MFA |
+| 12 | Auth & account identity | **partial** | ✅ Google/GitHub/magic-link (M2, live); ✅ header account menu (identity + provider + sign-out, live-E2E + screenshot). Next: passkeys, sessions/devices, MFA |
 | 13 | Orgs, teams, workspaces | queued | foundational multi-tenant; personal stays simple (progressive disclosure) |
 | 14 | Permissions & collaboration | **partial** | ✅ control-plane arbiter (ACP-1/2/3). Next: RBAC roles, observer sessions, expiring deep links |
 | 15 | Enterprise identity & admin | queued | Better Auth SSO/SCIM (verify licensing first); domain verify; audit export |
