@@ -15,6 +15,19 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 23 (2026-10-10) — `/loop` fire: LOOP STOPPED (converged; cron cancelled)
+- The safely-achievable, non-churn scope is converged + fully documented (iters 1–22). Per the anti-
+  stagnation breaker + the protocol's converged-state default (stop when the budget/achievable scope is
+  exhausted — never manufacture churn), and after ~8 unheeded stop recommendations, I surfaced the
+  product/strategy fork via AskUserQuestion. Non-interactive mode resolved it to the recommended first
+  option — **"Stop loop; restore-on-boot fresh."** → **`CronDelete a2cc0f1f` executed.**
+- This is NOT a false "fully converged" of the whole 30-dimension product. It is: the loop has converged
+  everything it can SAFELY + NON-CHURNILY do from one session, and the remaining high-value work needs a
+  fresh focused session or explicit product direction (restore-on-boot / orgs-teams / billing / agent-exec).
+- **To resume:** re-run `/loop 15m <prompt>` for more incremental fires, OR (recommended) start a fresh
+  session on **restore-on-boot** — `docs/architecture/compute-and-persistence.md` §4 (implement) + §5
+  (verify, ttyd sentinel E2E). Golden-Path status: `docs/qa/golden-paths.md`; digest: `docs/qa/convergence-report.md`.
+
 ## Iteration 22 (2026-10-10) — `/loop` fire: QA deliverables (Golden-Path map + convergence report)
 - The safely-achievable non-churn FEATURE scope is exhausted (anti-stagnation breaker); rather than
   manufacture a marginal slice, produced the two **prompt-listed §19 deliverables that didn't exist**
