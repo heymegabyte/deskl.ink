@@ -26,6 +26,13 @@ import {
   type DesktopListResponse,
   type DesktopResource,
 } from '../../../../packages/shared/src/desktop-api';
+// Durable-persistence contract (snapshot result). Like `desktop-api`, this module is reached by its
+// source path — the shared package barrel does not re-export it, and the web app already resolves
+// against `packages/shared/src`. One definition, imported here; no shape is duplicated.
+import {
+  SnapshotResultSchema,
+  type SnapshotResult,
+} from '../../../../packages/shared/src/persistence';
 import type { z } from 'zod';
 
 /** Same-origin in prod; override with `VITE_API_BASE` for split-origin dev. */
@@ -242,6 +249,24 @@ export const api = {
       signal,
     });
     return desktop;
+  },
+
+  /**
+   * POST /api/v1/desktops/:id/snapshot — capture `/home` to durable R2 storage on demand.
+   *
+   * Unlike the lifecycle verbs, this is NOT a `{ desktop }` envelope: the route returns the typed
+   * {@link SnapshotResult} discriminated union directly, so we parse + return it with
+   * `SnapshotResultSchema` (never unwrapping a `desktop`). The route ALWAYS responds 200 with a
+   * parseable result — success (`{ ok: true, manifest }`) or an HONEST failure
+   * (`{ ok: false, kind: 'capability_gap' | 'error', reason }`), never a 5xx — so the caller branches
+   * on the typed `ok`/`kind` rather than on an HTTP error. (A genuine network/parse fault still throws
+   * {@link ApiError}, like every other method.)
+   */
+  async snapshotDesktop(id: string, signal?: AbortSignal): Promise<SnapshotResult> {
+    return request(desktopApi.snapshot(id), SnapshotResultSchema, {
+      method: 'POST',
+      signal,
+    });
   },
 
   /** PATCH /api/v1/desktops/:id — rename a computer (metadata only). Returns the updated desktop. */

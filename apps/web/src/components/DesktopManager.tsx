@@ -109,6 +109,10 @@ export function DesktopManager({
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [confirmStopAll, setConfirmStopAll] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Ids whose on-demand `/home` → R2 snapshot is in flight. A Set (not a single id) so backups on
+  // several computers can run at once without one tile's busy state stomping another's. Drives the
+  // per-tile "Back up now" affordance's disabled + "Backing up…" state.
+  const [backingUp, setBackingUp] = useState<ReadonlySet<string>>(new Set());
   // Polite announcements for successful lifecycle actions (WCAG 4.1.3 Status Messages). This string
   // feeds the ONE shared live region — which is ALSO the visible success toast below, so sighted and
   // screen-reader users share a single source of truth (no double-announce). Errors are surfaced
@@ -311,6 +315,46 @@ export function DesktopManager({
       }
     },
     [desktops, refresh]
+  );
+
+  /**
+   * Back up a running computer's `/home` to durable R2 storage ON DEMAND — surfacing the proven
+   * persistence capability as a first-class user action (not only the implicit stop/restart/delete
+   * checkpoints). Honest end-to-end: branch on the TYPED {@link SnapshotResult}, never a faked
+   * success.
+   *   - `ok: true`                    → success toast via the shared announcer.
+   *   - `ok: false, capability_gap`   → the backup agent is unreachable (e.g. the computer isn't
+   *                                     actually running). NEUTRAL toast — it's a state, not a hard
+   *                                     error — so we announce (not `setError`) the honest reason.
+   *   - `ok: false, error`            → a real failure of a configured capability → the error banner.
+   * The busy state is always cleared in `finally` (so a thrown ApiError can't wedge the button).
+   */
+  const snapshotComputer = useCallback(
+    async (id: string) => {
+      const name = desktops.find((d) => d.id === id)?.name ?? 'Computer';
+      setBackingUp((prev) => new Set(prev).add(id));
+      try {
+        const result = await api.snapshotDesktop(id);
+        if (result.ok) {
+          setAnnouncement(`Backed up ${name}.`);
+        } else if (result.kind === 'capability_gap') {
+          // Not an error — the computer must be running for its backup agent to answer.
+          setAnnouncement(`${name} must be running to back up.`);
+        } else {
+          setError(`Backup failed: ${result.reason}`);
+        }
+      } catch (err) {
+        // A genuine network/parse fault (the route itself never 5xxs) — surface it like any other.
+        setError(err instanceof ApiError ? err.message : `Could not back up ${name}.`);
+      } finally {
+        setBackingUp((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [desktops]
   );
 
   /** Stop EVERY running computer (spec §40 — "stop everything costing money"). */
@@ -532,6 +576,8 @@ export function DesktopManager({
                 onOpen={() => onOpen(desktop, ticketsRef.current.get(desktop.id))}
                 onStop={() => void stopComputer(desktop.id)}
                 onRestart={() => void restartComputer(desktop.id)}
+                onBackup={() => void snapshotComputer(desktop.id)}
+                backingUp={backingUp.has(desktop.id)}
                 onDelete={() => setPendingDelete(desktop.id)}
                 onConfirmDelete={() => void deleteComputer(desktop.id)}
                 onCancelDelete={() => setPendingDelete(null)}
@@ -863,6 +909,10 @@ interface DesktopTileProps {
   onOpen: () => void;
   onStop: () => void;
   onRestart: () => void;
+  /** Snapshot `/home` to durable R2 on demand (the "Back up now" footer affordance). */
+  onBackup: () => void;
+  /** This computer's on-demand backup is in flight → the affordance is busy/disabled. */
+  backingUp: boolean;
   onDelete: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
@@ -881,6 +931,8 @@ function DesktopTile({
   onOpen,
   onStop,
   onRestart,
+  onBackup,
+  backingUp,
   onDelete,
   onConfirmDelete,
   onCancelDelete,
@@ -1100,6 +1152,34 @@ function DesktopTile({
               {desktop.persistent ? 'Persistent' : 'Disposable'}
             </dd>
           </div>
+          {/* "Back up now" — a SUBTLE TEXT affordance (deliberately NOT another icon in the crowded
+              Open/Stop/Restart/trash row). It lives in the metadata footer, reading as part of the
+              "~$x/hr · Created … · Persistent" row via a leading "·", so it never crowds the action
+              buttons or threatens the mobile header/card layout (it's small text that wraps with the
+              rest of the flex-wrap <dl>). Shown ONLY while the computer is running/ready (the SAME
+              `stoppable` condition the lifecycle controls use) — a backup needs a live backup agent;
+              the honest capability_gap toast covers the race where it stops between render and click.
+              While its snapshot is in flight it goes disabled + "Backing up…". It surfaces the proven
+              on-demand persistence capability (snapshot `/home` → durable R2). */}
+          {stoppable && (
+            <div className="flex items-center gap-1.5">
+              <dt className="sr-only">Back up</dt>
+              <dd className="flex items-center gap-1.5">
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  data-testid="desktop-backup"
+                  onClick={onBackup}
+                  disabled={backingUp}
+                  aria-busy={backingUp}
+                  aria-label={`Back up ${desktop.name} now`}
+                  className="rounded-sm font-600 text-[var(--color-muted)] underline-offset-2 transition-colors hover:text-[var(--color-cyan)] hover:underline focus-visible:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:no-underline"
+                >
+                  {backingUp ? 'Backing up…' : 'Back up now'}
+                </button>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 

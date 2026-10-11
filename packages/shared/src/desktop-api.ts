@@ -273,6 +273,8 @@ export const desktopApi = {
   stop: (id: string) => `/api/v1/desktops/${id}/stop`,
   /** checkpoint `/home`, then stop→start — a durable restart. Returns the ready desktop. */
   restart: (id: string) => `/api/v1/desktops/${id}/restart`,
+  /** capture `/home` to durable R2 storage on demand. Returns the typed SnapshotResult (persistence.ts). */
+  snapshot: (id: string) => `/api/v1/desktops/${id}/snapshot`,
   destroy: (id: string) => `/api/v1/desktops/${id}`,
   /** mint a fresh VNC ticket for a running desktop (self-heal when no create-time ticket). */
   ticket: (id: string) => `/api/v1/desktops/${id}/ticket`,
