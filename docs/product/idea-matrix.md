@@ -58,7 +58,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 25 | Reliability & performance | **partial** | ✅ noVNC auto-reconnect, readiness. Next: circuit breakers, perf budgets |
 | 26 | Observability & support | **partial** | ✅ structured logs + request ids + CSP reporting. Next: Sentry DSN, diagnostics page |
 | 27 | Templates & dev productivity | queued | template gallery, stack presets, repo→env workflow |
-| 28 | Mobile, PWA, a11y | **partial** | ✅ axe-clean + focus traps + SR announcements. Next: PWA, touch viewer controls |
+| 28 | Mobile, PWA, a11y | **partial** | ✅ axe-clean + focus traps + SR announcements + reduce-motion override (Settings→Appearance, live-E2E). Next: PWA install, touch viewer controls, high-contrast |
 | 29 | Onboarding, marketing, growth | **partial** | ✅ cinematic homepage + login gate. Next: onboarding checklist, pricing page |
 | 30 | Quality, polish, continuous improvement | **active** | ✅ golden-path E2E + vitest + this loop. Next: visual regression baselines, Lighthouse CI |
 

@@ -15,6 +15,19 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 21 (2026-10-10) — `/loop` fire: Settings → Appearance → Reduce motion (Dim 28) ✅
+- **Functional per-app reduced-motion override** (a11y; extends iter-20 Settings). `lib/prefs.ts` persists
+  to `localStorage['desklink:reduce-motion']` + `applyReduceMotion` sets `<html data-reduce-motion>`;
+  `App.tsx` seeds it on mount before anything animates; `index.css` adds an ADDITIVE forced-reduce rule
+  (OS `@media` untouched — the system pref is always respected, this forces it ON). New Appearance section
+  in `SettingsModal` with a `role="switch"` toggle (`settings-reduce-motion`, aria-checked, keyboard),
+  cyan-when-on, flips `<html>` live. Prod `0ac5419f`.
+- **Verified live:** build + typecheck green · `settings` E2E (now 2 tests) asserts toggle ON →
+  `data-reduce-motion="1"` + `aria-checked` + localStorage → reload persists → OFF clears; with `a11y`+
+  `mobile` → **7 passed (7.8s)**.
+- Safe, functional-a11y slice (no backend/auth/boot). **Top open P0 unchanged: PERSIST-1b restore-on-boot**
+  (fresh-session; designed in `docs/architecture/compute-and-persistence.md`).
+
 ## Iteration 20 (2026-10-10) — `/loop` fire: Settings surface (Dim 16 / Golden Path D) ✅
 - **First Settings surface** (the IA required it; none existed) — a real product expansion, not churn.
   AccountMenu gains a "Settings" item (`account-settings`) → a focus-trapped centered `SettingsModal`:
