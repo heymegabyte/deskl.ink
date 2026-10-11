@@ -15,6 +15,19 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 19 (2026-10-10) — `/loop` fire: transparent cost estimates in creation (Dim 5) ✅
+- **Filled a prompt-named gap** ("Transparent cost estimates before creation"): the OS picker now shows
+  each size's hourly estimate — Everyday ~$0.04 · Developer ~$0.06 · Power ~$0.08 · Heavy ~$0.11/hr
+  (cyan when selected, muted otherwise) — so cost is comparable WHILE choosing, plus a "Estimate · ~$X/hr
+  · billed per minute while running" line + honest tooltip. Reuses `estimateDesktopCost(size)
+  .baselineUsdPerHour` — the SAME CF-rate-card source + field as the header cost chip (no invented prices;
+  clearly an estimate, not a final bill). Prod `fd0fe807`.
+- **Verified live:** build + typecheck green · `distro-picker`+`mobile`+`a11y` **5 passed (5.4s)** (picker
+  unregressed; mobile 2-up sizes still fit 375px; axe-clean) · screenshot shows the per-size costs + the
+  honest estimate line, zero layout shift. No `onCreate`/testid change.
+- Safe, non-security, prompt-named slice (not churn). **Top open P0 unchanged: PERSIST-1b restore-on-boot**
+  — designed in `docs/architecture/compute-and-persistence.md`; implementation is the next fresh-session P0.
+
 ## Iteration 18 (2026-10-10) — `/loop` fire: restore-on-boot design doc (de-risked P0 handoff)
 - **Wrote `docs/architecture/compute-and-persistence.md`** — the authoritative, prompt-listed design for
   the ONE open P0 (PERSIST-1b restore-on-boot), grounded in iteration-2's live findings: documents the

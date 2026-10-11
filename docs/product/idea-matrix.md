@@ -35,7 +35,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 2 | Computer naming & identity | **done** (P0s) | ✅ codename generator (live). ✅ inline-edit geometry — live E2E GREEN ≤1px (zero shift); input overlays the `<h3>` as `absolute inset-0`, h3 className constant. Next (P1): legacy backfill via `isLegacyGenericName`; tags/aliases; search |
 | 3 | Global UI / nav / design system | queued | command palette exists; expand: org switcher, live cost chip, resizable panels |
 | 4 | Computer fleet dashboard | queued | cards + status exist; expand: table view, filters, saved views, bulk actions |
-| 5 | New computer creation | queued | quick-create + OS picker exist; expand: multi-step wizard, version selector, cost estimate |
+| 5 | New computer creation | **partial** | ✅ quick-create + OS picker + per-size cost estimates (live-E2E + screenshot, reuses estimateDesktopCost). Next: multi-step wizard, distro-version selector, templates |
 | 6 | Desktop viewer & streaming | queued | noVNC live; evaluate Selkies 2.x WS transport; resolution/clipboard/DnD |
 | 7 | Headless servers & terminal | queued | ttyd live; expand: multi-tab, SSH keys, port previews, metrics |
 | 8 | Lifecycle management | **partial** | ✅ restart (LIFE-1) now UI-wired + live-E2E (`restart.spec.ts`); stop checkpoints; idle-stop LIVE via container `sleepAfter='10m'`. Next (P1): distinguish authorized background work from idle viewing; schedules; clone/reset |
