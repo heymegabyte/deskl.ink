@@ -39,8 +39,11 @@
 
 - [x] Individual archive/restore failures: task-row and sidebar handlers must consume rejected
   manager operations and provide visible action-specific feedback.
-- [ ] Pending bulk mutations: prevent duplicate archive/restore requests while pending and
-  verify rollback ordering under overlapping actions in a real Electron journey.
+- [x] Pending bulk archive/restore guard: block additional bulk archive/restore and delete
+  requests while archive/restore is pending, retain the guard across renders and release
+  after all requests settle. Cover rejection and retry with the real project view store.
+- [ ] Bulk mutation runtime: verify disabled controls, keyboard behavior and rollback ordering
+  in a real Electron journey; deletion-led overlap and individual row overlap remain open.
 
 - [x] Bulk retry selection history: preserve a user's select-then-deselect intent while
   archive/restore requests are pending; cover both actions with the real task-view store.

@@ -98,3 +98,11 @@ Cover task-row and sidebar confirmation callbacks, success and rejection, and ex
 confirmed IDs/worktree/branch options. Await the manager inside a consumed callback;
 voiding a rejecting promise leaves an unhandled rejection. Keep cancellation quiet.
 Callback tests do not prove native toast announcement or disposed-store rollback safety.
+
+For pending bulk archive/restore, run task-list.test.ts with a real ProjectViewStore.
+Reselect tasks and invoke both actions through a freshly rendered list while requests
+are deferred; settle one request first and ensure the guard remains active until all
+settle. Cover rejection followed by retry and disabled button props. Keep the guard in
+shared view state so rerender/remount cannot bypass it. Pending deletion and individual
+row operations remain separate concurrency work; component props do not prove native
+keyboard behavior or backend rollback ordering.

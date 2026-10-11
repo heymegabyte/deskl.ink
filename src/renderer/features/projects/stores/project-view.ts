@@ -34,9 +34,20 @@ class TaskViewStore {
   searchQuery: string = '';
   selectedIds: Set<string> = new Set();
   lastSelectedId: string | null = null;
+  bulkMutationPending = false;
 
   constructor() {
     makeAutoObservable(this);
+  }
+
+  beginBulkMutation(): boolean {
+    if (this.bulkMutationPending) return false;
+    this.bulkMutationPending = true;
+    return true;
+  }
+
+  endBulkMutation() {
+    this.bulkMutationPending = false;
   }
 
   setTab(tab: 'active' | 'archived') {

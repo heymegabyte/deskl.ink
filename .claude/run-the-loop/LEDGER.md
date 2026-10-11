@@ -284,3 +284,22 @@ disposed-store rollback or partial backend deletion safety. Those remain backlog
 Final full suite passed 164 files / 1206 tests. Other final gate evidence and resulting
 commit belong to the non-secret run report and outer
 runner receipt. Outer runner owns publication; no native release deployment is claimed.
+
+## 2026-10-11 — pending bulk archive/restore guard
+
+One bounded native-app iteration: shared TaskViewStore pending state prevents additional
+bulk archive/restore and delete requests during archive/restore. Disabled controls and the
+delete shortcut reflect pending state; finally releases the guard after every request
+settles. Two new regressions failed before the fix; final focused suite passed 45 tests,
+including rejected operations followed by retry. Independent adversarial review found no
+blocking regression and identified deletion-led overlap as separate unfinished work.
+Loop improvement: README records shared-state, deferred-request and rejection/retry gates;
+backlog separates completed guard coverage from native concurrency acceptance.
+
+Origin main was observed at the base commit; no retained worktrees or failed receipts
+needed recovery. Native journey remains blocked by missing private compositor and an
+Electron sandbox-helper startup failure. No native keyboard, toast, visual or rollback
+acceptance is claimed. Full suite passed 164 files / 1210 tests; format, lint, typecheck and production build
+passed. Lint reported two preexisting promise-handler warnings in unchanged files.
+Final validation and commit evidence belong to agent-report.json;
+outer runner owns publication. Commit containing this entry is the slice reference.

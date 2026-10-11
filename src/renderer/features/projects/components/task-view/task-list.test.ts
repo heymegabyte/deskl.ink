@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => {
     selectedIds: new Set<string>(),
     tab: 'active',
     searchQuery: '',
+    bulkMutationPending: false,
+    beginBulkMutation: vi.fn(() => true),
+    endBulkMutation: vi.fn(),
     setSelectedIds: vi.fn(),
     setSearchQuery: vi.fn(),
   };
@@ -362,7 +365,8 @@ describe.each([
       ['a', { state: 'unprovisioned', data: { id: 'a', name: 'Task A' } }],
       ['b', { state: 'unprovisioned', data: { id: 'b', name: 'Task B' } }],
     ]);
-    mocks.manager[method].mockReset().mockResolvedValue(undefined);
+    mocks.manager.archiveTask.mockReset().mockResolvedValue(undefined);
+    mocks.manager.restoreTask.mockReset().mockResolvedValue(undefined);
     mocks.view.setSelectedIds.mockImplementation((ids: Set<string>) => {
       mocks.view.selectedIds = ids;
     });
@@ -463,6 +467,70 @@ describe.each([
       expect(mocks.toastError).toHaveBeenCalledWith(
         `Could not ${action} 1 of 1 tasks. Please try again.`
       );
+    } finally {
+      mocks.currentView = null;
+    }
+  });
+
+  it('blocks overlapping archive, restore and delete until every request settles', async () => {
+    const view = new ProjectViewStore().taskView;
+    view.setSelectedIds(new Set(['a', 'b']));
+    mocks.currentView = view;
+    const finishes: Array<() => void> = [];
+    mocks.manager[method].mockImplementation(
+      () => new Promise<void>((resolve) => finishes.push(resolve))
+    );
+    try {
+      const pending = runAction();
+      view.setSelectedIds(new Set(['a']));
+      const tree = TaskList();
+      if (!tree) throw new Error('Expected mounted task list');
+      const bar = tree.props.children.at(-1);
+      expect(bar.props.pending).toBe(true);
+      const renderedBar = bar.type(bar.props);
+      const actionButtons = renderedBar.props.children[1].props.children
+        .slice(0, 3)
+        .filter(Boolean);
+      expect(
+        actionButtons.every((button: { props: { disabled: boolean } }) => button.props.disabled)
+      ).toBe(true);
+      void bar.props.onArchive();
+      void bar.props.onRestore();
+      bar.props.onDelete();
+      expect(mocks.manager[method]).toHaveBeenCalledTimes(2);
+      expect(
+        mocks.manager[action === 'archive' ? 'restoreTask' : 'archiveTask']
+      ).not.toHaveBeenCalled();
+      expect(mocks.showDeleteTask).not.toHaveBeenCalled();
+      finishes[0]!();
+      await Promise.resolve();
+      void runAction();
+      expect(mocks.manager[method]).toHaveBeenCalledTimes(2);
+      finishes[1]!();
+      await pending;
+      mocks.manager[method].mockResolvedValue(undefined);
+      await runAction();
+      expect(mocks.manager[method]).toHaveBeenCalledTimes(3);
+    } finally {
+      finishes.forEach((finish) => finish());
+      mocks.currentView = null;
+    }
+  });
+
+  it('releases the guard after rejected requests and allows retry', async () => {
+    const view = new ProjectViewStore().taskView;
+    view.setSelectedIds(new Set(['a']));
+    mocks.currentView = view;
+    mocks.manager[method].mockRejectedValue(new Error('backend failure'));
+    try {
+      await runAction();
+      expect(view.bulkMutationPending).toBe(false);
+      expect([...view.selectedIds]).toEqual(['a']);
+      mocks.manager[method].mockResolvedValue(undefined);
+      await runAction();
+      expect(mocks.manager[method]).toHaveBeenCalledTimes(2);
+      expect(view.bulkMutationPending).toBe(false);
+      expect([...view.selectedIds]).toEqual([]);
     } finally {
       mocks.currentView = null;
     }

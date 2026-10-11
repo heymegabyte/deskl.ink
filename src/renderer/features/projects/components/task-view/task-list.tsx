@@ -91,6 +91,7 @@ function SelectionBar({
   count,
   tab,
   onClear,
+  pending,
   onArchive,
   onRestore,
   onDelete,
@@ -98,6 +99,7 @@ function SelectionBar({
   count: number;
   tab: 'active' | 'archived';
   onClear: () => void;
+  pending: boolean;
   onArchive: () => void;
   onRestore: () => void;
   onDelete: () => void;
@@ -109,18 +111,18 @@ function SelectionBar({
       <span className="whitespace-nowrap text-foreground-muted">{count} selected</span>
       <div className="flex items-center gap-2">
         {tab === 'active' && (
-          <Button variant="outline" size="sm" onClick={onArchive}>
+          <Button variant="outline" size="sm" disabled={pending} onClick={onArchive}>
             <Archive className="size-3.5" />
             Archive
           </Button>
         )}
         {tab === 'archived' && (
-          <Button variant="outline" size="sm" onClick={onRestore}>
+          <Button variant="outline" size="sm" disabled={pending} onClick={onRestore}>
             <RotateCcw className="size-3.5" />
             Restore
           </Button>
         )}
-        <Button variant="destructive" size="sm" onClick={onDelete}>
+        <Button variant="destructive" size="sm" disabled={pending} onClick={onDelete}>
           <Trash2 className="size-3.5" />
           Delete <BoundShortcut settingsKey="deleteSelectedTasks" />
         </Button>
@@ -158,26 +160,30 @@ export const TaskList = observer(function TaskList() {
       const task = taskManager.tasks.get(id);
       return task !== undefined && isRegistered(task);
     });
-    if (ids.length === 0) return;
+    if (ids.length === 0 || !taskView.beginBulkMutation()) return;
 
-    clearSelection();
-    const clearedSelection = taskView.selectedIds;
-    const results = await Promise.allSettled(
-      ids.map(async (id) => {
-        if (action === 'archive') await taskManager.archiveTask(id);
-        else await taskManager.restoreTask(id);
-      })
-    );
-    const failedIds = ids.filter((_, index) => results[index]?.status === 'rejected');
-
-    // Selection changes replace the Set, even when toggling back to an empty selection.
-    if (taskView.selectedIds === clearedSelection && clearedSelection.size === 0) {
-      taskView.setSelectedIds(new Set(failedIds));
-    }
-    if (failedIds.length > 0) {
-      toast.error(
-        `Could not ${action} ${failedIds.length} of ${ids.length} tasks. Please try again.`
+    try {
+      clearSelection();
+      const clearedSelection = taskView.selectedIds;
+      const results = await Promise.allSettled(
+        ids.map(async (id) => {
+          if (action === 'archive') await taskManager.archiveTask(id);
+          else await taskManager.restoreTask(id);
+        })
       );
+      const failedIds = ids.filter((_, index) => results[index]?.status === 'rejected');
+
+      // Selection changes replace the Set, even when toggling back to an empty selection.
+      if (taskView.selectedIds === clearedSelection && clearedSelection.size === 0) {
+        taskView.setSelectedIds(new Set(failedIds));
+      }
+      if (failedIds.length > 0) {
+        toast.error(
+          `Could not ${action} ${failedIds.length} of ${ids.length} tasks. Please try again.`
+        );
+      }
+    } finally {
+      taskView.endBulkMutation();
     }
   };
 
@@ -186,7 +192,7 @@ export const TaskList = observer(function TaskList() {
 
   const bulkDelete = () => {
     if (!taskView || !taskManager) return;
-    if (taskView.selectedIds.size === 0) return;
+    if (taskView.bulkMutationPending || taskView.selectedIds.size === 0) return;
     const selection = taskView.selectedIds;
 
     const selectedTasks = [...taskView.selectedIds]
@@ -235,6 +241,7 @@ export const TaskList = observer(function TaskList() {
     {
       enabled:
         (taskView?.selectedIds.size ?? 0) > 0 &&
+        !taskView?.bulkMutationPending &&
         !modalStore.isOpen &&
         getEffectiveHotkey('deleteSelectedTasks', keyboard) !== null,
       ignoreInputs: true,
@@ -308,6 +315,7 @@ export const TaskList = observer(function TaskList() {
 
       <SelectionBar
         count={taskView.selectedIds.size}
+        pending={taskView.bulkMutationPending}
         tab={taskView.tab}
         onClear={clearSelection}
         onArchive={bulkArchive}
