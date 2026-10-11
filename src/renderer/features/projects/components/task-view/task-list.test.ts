@@ -257,6 +257,71 @@ describe('bulk delete feedback', () => {
     }
   );
 
+  it('does not confirm deletion while another bulk mutation owns the guard', () => {
+    const view = new ProjectViewStore().taskView;
+    view.setSelectedIds(new Set(['a']));
+    mocks.currentView = view;
+    try {
+      const modal = openDeleteConfirmation();
+      expect(view.bulkMutationPending).toBe(false);
+      view.beginBulkMutation();
+      modal.onSuccess({ deleteWorktree: true, deleteBranch: true });
+      expect(mocks.manager.deleteTasks).not.toHaveBeenCalled();
+      expect(view.bulkMutationPending).toBe(true);
+      expect([...view.selectedIds]).toEqual(['a']);
+      expect(mocks.toastError).not.toHaveBeenCalled();
+    } finally {
+      view.endBulkMutation();
+      mocks.currentView = null;
+    }
+  });
+
+  it.each(['resolve', 'reject'])(
+    'guards pending deletion and releases after %s',
+    async (outcome) => {
+      const view = new ProjectViewStore().taskView;
+      view.setSelectedIds(new Set(['a']));
+      mocks.currentView = view;
+      let finish!: () => void;
+      mocks.manager.deleteTasks.mockImplementation(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            finish = () =>
+              outcome === 'resolve' ? resolve() : reject(new Error('backend failure'));
+          })
+      );
+      try {
+        const modal = openDeleteConfirmation();
+        modal.onSuccess({ deleteWorktree: false, deleteBranch: true });
+        expect(view.bulkMutationPending).toBe(true);
+        view.setSelectedIds(new Set(['b']));
+        const tree = TaskList();
+        if (!tree) throw new Error('Expected mounted task list');
+        const bar = tree.props.children.at(-1);
+        expect(bar.props.pending).toBe(true);
+        void bar.props.onArchive();
+        void bar.props.onRestore();
+        bar.props.onDelete();
+        modal.onSuccess({ deleteWorktree: false, deleteBranch: true });
+        expect(mocks.manager.deleteTasks).toHaveBeenCalledTimes(1);
+        expect(mocks.manager.archiveTask).not.toHaveBeenCalled();
+        expect(mocks.manager.restoreTask).not.toHaveBeenCalled();
+        expect(mocks.showDeleteTask).toHaveBeenCalledTimes(1);
+        finish();
+        await vi.waitFor(() => expect(view.bulkMutationPending).toBe(false));
+        expect([...view.selectedIds]).toEqual(['b']);
+        const retry = openDeleteConfirmation();
+        retry.onSuccess({ deleteWorktree: false, deleteBranch: false });
+        expect(mocks.manager.deleteTasks).toHaveBeenCalledTimes(2);
+        finish();
+        await vi.waitFor(() => expect(view.bulkMutationPending).toBe(false));
+      } finally {
+        finish?.();
+        mocks.currentView = null;
+      }
+    }
+  );
+
   it('restores retry selection through the real observable store', async () => {
     const view = new ProjectViewStore().taskView;
     view.setSelectedIds(new Set(['a']));

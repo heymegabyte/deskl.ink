@@ -303,3 +303,20 @@ acceptance is claimed. Full suite passed 164 files / 1210 tests; format, lint, t
 passed. Lint reported two preexisting promise-handler warnings in unchanged files.
 Final validation and commit evidence belong to agent-report.json;
 outer runner owns publication. Commit containing this entry is the slice reference.
+
+## 2026-10-11 — deletion-led bulk concurrency
+
+Confirmed deletion now acquires the shared project task-view mutation guard at confirmation
+and releases it in finally. Deferred regression tests reproduced both success/failure paths
+with the guard absent before implementation. They cover blocked archive/restore/delete,
+duplicate callback, newer selection and retry; an additional regression checks that a stale
+modal cannot clear selection or release a guard held by another operation.
+
+Independent read-only adversarial review found no blocking regression. Loop improvement:
+README records confirmation-time guard ownership and cancellation/race coverage requirements.
+Native Electron journey remains incomplete: no private compositor executable found.
+Publication belongs to the outer runner; this entry is not evidence of publication.
+
+Fresh gates: format, lint (two existing warnings), typecheck, full pnpm test with
+--maxWorkers=2 (164 files / 1213 tests), and Electron bundle build passed. The initial
+parallel validation was terminated under host swap pressure; the bounded rerun passed.

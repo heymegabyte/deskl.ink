@@ -43,7 +43,7 @@
   requests while archive/restore is pending, retain the guard across renders and release
   after all requests settle. Cover rejection and retry with the real project view store.
 - [ ] Bulk mutation runtime: verify disabled controls, keyboard behavior and rollback ordering
-  in a real Electron journey; deletion-led overlap and individual row overlap remain open.
+  in a real Electron journey; individual row overlap remains open.
 
 - [x] Bulk retry selection history: preserve a user's select-then-deselect intent while
   archive/restore requests are pending; cover both actions with the real task-view store.
@@ -68,3 +68,7 @@
 
 - [x] Individual delete rejection: consume task-row and sidebar manager rejection and show action-specific
   feedback. Keep native rollback/partial backend deletion verification separate.
+
+- [x] Deletion-led bulk concurrency: confirmed deletion acquires the shared pending guard;
+  block duplicate confirmations and bulk archive/restore/delete until settlement, release
+  on fulfillment/rejection and preserve newer selection. Native behavior remains unverified.

@@ -106,3 +106,9 @@ settle. Cover rejection followed by retry and disabled button props. Keep the gu
 shared view state so rerender/remount cannot bypass it. Pending deletion and individual
 row operations remain separate concurrency work; component props do not prove native
 keyboard behavior or backend rollback ordering.
+
+For deletion-led bulk concurrency, acquire the shared guard inside the confirmed callback,
+not when opening the modal (cancellation must leave actions available). Test deferred
+fulfillment/rejection, duplicate confirmation, newer selection, retry and a modal whose
+confirmation races another pending mutation. Assert a blocked callback neither clears
+selection nor releases the other operation's guard. Native row overlap remains separate.

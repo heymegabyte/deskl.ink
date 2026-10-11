@@ -205,6 +205,7 @@ export const TaskList = observer(function TaskList() {
     const confirmedTaskIds = selectedTasks.map((task) => task.taskId);
 
     const deleteConfirmed = async ({ deleteWorktree, deleteBranch }: DeleteTaskModalResult) => {
+      if (!taskView.beginBulkMutation()) return;
       // Confirmation can outlive the selection that opened it.
       const shouldClear = taskView.selectedIds === selection;
       if (shouldClear) clearSelection();
@@ -220,6 +221,8 @@ export const TaskList = observer(function TaskList() {
           taskView.setSelectedIds(new Set(retryIds));
         }
         toast.error('Could not delete tasks. Please try again.');
+      } finally {
+        taskView.endBulkMutation();
       }
     };
 
