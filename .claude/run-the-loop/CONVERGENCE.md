@@ -15,6 +15,23 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 16 (2026-10-10) — `/loop` fire: rich delete confirmation dialog (completes P0 §1) ✅
+- **Completed the P0 §1 confirmation-dialog requirement** (delete was a minimal inline confirm). New
+  `DeleteDialog`: centered viewport modal + dimmed backdrop, danger trash glyph, "Delete <name>?", the
+  required identity facts (OS · size · Desktop/Server · Persistent/Disposable), what's removed, HONEST
+  copy "This permanently deletes the computer and cannot be undone" (NO false recovery promise — restore
+  isn't wired). Danger Delete + Cancel; `useFocusTrap` + Esc + click-outside; focus restores to the trash.
+  Preserves `desktop-delete`/`desktop-delete-confirm` testids + the tombstone `deleteComputer` flow. Prod `d2c2180f`.
+- **Caught + fixed a centering bug via prod screenshot inspection (2nd deploy this fire):** the dialog was
+  rendered INSIDE the tile `<li>`, whose `hover:-translate-y-0.5` transform makes `position:fixed` resolve
+  against the tile → it opened left-anchored while hovering. Fix: render ONE dialog at the MANAGER level
+  (driven by `pendingDelete`) → true viewport-centered. Per-tile render + unused props removed (no dead
+  code); `delete-no-resurrect:91` → page-level confirm (golden-path/distro-picker already page-level).
+- **Verified live:** build + typecheck green · `delete-no-resurrect`+`a11y`+`mobile` **6 passed (18.5s)** ×2
+  (functional + centered) · screenshots show the left-anchored bug → the centered, dimmed-backdrop modal
+  (cards "Equinox"→"Felix"). Exceptionally-polished bar met.
+- Safe slice (no boot path). **Top open P0 unchanged: PERSIST-1b restore-on-boot** (fresh session).
+
 ## Iteration 15 (2026-10-10) — `/loop` fire: persisted "Backed up <time>" indicator ✅
 - **Completed the backup-visibility workflow (Dim 9):** every successful snapshot now records
   `lastBackupAt` (owner-scoped) → the card shows "· Backed up <relative>" (optimistic on Back-up-now,
