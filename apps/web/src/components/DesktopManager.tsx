@@ -586,7 +586,7 @@ export function DesktopManager({
                 onDelete={() => setPendingDelete(desktop.id)}
                 onConfirmDelete={() => void deleteComputer(desktop.id)}
                 onCancelDelete={() => setPendingDelete(null)}
-                confirming={pendingDelete === desktop.id}
+                dialogOpen={pendingDelete === desktop.id}
                 onRename={(name) => void renameComputer(desktop.id, name)}
                 editing={renaming === desktop.id}
                 onEditStart={() => setRenaming(desktop.id)}
@@ -918,10 +918,14 @@ interface DesktopTileProps {
   onBackup: () => void;
   /** This computer's on-demand backup is in flight → the affordance is busy/disabled. */
   backingUp: boolean;
+  /** Open the destructive-confirmation dialog for this computer. */
   onDelete: () => void;
+  /** Permanently destroy this computer (the dialog's danger action → `deleteComputer`). */
   onConfirmDelete: () => void;
+  /** Dismiss the dialog without deleting. */
   onCancelDelete: () => void;
-  confirming: boolean;
+  /** Whether this tile's delete-confirmation dialog is open. */
+  dialogOpen: boolean;
   /** Commit a new name (empty / unchanged is a no-op upstream). */
   onRename: (name: string) => void;
   /** Whether this tile's name is in inline-edit mode. */
@@ -941,7 +945,7 @@ function DesktopTile({
   onDelete,
   onConfirmDelete,
   onCancelDelete,
-  confirming,
+  dialogOpen,
   onRename,
   editing,
   onEditStart,
@@ -1207,122 +1211,251 @@ function DesktopTile({
         </dl>
       </div>
 
-      {/* Actions */}
+      {/* Actions — a stable single row (the trash opens a destructive-confirmation DIALOG, so the row
+          never swaps into an inline confirm and never reflows). */}
       <div className="mt-5 flex items-center gap-2">
-        {confirming ? (
-          <>
-            <button
-              type="button"
-              data-testid={desktopTestIds.deleteConfirm}
-              onClick={onConfirmDelete}
-              aria-label={`Confirm delete ${desktop.name}`}
-              className="flex-1 rounded-lg bg-[var(--color-danger)] px-3 py-2 text-xs font-700 text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-danger)]"
-            >
-              Confirm delete
-            </button>
-            <button
-              type="button"
-              onClick={onCancelDelete}
-              aria-label="Cancel delete"
-              className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              data-testid={desktopTestIds.openButton}
-              onClick={onOpen}
-              disabled={!openable}
-              aria-label={`Open ${desktop.name}`}
-              className="flex-1 rounded-lg bg-[var(--color-cyan)]/15 px-3 py-2 text-xs font-700 text-[var(--color-cyan)] ring-1 ring-inset ring-[var(--color-cyan)]/30 transition-colors hover:bg-[var(--color-cyan)]/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Open
-            </button>
-            {/* Stop + Restart stay MOUNTED through the whole running→settling window and only go
-                DISABLED while transient (persisting | stopping | starting | restoring) — so clicking
-                either (which optimistically flips the tile to persisting/stopping) can't unmount them
-                mid-operation and reflow the row. The `disabled` affordance is dim + not-allowed ONLY;
-                the button box (padding/border/size) is untouched, so geometry never shifts. They
-                vanish together only at a terminal non-running state (stopped / failed). */}
-            {showLifecycleControls && (
-              <button
-                type="button"
-                data-testid={desktopTestIds.stopButton}
-                onClick={onStop}
-                disabled={isTransient}
-                aria-disabled={isTransient}
-                aria-busy={desktop.status === 'stopping' || desktop.status === 'persisting'}
-                aria-label={`Stop ${desktop.name}`}
-                className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Stop
-              </button>
-            )}
-            {/* Restart — checkpoint + stop→start. Same mounted-through-transient / disabled-while-
-                settling policy as Stop; compact icon-only so the action row never crowds. The
-                circular-arrow glyph reads as "restart"; while settling the glyph spins (pure CSS,
-                gated by the global reduced-motion rule) as a subtle "working" cue — the button box is
-                unchanged so there's no geometry shift. */}
-            {showLifecycleControls && (
-              <button
-                type="button"
-                data-testid={desktopTestIds.restartButton}
-                onClick={onRestart}
-                disabled={isTransient}
-                aria-disabled={isTransient}
-                aria-label={`Restart ${desktop.name}`}
-                title="Restart"
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-cyan)]/60 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  // While settling, the circular-arrow glyph spins as a subtle "working" cue. It's the
-                  // SAME 15×15 glyph in the SAME 8×8 button box (only the icon's own transform animates),
-                  // so the row geometry is identical to the idle state. `animate-spin` is suppressed by
-                  // the global reduced-motion gate (same as <Spinner/>), honoring prefers-reduced-motion.
-                  className={isTransient ? 'animate-spin [animation-duration:1.4s]' : undefined}
-                >
-                  <path d="M3 2v6h6" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
-                </svg>
-              </button>
-            )}
-            <button
-              type="button"
-              data-testid={desktopTestIds.deleteButton}
-              onClick={onDelete}
-              aria-label={`Delete ${desktop.name}`}
-              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-danger)]/60 hover:text-[var(--color-danger)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-danger)]"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="15"
-                height="15"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
-              </svg>
-            </button>
-          </>
+        <button
+          type="button"
+          data-testid={desktopTestIds.openButton}
+          onClick={onOpen}
+          disabled={!openable}
+          aria-label={`Open ${desktop.name}`}
+          className="flex-1 rounded-lg bg-[var(--color-cyan)]/15 px-3 py-2 text-xs font-700 text-[var(--color-cyan)] ring-1 ring-inset ring-[var(--color-cyan)]/30 transition-colors hover:bg-[var(--color-cyan)]/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Open
+        </button>
+        {/* Stop + Restart stay MOUNTED through the whole running→settling window and only go
+            DISABLED while transient (persisting | stopping | starting | restoring) — so clicking
+            either (which optimistically flips the tile to persisting/stopping) can't unmount them
+            mid-operation and reflow the row. The `disabled` affordance is dim + not-allowed ONLY;
+            the button box (padding/border/size) is untouched, so geometry never shifts. They
+            vanish together only at a terminal non-running state (stopped / failed). */}
+        {showLifecycleControls && (
+          <button
+            type="button"
+            data-testid={desktopTestIds.stopButton}
+            onClick={onStop}
+            disabled={isTransient}
+            aria-disabled={isTransient}
+            aria-busy={desktop.status === 'stopping' || desktop.status === 'persisting'}
+            aria-label={`Stop ${desktop.name}`}
+            className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Stop
+          </button>
         )}
+        {/* Restart — checkpoint + stop→start. Same mounted-through-transient / disabled-while-
+            settling policy as Stop; compact icon-only so the action row never crowds. The
+            circular-arrow glyph reads as "restart"; while settling the glyph spins (pure CSS,
+            gated by the global reduced-motion rule) as a subtle "working" cue — the button box is
+            unchanged so there's no geometry shift. */}
+        {showLifecycleControls && (
+          <button
+            type="button"
+            data-testid={desktopTestIds.restartButton}
+            onClick={onRestart}
+            disabled={isTransient}
+            aria-disabled={isTransient}
+            aria-label={`Restart ${desktop.name}`}
+            title="Restart"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-cyan)]/60 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              // While settling, the circular-arrow glyph spins as a subtle "working" cue. It's the
+              // SAME 15×15 glyph in the SAME 8×8 button box (only the icon's own transform animates),
+              // so the row geometry is identical to the idle state. `animate-spin` is suppressed by
+              // the global reduced-motion gate (same as <Spinner/>), honoring prefers-reduced-motion.
+              className={isTransient ? 'animate-spin [animation-duration:1.4s]' : undefined}
+            >
+              <path d="M3 2v6h6" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
+            </svg>
+          </button>
+        )}
+        {/* Trash — opens the destructive-confirmation DIALOG (no longer a two-step inline swap). Stays
+            `desktop-delete` so existing E2E drives it unchanged. */}
+        <button
+          type="button"
+          data-testid={desktopTestIds.deleteButton}
+          onClick={onDelete}
+          aria-haspopup="dialog"
+          aria-label={`Delete ${desktop.name}`}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-danger)]/60 hover:text-[var(--color-danger)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-danger)]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+          </svg>
+        </button>
       </div>
+
+      {/* Destructive-confirmation dialog. Rendered as a DESCENDANT of this tile's <li> (so E2E can
+          still scope `desktop-delete-confirm` to the tile) but `fixed inset-0` takes it OUT OF FLOW —
+          the grid behind it never shifts. Mirrors the OsPicker modal pattern (overlay button cancels,
+          focus-trapped, Esc closes). Mounted only while open. */}
+      {dialogOpen && (
+        <DeleteDialog
+          desktop={desktop}
+          size={size}
+          onConfirm={onConfirmDelete}
+          onCancel={onCancelDelete}
+        />
+      )}
     </li>
+  );
+}
+
+/**
+ * Destructive-confirmation dialog for deleting a computer (spec's P0 "attractive modal", replacing the
+ * old two-step inline confirm). On-brand near-black glass, focus-trapped, ARIA dialog. It states
+ * exactly WHAT is destroyed (the computer, its running state, every file in /home) and is HONEST about
+ * recovery — restore-from-backup is NOT wired yet, so it never promises recoverability.
+ *
+ * Testids preserved so existing E2E runs UNCHANGED: the opener keeps `desktop-delete`; the danger
+ * action here is `desktop-delete-confirm` and calls the SAME `deleteComputer` (via `onConfirm`).
+ *
+ * a11y — the ARIA dialog pattern mirrored from OsPicker: `role="dialog"` + `aria-modal="true"`,
+ * labelled + described by its title/body; `useFocusTrap` moves focus in and restores it to the trash
+ * trigger on close; Escape cancels; the `fixed inset-0` overlay button cancels on click-outside.
+ * `fixed` positioning keeps the whole thing out of flow so the grid never reflows.
+ */
+function DeleteDialog({
+  desktop,
+  size,
+  onConfirm,
+  onCancel,
+}: {
+  desktop: DesktopResource;
+  size: { friendlyName: string; ramGiB: number };
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
+  const titleId = useId();
+  const descId = useId();
+
+  // Escape cancels (belt-and-suspenders with the focus trap's focus-restore on unmount).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  // The computer's identity, shown so the user confirms they're deleting the RIGHT machine.
+  const facts: { label: string; value: string }[] = [
+    { label: 'Operating system', value: desktop.os },
+    { label: 'Size', value: `${size.friendlyName} · ${size.ramGiB} GiB` },
+    { label: 'Type', value: desktop.form === 'server' ? 'Server' : 'Desktop' },
+    { label: 'Persistence', value: desktop.persistent ? 'Persistent' : 'Disposable' },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descId}
+    >
+      {/* Dim + blur the manager behind; clicking it cancels (click-outside). */}
+      <button
+        type="button"
+        aria-label="Cancel"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default bg-[var(--color-black)]/70 backdrop-blur-sm"
+      />
+
+      <div
+        ref={dialogRef}
+        className="ds-glass relative w-full max-w-md rounded-2xl border border-[var(--color-danger)]/30 p-7 shadow-[0_0_70px_rgba(255,92,108,0.12)] [animation:ds-pop_180ms_var(--ease-expressive)]"
+        style={{ animationName: 'ds-pop' }}
+      >
+        {/* Danger glyph in a soft red halo — the on-brand destructive cue. */}
+        <div
+          className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-[var(--color-danger)]/12 text-[var(--color-danger)] ring-1 ring-inset ring-[var(--color-danger)]/30"
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+          </svg>
+        </div>
+
+        <h2 id={titleId} className="font-display text-xl font-800 tracking-tight text-white">
+          Delete {desktop.name}?
+        </h2>
+
+        <p id={descId} className="mt-2 text-sm leading-relaxed text-[var(--color-muted)]">
+          This removes the computer, its running state, and all files in its home directory. This
+          permanently deletes the computer and cannot be undone.
+        </p>
+
+        {/* Identity — confirm you're destroying the RIGHT machine. */}
+        <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-black)]/40 p-4 text-sm">
+          {facts.map((f) => (
+            <div key={f.label} className="flex min-w-0 flex-col gap-0.5">
+              <dt className="font-mono text-[0.68rem] uppercase tracking-[0.12em] text-[var(--color-muted)]">
+                {f.label}
+              </dt>
+              <dd className="truncate font-600 text-white" title={f.value}>
+                {f.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-7 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg px-4 py-2.5 text-sm font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            data-testid={desktopTestIds.deleteConfirm}
+            onClick={onConfirm}
+            aria-label={`Delete ${desktop.name}`}
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-danger)] px-5 py-2.5 text-sm font-700 text-white shadow-[0_0_24px_rgba(255,92,108,0.28)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-danger)]"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
