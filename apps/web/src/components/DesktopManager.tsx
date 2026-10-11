@@ -421,6 +421,12 @@ export function DesktopManager({
 
   const isEmpty = !loading && desktops.length === 0;
   const runningCount = desktops.filter((d) => RUNNING_STATUSES.has(d.status)).length;
+  // Resolve the delete dialog's target from the live list by its id. If the id ever vanishes from the
+  // list (e.g. a poll reconciled it away while the dialog was open) this is `undefined` and the modal
+  // unmounts — never a dialog pointing at a computer that no longer exists.
+  const pendingDeleteTarget = pendingDelete
+    ? desktops.find((d) => d.id === pendingDelete)
+    : undefined;
 
   return (
     <div className="ds-nebula-fallback flex h-full flex-col">
@@ -475,6 +481,27 @@ export function DesktopManager({
           onCreate={(distro, size, form) => void createComputer(distro, size, form)}
           onClose={() => setPickerOpen(false)}
           creating={creating}
+        />
+      )}
+      {/*
+        Destructive-confirmation dialog — rendered ONCE here at the manager level, OUTSIDE every tile.
+        A tile carries a `hover:-translate-y-0.5` transform, and a transformed ancestor makes a
+        `position:fixed` descendant resolve against THAT ancestor instead of the viewport — so a
+        dialog rendered inside the (hovered) tile anchored to the tile, not the viewport. Hoisting it
+        here (no transformed ancestor) restores a true viewport-centered fixed modal. `pendingDelete`
+        holds the target id (set by a tile's trash button); we resolve the live {@link DesktopResource}
+        from the already-polled `desktops` list so the dialog still shows that computer's identity
+        facts. Mounted only while a target exists; Confirm → the unchanged `deleteComputer`, Cancel/Esc/
+        click-outside → clear `pendingDelete`. Because it mounts the instant the trash button is
+        clicked (that button is the live `document.activeElement`), useFocusTrap captures it and
+        restores focus straight back to that trash button on close.
+      */}
+      {pendingDeleteTarget && (
+        <DeleteDialog
+          desktop={pendingDeleteTarget}
+          size={DESKTOP_SIZES[pendingDeleteTarget.size] ?? DESKTOP_SIZES.everyday}
+          onConfirm={() => void deleteComputer(pendingDeleteTarget.id)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
       {/* Top bar */}
@@ -584,9 +611,6 @@ export function DesktopManager({
                 onBackup={() => void snapshotComputer(desktop.id)}
                 backingUp={backingUp.has(desktop.id)}
                 onDelete={() => setPendingDelete(desktop.id)}
-                onConfirmDelete={() => void deleteComputer(desktop.id)}
-                onCancelDelete={() => setPendingDelete(null)}
-                dialogOpen={pendingDelete === desktop.id}
                 onRename={(name) => void renameComputer(desktop.id, name)}
                 editing={renaming === desktop.id}
                 onEditStart={() => setRenaming(desktop.id)}
@@ -918,14 +942,10 @@ interface DesktopTileProps {
   onBackup: () => void;
   /** This computer's on-demand backup is in flight → the affordance is busy/disabled. */
   backingUp: boolean;
-  /** Open the destructive-confirmation dialog for this computer. */
+  /** Request deletion of this computer — sets the manager's `pendingDelete`, which opens the single
+   *  manager-level confirmation dialog (hoisted out of the tile so its `fixed` modal centers in the
+   *  viewport, not against the tile's hover transform). */
   onDelete: () => void;
-  /** Permanently destroy this computer (the dialog's danger action → `deleteComputer`). */
-  onConfirmDelete: () => void;
-  /** Dismiss the dialog without deleting. */
-  onCancelDelete: () => void;
-  /** Whether this tile's delete-confirmation dialog is open. */
-  dialogOpen: boolean;
   /** Commit a new name (empty / unchanged is a no-op upstream). */
   onRename: (name: string) => void;
   /** Whether this tile's name is in inline-edit mode. */
@@ -943,9 +963,6 @@ function DesktopTile({
   onBackup,
   backingUp,
   onDelete,
-  onConfirmDelete,
-  onCancelDelete,
-  dialogOpen,
   onRename,
   editing,
   onEditStart,
@@ -1281,8 +1298,10 @@ function DesktopTile({
             </svg>
           </button>
         )}
-        {/* Trash — opens the destructive-confirmation DIALOG (no longer a two-step inline swap). Stays
-            `desktop-delete` so existing E2E drives it unchanged. */}
+        {/* Trash — requests deletion by setting the manager's `pendingDelete`, which opens the ONE
+            manager-level confirmation DIALOG (hoisted out of the tile so its `fixed` modal centers in
+            the viewport, not against this tile's hover transform). Stays `desktop-delete` so existing
+            E2E drives it unchanged; it's the focus-restore target when the dialog closes. */}
         <button
           type="button"
           data-testid={desktopTestIds.deleteButton}
@@ -1306,19 +1325,6 @@ function DesktopTile({
           </svg>
         </button>
       </div>
-
-      {/* Destructive-confirmation dialog. Rendered as a DESCENDANT of this tile's <li> (so E2E can
-          still scope `desktop-delete-confirm` to the tile) but `fixed inset-0` takes it OUT OF FLOW —
-          the grid behind it never shifts. Mirrors the OsPicker modal pattern (overlay button cancels,
-          focus-trapped, Esc closes). Mounted only while open. */}
-      {dialogOpen && (
-        <DeleteDialog
-          desktop={desktop}
-          size={size}
-          onConfirm={onConfirmDelete}
-          onCancel={onCancelDelete}
-        />
-      )}
     </li>
   );
 }
@@ -1329,13 +1335,21 @@ function DesktopTile({
  * exactly WHAT is destroyed (the computer, its running state, every file in /home) and is HONEST about
  * recovery — restore-from-backup is NOT wired yet, so it never promises recoverability.
  *
+ * Rendered ONCE at the manager level (NOT inside a tile): a tile carries a `hover:-translate-y-0.5`
+ * transform, and a transformed ancestor re-anchors a `position:fixed` descendant to that ancestor
+ * instead of the viewport — so a tile-nested dialog, opened while hovering the tile to reach its
+ * trash button, anchored to the tile (visibly offset) rather than centering. At the manager level
+ * there is no transformed ancestor, so `fixed inset-0 grid place-items-center` truly centers.
+ *
  * Testids preserved so existing E2E runs UNCHANGED: the opener keeps `desktop-delete`; the danger
- * action here is `desktop-delete-confirm` and calls the SAME `deleteComputer` (via `onConfirm`).
+ * action here is `desktop-delete-confirm` and calls the SAME `deleteComputer` (via `onConfirm`). Only
+ * one dialog ever exists at a time, so `desktop-delete-confirm` is page-unique.
  *
  * a11y — the ARIA dialog pattern mirrored from OsPicker: `role="dialog"` + `aria-modal="true"`,
  * labelled + described by its title/body; `useFocusTrap` moves focus in and restores it to the trash
- * trigger on close; Escape cancels; the `fixed inset-0` overlay button cancels on click-outside.
- * `fixed` positioning keeps the whole thing out of flow so the grid never reflows.
+ * trigger on close (it captures `document.activeElement` at mount, which is the just-clicked trash
+ * button); Escape cancels; the `fixed inset-0` overlay button cancels on click-outside. `fixed`
+ * positioning keeps the whole thing out of flow so the grid never reflows.
  */
 function DeleteDialog({
   desktop,

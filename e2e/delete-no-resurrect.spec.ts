@@ -9,8 +9,8 @@
  * reconcile filters tombstones out — so a stale / late / mid-cleanup poll can NEVER resurrect
  * the tile. This also covers Golden Path A steps 11–12 (delete → stays gone).
  *
- * This test deletes through the REAL UI affordance (trash `desktop-delete` → the inline
- * `pendingDelete` confirm `desktop-delete-confirm` → confirm), then holds the page alive for
+ * This test deletes through the REAL UI affordance (trash `desktop-delete` → the manager-level
+ * confirmation-dialog `desktop-delete-confirm` → confirm), then holds the page alive for
  * ≥3 poll cycles (~6s) asserting the tile never re-renders AND the list GET no longer returns
  * the id, and finally hard-reloads to prove the SERVER no longer has it.
  *
@@ -83,13 +83,13 @@ test.describe('Delete — a deleted computer never reappears', () => {
       await expect(tile).toBeVisible({ timeout: 15_000 });
     });
 
-    await test.step('4 · delete via the real UI affordance (trash → pendingDelete confirm → confirm)', async () => {
-      // First click the per-tile trash button → the tile swaps its actions into the inline
-      // `pendingDelete` confirm row (DesktopManager sets pendingDelete=id; the tile re-renders
-      // with the `desktop-delete-confirm` button). Then confirm to actually destroy.
+    await test.step('4 · delete via the real UI affordance (trash → confirmation dialog → confirm)', async () => {
+      // Click the per-tile trash button → DesktopManager sets pendingDelete=id, which opens the ONE
+      // manager-level confirmation dialog (hoisted out of the tile so its `fixed` modal centers in the
+      // viewport). The confirm button is therefore PAGE-level, not tile-scoped. Then confirm to destroy.
       await tile.getByTestId('desktop-delete').click();
-      const confirm = tile.getByTestId('desktop-delete-confirm');
-      await expect(confirm, 'the pendingDelete confirm button should appear').toBeVisible({
+      const confirm = page.getByTestId('desktop-delete-confirm');
+      await expect(confirm, 'the delete-confirmation dialog should appear').toBeVisible({
         timeout: 5_000,
       });
       await confirm.click();
