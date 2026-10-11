@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { toast } from 'sonner';
 import { asMounted, getProjectStore } from '@renderer/features/projects/stores/project-selectors';
 import { useAppSettingsKey } from '@renderer/features/settings/use-app-settings-key';
+import type { DeleteTaskModalResult } from '@renderer/features/tasks/delete-task-modal';
 import { getTaskManagerStore } from '@renderer/features/tasks/stores/task-selectors';
 import { isRegistered } from '@renderer/features/tasks/stores/task-store';
 import { ListPopoverCard } from '@renderer/lib/components/list-popover-card';
@@ -184,8 +185,9 @@ export const TaskList = observer(function TaskList() {
   const bulkRestore = () => bulkUpdate('restore');
 
   const bulkDelete = () => {
-    if (!taskView) return;
+    if (!taskView || !taskManager) return;
     if (taskView.selectedIds.size === 0) return;
+    const selection = taskView.selectedIds;
 
     const selectedTasks = [...taskView.selectedIds]
       .map((id) => taskManager?.tasks.get(id))
@@ -196,12 +198,30 @@ export const TaskList = observer(function TaskList() {
 
     const confirmedTaskIds = selectedTasks.map((task) => task.taskId);
 
+    const deleteConfirmed = async ({ deleteWorktree, deleteBranch }: DeleteTaskModalResult) => {
+      // Confirmation can outlive the selection that opened it.
+      const shouldClear = taskView.selectedIds === selection;
+      if (shouldClear) clearSelection();
+      const clearedSelection = shouldClear ? taskView.selectedIds : null;
+      try {
+        await taskManager.deleteTasks(confirmedTaskIds, { deleteWorktree, deleteBranch });
+      } catch {
+        if (clearedSelection && taskView.selectedIds === clearedSelection) {
+          const retryIds = confirmedTaskIds.filter((id) => {
+            const task = taskManager.tasks.get(id);
+            return task !== undefined && isRegistered(task);
+          });
+          taskView.setSelectedIds(new Set(retryIds));
+        }
+        toast.error('Could not delete tasks. Please try again.');
+      }
+    };
+
     showDeleteTask({
       projectId,
       tasks: selectedTasks,
-      onSuccess: ({ deleteWorktree, deleteBranch }) => {
-        void taskManager?.deleteTasks(confirmedTaskIds, { deleteWorktree, deleteBranch });
-        clearSelection();
+      onSuccess: (options) => {
+        void deleteConfirmed(options);
       },
     });
   };

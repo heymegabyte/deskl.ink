@@ -249,3 +249,20 @@ This entry's containing commit is the result; outer runner owns publication.
   Xvfb nor Weston is available. Chromium component tests do not establish native behavior.
 - This entry's containing commit is the result; outer runner owns publication. No deployment
   or publication claimed. Fresh logs and the non-secret report are in the run directory.
+
+## 2026-10-10 — bulk deletion rejection feedback
+
+One bounded native-app iteration: bulk confirmation consumes deletion rejection, shows
+retry feedback, and restores only registered confirmed IDs while preserving newer user
+selection. Real ProjectViewStore coverage catches MobX Set wrapping; modal-time selection,
+pending selection, select/deselect intent, success and missing rollback records are covered.
+Loop improvement: README documents stored-Set identity and separate native rollback gates.
+Read-only adversarial review found the initial raw-Set comparison and verified its correction.
+
+Validation: focused 41 tests passed; full suite 163 files / 1188 tests passed after installing
+Chromium with Playwright's Ubuntu 24.04 fallback. Production bundle built. Native journey
+was not run: no private compositor (Xvfb/weston/cage), and Electron version probe aborts
+on SUID sandbox helper configuration. No screen-reader, visual or native rollback acceptance
+is claimed. Outer runner owns publication; no deployment URL exists for this iteration.
+Next: individual deletion feedback, disposed-store rollback integrity and shared-branch
+bulk-preflight safety remain open. Commit containing this entry is the slice reference.

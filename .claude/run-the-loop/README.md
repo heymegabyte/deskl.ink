@@ -86,3 +86,9 @@ For backend delete preflight changes, run operations/getDeletePreflight.test.ts 
 the Chromium modal regression. Worktree lookup/status failures and unavailable projects
 must reject inspection rather than report clean status. Preserve valid missing/shared
 worktree behavior. Passing mocked status tests does not prove local or SSH inspection.
+
+For bulk delete rejection, run task-list.test.ts with a real ProjectViewStore as well as
+mocked setters. Capture the stored selection after setSelectedIds: MobX wraps raw Sets,
+so comparing against the input Set silently defeats recovery. Cover modal-time and pending
+selection changes, select-then-deselect, and missing/unregistered rollback records.
+Feedback/selection tests do not establish native rollback integrity or partial deletion safety.

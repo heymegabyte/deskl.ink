@@ -181,6 +181,121 @@ describe('task list deletion confirmation', () => {
   });
 });
 
+describe('bulk delete feedback', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.currentView = null;
+    mocks.view.selectedIds = new Set(['a']);
+    mocks.manager.tasks = new Map([
+      ['a', { state: 'unprovisioned', data: { id: 'a', name: 'Task A' } }],
+      ['b', { state: 'unprovisioned', data: { id: 'b', name: 'Task B' } }],
+    ]);
+    mocks.manager.deleteTasks.mockReset().mockResolvedValue(undefined);
+    mocks.view.setSelectedIds.mockImplementation((ids: Set<string>) => {
+      mocks.view.selectedIds = ids;
+    });
+  });
+
+  it('consumes rejection and restores confirmed tasks for retry', async () => {
+    mocks.manager.deleteTasks.mockRejectedValue(new Error('backend failure'));
+    const modal = openDeleteConfirmation();
+    modal.onSuccess({ deleteWorktree: true, deleteBranch: false });
+    await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+    expect([...mocks.view.selectedIds]).toEqual(['a']);
+    expect(mocks.toastError).toHaveBeenCalledWith('Could not delete tasks. Please try again.');
+  });
+
+  it('clears selection on success without error feedback', async () => {
+    const modal = openDeleteConfirmation();
+    await modal.onSuccess({ deleteWorktree: true, deleteBranch: false });
+    expect([...mocks.view.selectedIds]).toEqual([]);
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it('does not clear a newer selection when deletion succeeds', async () => {
+    const modal = openDeleteConfirmation();
+    mocks.view.selectedIds = new Set(['b']);
+    await modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+    expect([...mocks.view.selectedIds]).toEqual(['b']);
+  });
+
+  it('restores only registered tasks still present after failure', async () => {
+    mocks.view.selectedIds = new Set(['a', 'b']);
+    mocks.manager.deleteTasks.mockImplementation(async () => {
+      mocks.manager.tasks.delete('a');
+      mocks.manager.tasks.get('b').state = 'unregistered';
+      throw new Error('partial failure');
+    });
+    const modal = openDeleteConfirmation();
+    modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+    await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+    expect([...mocks.view.selectedIds]).toEqual([]);
+    expect(mocks.toastError).toHaveBeenCalledOnce();
+  });
+
+  it.each(['before confirmation', 'while pending'])(
+    'preserves newer selection %s',
+    async (when) => {
+      let rejectPending!: (reason: Error) => void;
+      mocks.manager.deleteTasks.mockImplementation(
+        () =>
+          new Promise<void>((_, reject) => {
+            rejectPending = reject;
+          })
+      );
+      const modal = openDeleteConfirmation();
+      if (when === 'before confirmation') mocks.view.selectedIds = new Set(['b']);
+      modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+      if (when === 'while pending') mocks.view.selectedIds = new Set(['b']);
+      rejectPending(new Error('backend failure'));
+      await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+      expect([...mocks.view.selectedIds]).toEqual(['b']);
+      expect(mocks.toastError).toHaveBeenCalledOnce();
+    }
+  );
+
+  it('restores retry selection through the real observable store', async () => {
+    const view = new ProjectViewStore().taskView;
+    view.setSelectedIds(new Set(['a']));
+    mocks.currentView = view;
+    mocks.manager.deleteTasks.mockRejectedValue(new Error('backend failure'));
+    try {
+      const modal = openDeleteConfirmation();
+      modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+      await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+      expect([...view.selectedIds]).toEqual(['a']);
+      expect(mocks.toastError).toHaveBeenCalledOnce();
+    } finally {
+      mocks.currentView = null;
+    }
+  });
+
+  it('respects select then deselect while deletion is pending', async () => {
+    const view = new ProjectViewStore().taskView;
+    view.setSelectedIds(new Set(['a']));
+    mocks.currentView = view;
+    let rejectPending!: (reason: Error) => void;
+    mocks.manager.deleteTasks.mockImplementation(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectPending = reject;
+        })
+    );
+    try {
+      const modal = openDeleteConfirmation();
+      modal.onSuccess({ deleteWorktree: false, deleteBranch: false });
+      view.toggleSelect('b');
+      view.toggleSelect('b');
+      rejectPending(new Error('backend failure'));
+      await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
+      expect([...view.selectedIds]).toEqual([]);
+      expect(mocks.toastError).toHaveBeenCalledOnce();
+    } finally {
+      mocks.currentView = null;
+    }
+  });
+});
+
 describe('task list search empty state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -342,6 +457,7 @@ describe.each([
       view.toggleSelect('b');
       rejectPending(new Error('backend failure'));
       await pending;
+      await vi.waitFor(() => expect(mocks.toastError).toHaveBeenCalledOnce());
       expect([...view.selectedIds]).toEqual([]);
       expect(view.lastSelectedId).toBe('b');
       expect(mocks.toastError).toHaveBeenCalledWith(

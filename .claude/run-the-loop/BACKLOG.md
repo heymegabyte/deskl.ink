@@ -52,7 +52,7 @@
 - [ ] Individual archive/restore runtime: verify error toast visibility/announcement and
   manager rollback in an isolated Electron journey; callback tests cover rejection handling only.
 
-- [ ] Bulk delete rejection: consume manager rejection, show feedback and preserve retry
+- [x] Bulk delete rejection: consume manager rejection, show feedback and preserve retry
   selection without replacing newer user selection. Verify manager rollback separately.
 - [x] Delete preflight Git-status failure: reject failed status/lookup inspection and
   unavailable projects so the modal requires successful retry before deletion.
@@ -62,3 +62,6 @@
 
 - [ ] Preflight lookup completeness: distinguish missing worktrees from swallowed fallback
   lookup errors in WorktreeService; inspect dirty shared branches when every sibling is selected.
+
+- [ ] Individual delete rejection: consume task-row manager rejection and show action-specific
+  feedback. Keep native rollback/partial backend deletion verification separate.
