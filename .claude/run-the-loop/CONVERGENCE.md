@@ -15,6 +15,23 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 18 (2026-10-10) — `/loop` fire: restore-on-boot design doc (de-risked P0 handoff)
+- **Wrote `docs/architecture/compute-and-persistence.md`** — the authoritative, prompt-listed design for
+  the ONE open P0 (PERSIST-1b restore-on-boot), grounded in iteration-2's live findings: documents the
+  durable-truth model + the shipped/proven SNAPSHOT path, WHY restore must happen on-boot (can't untar a
+  live `/home` → rc≥2; can't reach a stopped container's agent → the only clean window is post-boot
+  pre-session), and the **fail-safe design**: a minimal `start.sh` restore window (bounded timeout,
+  fail-OPEN → a broken restore degrades to a normal boot, never wedges it), the DO start-hook that pushes
+  the R2 tar to the agent before VNC, auto-restore-on-replacement, the sentinel round-trip E2E acceptance
+  gate (ttyd-driven), and the production-safety guards that make it a fresh-session slice.
+- Rationale: the achievable scope is converged + verified (iter 10/11/17: 3 clean passes + 20/20 E2E);
+  manufacturing another micro-UI slice would be the churn the prompt forbids. The highest-value remaining
+  work is restore-on-boot, which touches the critical boot path and MUST be done in a focused session.
+  Nailing the design down (safe, docs-only) is the responsible bridge — not a plan in lieu of
+  implementation (16 fires of features shipped), but the precise spec for the one piece that can't be
+  done safely from a 17-fire-deep context.
+- No code change. Next session: implement §4 + prove §5.
+
 ## Iteration 17 (2026-10-10) — `/loop` fire: comprehensive regression review (Stage C) — CLEAN + 20/20 E2E
 - **Independent adversarial review of the iter-13–16 features** (account menu, "Back up now",
   persisted "Backed up <time>" indicator, rich delete dialog) by a fresh agent told to break them.
