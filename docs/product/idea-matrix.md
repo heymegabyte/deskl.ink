@@ -39,7 +39,7 @@ Reject: unsafe, platform-impossible, economically unsustainable, or confusing. D
 | 6 | Desktop viewer & streaming | queued | noVNC live; evaluate Selkies 2.x WS transport; resolution/clipboard/DnD |
 | 7 | Headless servers & terminal | queued | ttyd live; expand: multi-tab, SSH keys, port previews, metrics |
 | 8 | Lifecycle management | **partial** | ✅ restart (LIFE-1) now UI-wired + live-E2E (`restart.spec.ts`); stop checkpoints; idle-stop LIVE via container `sleepAfter='10m'`. Next (P1): distinguish authorized background work from idle viewing; schedules; clone/reset |
-| 9 | Persistence, backups, recovery | **partial** | ✅ snapshot→R2 (PERSIST-1a, live); ✅ on-demand "Back up now" UI (live-E2E + screenshot). Next: **restore-on-boot (P0)**, "last backed up" indicator, backup mgmt UI, retention |
+| 9 | Persistence, backups, recovery | **partial** | ✅ snapshot→R2 (PERSIST-1a, live); ✅ on-demand "Back up now" + ✅ persisted "Backed up <time>" indicator (live-E2E incl. reload-persistence). Next: **restore-on-boot (P0)**, backup history/mgmt UI, retention |
 | 10 | File management | queued | file explorer, upload/download, resumable transfers |
 | 11 | Joined computers (BYOC) | queued | secure companion + outbound pairing; per-platform adapters |
 | 12 | Auth & account identity | **partial** | ✅ Google/GitHub/magic-link (M2, live); ✅ header account menu (identity + provider + sign-out, live-E2E + screenshot). Next: passkeys, sessions/devices, MFA |

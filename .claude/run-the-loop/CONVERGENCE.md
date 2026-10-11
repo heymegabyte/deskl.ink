@@ -15,6 +15,22 @@
 - **Prod version:** `2ed919fa` (Restart wired; + toast, inline-edit, codenames, tombstone; snapshot live;
   bucket `deskl-ink-backups` bound) · health 200 · **Last updated:** 2026-10-10 (iteration 11)
 
+## Iteration 15 (2026-10-10) — `/loop` fire: persisted "Backed up <time>" indicator ✅
+- **Completed the backup-visibility workflow (Dim 9):** every successful snapshot now records
+  `lastBackupAt` (owner-scoped) → the card shows "· Backed up <relative>" (optimistic on Back-up-now,
+  reconciled by poll; nothing when absent — no dead label). Shared `DesktopResource += lastBackupAt?`;
+  registry additive `last_backup_at` column + owner-scoped `setLastBackup` (mirrors `rename`); wired at
+  `/snapshot` + `/stop` + `/restart` checkpoint-ok. Prod `9b689628`.
+- **Caught + fixed a DO-lag regression PRE-deploy (adversarial self-review):** the `setLastBackup` call
+  sat inside `/snapshot`'s never-500 try/catch — during the ~100s warm-global-registry code-propagation
+  lag it would report a SUCCESSFUL snapshot as FAILED. Fix: best-effort `recordBackupTime()` helper
+  (swallows + logs) wrapping all 3 sites → the core op never breaks; the indicator just updates late.
+- **Verified live:** build + typecheck + `workers/api` 51/51 green · `backup` E2E **passed incl. the
+  RELOAD-persistence assertion** (survives a page reload = server-persisted; confirms the DO reloaded
+  the new column after the lag) · `mobile`+`a11y` **5 passed** · screenshot (card "Mica") shows
+  "· Backed up just now · Back up now" — clean, no crowding.
+- Safe slice. **Top open P0 unchanged: PERSIST-1b restore-on-boot** (boot-path risk → fresh session).
+
 ## Iteration 14 (2026-10-10) — `/loop` fire: "Back up now" on-demand snapshot ✅
 - **Surfaced the proven persistence capability (Dim 9 / Golden Path G user-visible half):** a subtle
   "· Back up now" text affordance in the card metadata footer (NOT the crowded icon row), shown when
