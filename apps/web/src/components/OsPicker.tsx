@@ -8,6 +8,7 @@ import {
   COMPUTER_FORMS,
   COMPUTER_FORM_SPECS,
   desktopTestIds,
+  estimateDesktopCost,
   type DistroId,
   type DesktopSizeId,
   type ComputerForm,
@@ -183,6 +184,9 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                 {DESKTOP_SIZE_IDS.map((id) => {
                   const s = DESKTOP_SIZES[id];
                   const active = size === id;
+                  // Honest CF-rate-card estimate — same `baselineUsdPerHour` the header chip shows,
+                  // so picker + header agree. Shown per size so cost is comparable while choosing.
+                  const { baselineUsdPerHour } = estimateDesktopCost(id);
                   return (
                     <button
                       key={id}
@@ -205,6 +209,13 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
                       >
                         {s.ramGiB} GiB
                       </span>
+                      {/* Per-size hourly estimate — always rendered (no layout shift); cyan when
+                          active, muted otherwise, to match the GiB line above. */}
+                      <span
+                        className={`font-mono text-[0.7rem] tabular-nums ${active ? 'text-[var(--color-cyan)]/90' : 'text-[var(--color-muted)]/70'}`}
+                      >
+                        ~${baselineUsdPerHour.toFixed(2)}/hr
+                      </span>
                     </button>
                   );
                 })}
@@ -218,7 +229,17 @@ export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps)
           </div>
         )}
 
-        <div className="mt-7 flex items-center justify-end gap-3">
+        {/* Transparent cost BEFORE creation — the selected size's hourly estimate + the honest
+            framing (an estimate from CF's rate card, not a finalized invoice). Uses the same
+            `baselineUsdPerHour` as the header financial chip so the two never disagree. */}
+        <p
+          className="mt-6 font-mono text-[0.7rem] leading-snug text-[var(--color-muted)]"
+          title="Estimated from Cloudflare's published rate card (memory + disk baseline). An estimate, not a finalized bill — metered billing + wallet arrive with Stripe."
+        >
+          Estimate · <span className="text-[var(--color-cyan)]">~${estimateDesktopCost(size).baselineUsdPerHour.toFixed(2)}/hr</span> · billed per minute while running
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
