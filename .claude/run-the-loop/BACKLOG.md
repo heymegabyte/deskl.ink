@@ -72,3 +72,6 @@
 - [x] Deletion-led bulk concurrency: confirmed deletion acquires the shared pending guard;
   block duplicate confirmations and bulk archive/restore/delete until settlement, release
   on fulfillment/rejection and preserve newer selection. Native behavior remains unverified.
+
+- [x] GitHub rate limiter concurrency: recheck token availability after waking so
+  concurrent PR-sync requests cannot consume the same refill; cover burst and idle capacity.

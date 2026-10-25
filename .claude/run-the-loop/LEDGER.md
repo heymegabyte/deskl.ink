@@ -320,3 +320,23 @@ Publication belongs to the outer runner; this entry is not evidence of publicati
 Fresh gates: format, lint (two existing warnings), typecheck, full pnpm test with
 --maxWorkers=2 (164 files / 1213 tests), and Electron bundle build passed. The initial
 parallel validation was terminated under host swap pressure; the bounded rerun passed.
+
+## 2026-10-24 — heymegabyte--deskl.ink-40145707114-1
+
+- Recovery: origin/main remains 4100a2c7. Four recent retained failed worktrees are
+  clean at that commit; their receipts report no completed changes to salvage.
+- Fixed shared GitHub rate limiter: concurrent waiters recheck availability after
+  waking instead of all consuming one refill. Regression first reproduced three
+  completions at 100ms, then passed with completions at 100/200/300ms. Idle burst
+  capacity remains covered. Commit: this entry's containing commit.
+- Fresh checks: format, lint (two existing async callback warnings), typecheck,
+  full tests (165 files / 1,215 tests), build and whitespace check passed.
+  Vitest emitted a dependency-optimization reload warning; no test failures.
+- Loop improvement: corrected AGENTS modal/view registry paths and documented
+  concurrent refill assertions in loop orientation. Backlog updated.
+- Grouped read-only reviews covered fallback roles; independent adversarial review
+  found no blocking regression. No additional compute provider was invoked.
+- No native Electron golden/long journey, screen-reader or visual verification ran;
+  those backlog gates remain open. No deployment or push; publication belongs to
+  the outer runner. Next frontier: isolated real Electron journey and task-list
+  accessibility/interaction checks. Rate-limiter FIFO/clock behavior is unchanged.

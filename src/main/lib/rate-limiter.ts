@@ -18,18 +18,18 @@ export class RateLimiter {
   }
 
   async acquire(): Promise<void> {
-    this._refill();
+    while (true) {
+      this._refill();
 
-    if (this.tokens >= 1) {
-      this.tokens -= 1;
-      return;
+      if (this.tokens >= 1) {
+        this.tokens -= 1;
+        return;
+      }
+
+      // Another waiter may consume the next token first; recheck after waking.
+      const waitMs = Math.ceil(((1 - this.tokens) / this.refillRate) * 1000);
+      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
     }
-
-    // Calculate wait time until one token is available
-    const waitMs = Math.ceil(((1 - this.tokens) / this.refillRate) * 1000);
-    await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
-    this._refill();
-    this.tokens = Math.max(0, this.tokens - 1);
   }
 
   private _refill(): void {

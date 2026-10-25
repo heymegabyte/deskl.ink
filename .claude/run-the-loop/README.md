@@ -112,3 +112,8 @@ not when opening the modal (cancellation must leave actions available). Test def
 fulfillment/rejection, duplicate confirmation, newer selection, retry and a modal whose
 confirmation races another pending mutation. Assert a blocked callback neither clears
 selection nor releases the other operation's guard. Native row overlap remains separate.
+
+For shared rate-limiter changes, test concurrent callers after exhausting the bucket,
+not just sequential waits. Use fake timers to assert one completion per refill and
+verify idle accumulation remains capped at burst capacity. The production GitHub
+PR sync engine shares this limiter across concurrent requests.

@@ -90,8 +90,8 @@ Start here. Load only the linked `agents/` docs that are relevant to the task.
 - Do not hand-edit numbered Drizzle migrations or `drizzle/meta/`.
 - New RPC methods go in the appropriate `src/main/core/*/controller.ts` and are auto-registered via `src/main/rpc.ts`.
 - Only use manual IPC in `electron-api.d.ts` for methods requiring `event.sender`.
-- New modals must be registered in `src/renderer/core/modal/registry.ts`.
-- New views must be registered in `src/renderer/core/view/registry.ts`.
+- New modals must be registered in `src/renderer/app/modal-registry.ts`.
+- New views must be registered in `src/renderer/app/view-registry.ts`.
 - Treat `src/main/core/pty/`, `src/main/core/ssh/`, `src/main/db/`, and updater code as high risk.
 - Avoid editing `dist/`, `release/`, and `build/` unless the task is explicitly about packaging or updater/signing behavior.
 - The docs app in `docs/` is separate from the Electron renderer and also defaults to port `3000`.
