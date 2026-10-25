@@ -78,3 +78,8 @@
 
 - [x] GitHub rate limiter clock changes: use monotonic elapsed time so system-clock
   corrections cannot stall requests or prematurely replenish the burst; test both directions.
+
+- [x] GitHub retry listener lifecycle: remove abort listeners after successful backoff;
+  cover repeated retries sharing a signal, unrelated listeners and pending cancellation.
+- [ ] Retry cancellation boundaries: prevent starting an attempt with a pre-aborted signal
+  or when cancellation arrives after backoff settles; define rejection semantics first.

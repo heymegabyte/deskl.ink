@@ -38,15 +38,16 @@ export async function withRetry<T>(fn: () => Promise<T>, opts?: RetryOptions): P
 
       log.warn('withRetry: retrying after error', { attempt, status, delay });
       await new Promise<void>((resolve, reject) => {
-        const id = setTimeout(resolve, delay);
-        opts?.signal?.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(id);
-            reject(err);
-          },
-          { once: true }
-        );
+        const signal = opts?.signal;
+        const onAbort = () => {
+          clearTimeout(id);
+          reject(err);
+        };
+        const id = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve();
+        }, delay);
+        signal?.addEventListener('abort', onAbort, { once: true });
       });
       delay = Math.min(delay * 2, maxDelayMs);
     }

@@ -122,3 +122,8 @@ For rate-limiter elapsed-time changes, explicitly fake performance with timers a
 Exhaust the bucket, jump system time both backward and forward, and verify acquisition
 still waits exactly one monotonic refill interval. Wall-clock timestamps are unsuitable
 for token budgets; retain concurrent-waiter and idle-capacity regressions.
+
+For retry backoff changes, run src/main/lib/retry.test.ts with fake timers. Reuse
+one AbortSignal across repeated retries and assert completed waits remove only their
+own listeners. Verify abort clears the pending timer, preserves the original error,
+and prevents another attempt. A once listener still leaks when its event never fires.

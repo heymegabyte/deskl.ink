@@ -361,3 +361,27 @@ parallel validation was terminated under host swap pressure; the bounded rerun p
 - No deployment, native GUI, screen-reader or visual verification. Publication is
   owned by the outer runner. Native Electron journey, task-row interaction and
   task-list accessibility frontiers remain open; FIFO fairness remains unchanged.
+
+
+## 2026-10-25 — heymegabyte--deskl.ink-40181801561-1
+
+- Recovery: remote main verified at 2656295f, containing both prior rate-limiter
+  commits. GitHub marks recent workflow runs failed while local receipts report
+  success; publication was checked independently. The four recent retained failed
+  worktrees are clean at 4100a2c7 with no changes to recover.
+- Fixed retry backoff abort-listener retention in src/main/lib/retry.ts. Regression
+  first failed because a completed wait retained its listener, then passed after
+  cleanup. Repeated retries share a signal and preserve unrelated listeners;
+  cancellation clears the timer, rejects with the original error and never retries.
+  Commit: this entry's containing commit.
+- Fresh checks: corepack pnpm install --frozen-lockfile, format, lint, typecheck,
+  full tests (166 files / 1,219 tests), Electron bundle build and diff check passed.
+  Lint reports two existing async-callback warnings; Vitest reports a dependency
+  optimization/reload warning. Used the documented pinned Corepack invocation.
+- Loop improvement: documented shared-signal listener lifecycle checks in loop
+  orientation and recorded cancellation-boundary follow-up in the backlog.
+  Independent read-only discovery and adversarial review found no changed-code
+  defect. The full generic role roster and native long journey were not executed.
+- No deployment, native GUI, screen-reader or visual verification; outer runner
+  owns publication. Next unmet frontiers include native Electron journeys,
+  task-list accessibility/interaction and retry cancellation between attempts.
