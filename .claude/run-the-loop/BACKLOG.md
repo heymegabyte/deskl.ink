@@ -75,3 +75,6 @@
 
 - [x] GitHub rate limiter concurrency: recheck token availability after waking so
   concurrent PR-sync requests cannot consume the same refill; cover burst and idle capacity.
+
+- [x] GitHub rate limiter clock changes: use monotonic elapsed time so system-clock
+  corrections cannot stall requests or prematurely replenish the burst; test both directions.

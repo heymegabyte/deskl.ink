@@ -14,7 +14,8 @@ export class RateLimiter {
     private readonly refillRate: number
   ) {
     this.tokens = capacity;
-    this.lastRefill = Date.now();
+    // Token refill measures elapsed time, independent of system-clock adjustments.
+    this.lastRefill = performance.now();
   }
 
   async acquire(): Promise<void> {
@@ -33,7 +34,7 @@ export class RateLimiter {
   }
 
   private _refill(): void {
-    const now = Date.now();
+    const now = performance.now();
     const elapsed = (now - this.lastRefill) / 1000;
     this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillRate);
     this.lastRefill = now;

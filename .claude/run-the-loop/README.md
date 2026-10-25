@@ -117,3 +117,8 @@ For shared rate-limiter changes, test concurrent callers after exhausting the bu
 not just sequential waits. Use fake timers to assert one completion per refill and
 verify idle accumulation remains capped at burst capacity. The production GitHub
 PR sync engine shares this limiter across concurrent requests.
+
+For rate-limiter elapsed-time changes, explicitly fake performance with timers and Date.
+Exhaust the bucket, jump system time both backward and forward, and verify acquisition
+still waits exactly one monotonic refill interval. Wall-clock timestamps are unsuitable
+for token budgets; retain concurrent-waiter and idle-capacity regressions.

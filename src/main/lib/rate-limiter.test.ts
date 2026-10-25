@@ -3,7 +3,7 @@ import { RateLimiter } from './rate-limiter';
 
 describe('RateLimiter', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
     vi.setSystemTime(0);
   });
 
@@ -27,6 +27,24 @@ describe('RateLimiter', () => {
     await vi.advanceTimersByTimeAsync(100);
     await Promise.all(requests);
     expect(acquired).toEqual([0, 100, 200, 300]);
+  });
+
+  it.each([-60_000, 60_000])('ignores a wall-clock adjustment of %i ms', async (adjustment) => {
+    const limiter = new RateLimiter(1, 10);
+    await limiter.acquire();
+    vi.setSystemTime(adjustment);
+
+    let acquired = false;
+    const request = limiter.acquire().then(() => {
+      acquired = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(acquired).toBe(false);
+    await vi.advanceTimersByTimeAsync(99);
+    expect(acquired).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(acquired).toBe(true);
+    await request;
   });
 
   it('allows the initial burst but caps tokens accumulated while idle', async () => {

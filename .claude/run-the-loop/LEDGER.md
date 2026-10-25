@@ -340,3 +340,24 @@ parallel validation was terminated under host swap pressure; the bounded rerun p
   those backlog gates remain open. No deployment or push; publication belongs to
   the outer runner. Next frontier: isolated real Electron journey and task-list
   accessibility/interaction checks. Rate-limiter FIFO/clock behavior is unchanged.
+
+## 2026-10-25 — heymegabyte--deskl.ink-40163256463-1
+
+- Recovery: remote main verified with git ls-remote at f3c13945, matching origin/main
+  and this run's base. The four recent retained failed worktrees are clean at
+  4100a2c7; inspected failed receipt reports no completed changes to salvage.
+- Fixed GitHub limiter elapsed-time accounting with performance.now(). Regression
+  first reproduced a backward-clock stall and forward-clock premature refill;
+  both pass after the fix, along with concurrent-waiter and idle-capacity coverage.
+  Commit: this entry's containing commit.
+- Fresh checks: corepack pnpm install --frozen-lockfile, format, lint, typecheck,
+  full tests (165 files / 1,217 tests), Electron bundle build and diff check passed.
+  pnpm's Volta shim is unavailable; documented corepack fallback used. Lint emitted
+  two existing async-callback warnings; Vitest emitted a dependency reload warning.
+- Loop improvement: documented deterministic monotonic-clock regression setup and
+  updated the backlog. Independent read-only review accepted timing math and tests.
+  This bounded slice grouped architecture/performance/security/testing review;
+  the full generic role roster and native golden/long journey were not executed.
+- No deployment, native GUI, screen-reader or visual verification. Publication is
+  owned by the outer runner. Native Electron journey, task-row interaction and
+  task-list accessibility frontiers remain open; FIFO fairness remains unchanged.
