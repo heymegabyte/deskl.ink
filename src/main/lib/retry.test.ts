@@ -8,6 +8,29 @@ describe('withRetry backoff cancellation', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('caps the first backoff as well as subsequent delays', async () => {
+    const attempts: number[] = [];
+    const fn = vi.fn(async () => {
+      attempts.push(Date.now());
+      if (attempts.length < 4) throw { status: 503 };
+      return 'done';
+    });
+    const started = Date.now();
+    const request = withRetry(fn, {
+      initialDelayMs: 1_000,
+      maxDelayMs: 100,
+      maxAttempts: 4,
+    });
+    await vi.advanceTimersByTimeAsync(99);
+    expect(fn).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fn).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(request).resolves.toBe('done');
+    expect(attempts.map((time) => time - started)).toEqual([0, 100, 200, 300]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('does not start an attempt when already aborted', async () => {
     const controller = new AbortController();
     controller.abort();

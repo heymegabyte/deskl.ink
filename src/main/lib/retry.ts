@@ -27,7 +27,7 @@ export async function withRetry<T>(fn: () => Promise<T>, opts?: RetryOptions): P
   opts?.signal?.throwIfAborted();
 
   let attempt = 0;
-  let delay = initialDelayMs;
+  let delay = Math.min(initialDelayMs, maxDelayMs);
 
   for (;;) {
     try {

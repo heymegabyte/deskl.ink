@@ -86,3 +86,6 @@
 
 - [ ] PR refresh cancellation: inspect refreshPullRequest signal handling across asynchronous
   setup and rate-limit acquisition; reproduce abort before the actual GitHub request.
+
+- [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
+  reproduce oversized initialDelayMs and verify exact attempt times.

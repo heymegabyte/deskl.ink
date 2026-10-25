@@ -406,3 +406,20 @@ parallel validation was terminated under host swap pressure; the bounded rerun p
   failure despite product commit publication; no workflow edits made in this slice.
 - No native golden/long journey, visual, screen-reader or GUI accessibility check;
   those backlog gates remain open. No push/release; outer runner owns publication.
+
+
+## 2026-10-25 — Retry initial delay cap
+
+- Reproduced the documented maximum delay being ignored on the first retry when
+  initialDelayMs exceeds maxDelayMs; regression failed with one attempt at 100 ms.
+- Clamp initial backoff to the maximum; verified exact attempt times at 0, 100,
+  200 and 300 ms, successful completion and no pending timer. Independent read-only
+  discovery and adversarial review found no remaining issue in this change.
+- Format, lint, typecheck and full suite passed (166 files / 1227 tests); lint retains
+  two existing async-callback warnings. Build result recorded in run report.
+- Loop improvement: added first-delay boundary guidance and completed backlog entry.
+  Used grouped review rather than executing the full generic role roster.
+- Remote main contains 388abf36. Four recent retained failed worktrees are clean;
+  latest Actions failure is canonical run-record upload, separate from product publication.
+- No native Electron journey, visual or screen-reader verification; no release or push.
+  Outer runner owns publication. PR refresh cancellation remains open.

@@ -134,3 +134,7 @@ before aborting to expose that boundary. Preserve the last operation failure eve
 it is undefined; a truthy fallback changes rejection semantics. Cancellation must not
 start another attempt, but does not undo a successful in-flight operation. Unit results
 do not prove PR-sync cancellation in a running Electron app.
+
+For retry delay caps, set initialDelayMs above maxDelayMs and assert the first
+retry honors the cap, then verify subsequent retry timestamps. Advancing only
+through later exponential delays misses an uncapped initial wait.
