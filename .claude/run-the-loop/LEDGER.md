@@ -385,3 +385,24 @@ parallel validation was terminated under host swap pressure; the bounded rerun p
 - No deployment, native GUI, screen-reader or visual verification; outer runner
   owns publication. Next unmet frontiers include native Electron journeys,
   task-list accessibility/interaction and retry cancellation between attempts.
+
+## 2026-10-25 — Retry cancellation boundaries
+
+- Fixed pre-aborted invocation and the resolved-backoff/continuation race in
+  src/main/lib/retry.ts. Pre-attempt cancellation uses signal.reason; cancellation
+  after a failed attempt preserves that error, including undefined. In-flight
+  successful operations still return their result. Commit: this entry's containing commit.
+- TDD: five new cases failed before implementation; focused suite then passed all
+  nine cases. Full tests passed 166 files / 1,226 tests. Formatting, lint and typecheck
+  passed, as did the Electron bundle build; lint retains two existing async-callback
+  warnings. Vitest emitted its
+  dependency optimization/reload warning without failures.
+- Loop improvement: added deterministic timer/continuation cancellation guidance,
+  marked the verified frontier complete and recorded PR refresh cancellation follow-up.
+  Grouped read-only review covered cancellation contracts and evidence limitations;
+  adversarial review found no blocker. The full generic roster was not executed.
+- Verified remote main contains d321c734; inspected four recent retained worktrees
+  (all clean at 4100a2c7). Recent Actions failures include canonical-record upload
+  failure despite product commit publication; no workflow edits made in this slice.
+- No native golden/long journey, visual, screen-reader or GUI accessibility check;
+  those backlog gates remain open. No push/release; outer runner owns publication.

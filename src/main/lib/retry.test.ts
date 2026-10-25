@@ -8,6 +8,66 @@ describe('withRetry backoff cancellation', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('does not start an attempt when already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fn = vi.fn().mockResolvedValue('unexpected');
+
+    await expect(withRetry(fn, { signal: controller.signal })).rejects.toBe(
+      controller.signal.reason
+    );
+    expect(fn).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+  });
+
+  it.each([new Error('cancelled'), null, 'stopped'])(
+    'preserves the pre-aborted signal reason %s',
+    async (reason) => {
+      const controller = new AbortController();
+      controller.abort(reason);
+      const fn = vi.fn().mockResolvedValue('unexpected');
+
+      await expect(withRetry(fn, { signal: controller.signal })).rejects.toBe(reason);
+      expect(fn).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([{ status: 503 }, undefined])(
+    'preserves failure %s when aborted after backoff resolves but before the continuation',
+    async (error) => {
+      const controller = new AbortController();
+      const fn = vi.fn().mockRejectedValueOnce(error).mockResolvedValue('unexpected');
+      const request = withRetry(fn, { signal: controller.signal, initialDelayMs: 100 });
+      const rejection = expect(request).rejects.toBe(error);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Resolve the delay without flushing its promise continuation, then cancel.
+      vi.advanceTimersByTime(100);
+      expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+      controller.abort(new Error('cancelled'));
+      await rejection;
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
+  it('keeps a successful in-flight result when cancellation cannot stop the operation', async () => {
+    const controller = new AbortController();
+    let finish!: (value: string) => void;
+    const fn = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const request = withRetry(fn, { signal: controller.signal });
+    controller.abort();
+    finish('done');
+    await expect(request).resolves.toBe('done');
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
   it('releases abort listeners after each completed backoff on a shared signal', async () => {
     const controller = new AbortController();
     const unrelatedListener = vi.fn();

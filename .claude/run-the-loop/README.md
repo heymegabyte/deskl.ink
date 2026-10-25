@@ -127,3 +127,10 @@ For retry backoff changes, run src/main/lib/retry.test.ts with fake timers. Reus
 one AbortSignal across repeated retries and assert completed waits remove only their
 own listeners. Verify abort clears the pending timer, preserves the original error,
 and prevents another attempt. A once listener still leaks when its event never fires.
+
+For retry cancellation boundaries, test pre-aborted default/custom/null reasons and abort
+between a resolved timer and its promise continuation. Advance fake timers synchronously
+before aborting to expose that boundary. Preserve the last operation failure even when
+it is undefined; a truthy fallback changes rejection semantics. Cancellation must not
+start another attempt, but does not undo a successful in-flight operation. Unit results
+do not prove PR-sync cancellation in a running Electron app.

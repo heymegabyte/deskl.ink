@@ -81,5 +81,8 @@
 
 - [x] GitHub retry listener lifecycle: remove abort listeners after successful backoff;
   cover repeated retries sharing a signal, unrelated listeners and pending cancellation.
-- [ ] Retry cancellation boundaries: prevent starting an attempt with a pre-aborted signal
+- [x] Retry cancellation boundaries: prevent starting an attempt with a pre-aborted signal
   or when cancellation arrives after backoff settles; define rejection semantics first.
+
+- [ ] PR refresh cancellation: inspect refreshPullRequest signal handling across asynchronous
+  setup and rate-limit acquisition; reproduce abort before the actual GitHub request.
