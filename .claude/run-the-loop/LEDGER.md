@@ -423,3 +423,23 @@ parallel validation was terminated under host swap pressure; the bounded rerun p
   latest Actions failure is canonical run-record upload, separate from product publication.
 - No native Electron journey, visual or screen-reader verification; no release or push.
   Outer runner owns publication. PR refresh cancellation remains open.
+
+## 2026-10-26 — documentation validation and retained-work recovery
+
+Bounded documentation iteration: corrected agent-guide validation for this checkout's
+absent docs app and documented `git -C` retained-work comparison. Reproduced
+`corepack pnpm run docs:build` failing at `cd docs` (exit 2); no docs-app or native
+journey success claimed. Read-only adversarial review independently confirmed the
+missing prerequisite and that retained renderer files were superseded by 96adb338.
+GitHub receipts and actual ancestry were inspected; publication belongs to the outer
+runner. Full standing-role fan-out and golden/long journeys were not performed in this
+bounded documentation pass. Fresh gate results belong to the correlated agent-report.json.
+
+Fresh verification: format, format:check, lint and typecheck passed (typecheck retry;
+initial process exited 1 without diagnostics). Full tests: 167 files / 1,234 tests
+passed using worktree-local Chromium with PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64;
+the default install rejects Ubuntu 26.04. Initial tests passed 1,209 non-browser tests
+but could not launch missing Chromium. Vite reported dependency re-optimization on the
+successful run; lint retained two existing no-misused-promises warnings. Added browser
+prerequisites and the Markdown formatter exclusion to the validation guide. No product
+code changed and no Electron journey or deployment was performed.

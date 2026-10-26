@@ -94,3 +94,10 @@
 - [ ] Task-row renderer acceptance: verify full-row pointer target, independent PR
   popover, computed selector visibility on keyboard focus and native task navigation
   in an isolated Electron journey. Chromium keyboard regressions do not complete this gate.
+
+- [x] Documentation validation scope: distinguish root/agent Markdown validation from
+  the optional docs app; reproduce absent-docs failure and document retained-worktree
+  comparison before recovery. Renderer changes retained by failed runs are superseded
+  by 96adb338; leave their files intact.
+- [ ] Optional docs scripts: decide whether to restore the separate docs app or retire
+  its retained package scripts; do not infer app availability from package.json alone.
