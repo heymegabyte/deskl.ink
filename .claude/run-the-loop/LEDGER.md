@@ -443,3 +443,28 @@ but could not launch missing Chromium. Vite reported dependency re-optimization 
 successful run; lint retained two existing no-misused-promises warnings. Added browser
 prerequisites and the Markdown formatter exclusion to the validation guide. No product
 code changed and no Electron journey or deployment was performed.
+
+## 2026-10-26 — Single PR refresh cancellation
+
+Run `heymegabyte--deskl.ink-40315267343-1` advanced the PR refresh frontier. Repository
+cancellation now reaches single-refresh controllers, remains scoped to the exact repository,
+and is checked after authentication, token acquisition and the network response. Retry and
+GraphQL receive the same signal; cancelled setup/request failures resolve quietly with no PR.
+Controllers retain the deduplication lifetime and are released on settlement. Nine deferred
+regressions cover cancellation boundaries, late success/rejection, backoff, duplicates,
+controller cleanup and independent repositories. The initial five regressions failed before
+the implementation; independent read-only review found no scoped correctness defect.
+
+Validation: format, format:check, lint, typecheck and production build passed. Full tests passed
+168 files / 1,243 tests with worktree-local Chromium after its installation completed. The
+first full attempt passed 1,218 tests but could not launch the not-yet-downloaded browser;
+the rerun passed all projects. Two existing renderer lint warnings and a Vite dependency
+re-optimization warning remain. Fresh command evidence is in the correlated agent report.
+
+Loop improvement: document the public-cancellation deferred test matrix and separate queued
+rate-limit cancellation and in-progress database writes into explicit follow-up slices.
+Origin/main contains the previous reported success commits; retained failed renderer files
+were compared and left intact because 96adb338 supersedes them. One bounded native slice
+and focused review were performed; the full generic standing-role fan-out and live
+Electron/GitHub journeys were not performed. No deployment or push: publication belongs
+to the outer runner.

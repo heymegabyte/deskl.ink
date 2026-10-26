@@ -139,6 +139,15 @@ For retry delay caps, set initialDelayMs above maxDelayMs and assert the first
 retry honors the cap, then verify subsequent retry timestamps. Advancing only
 through later exponential delays misses an uncapped initial wait.
 
+For single-PR refresh cancellation, run pr-sync-cancellation.test.ts alongside the
+engine and retry tests. Cancel through the public repository API during deferred
+authentication, token acquisition, request and retry backoff; also cancel after the
+token promise resolves but before its continuation. Verify deduplicated callers,
+repository isolation, late response suppression and fresh controller cleanup. Mocked
+requests do not establish live GitHub cancellation or cancellation during DB writes.
+RateLimiter.acquire still waits for a token after cancellation; the refresh guard
+prevents the subsequent request but does not reclaim the queued token.
+
 For task-row semantics, run the Chromium task-row-keyboard regression before and after
 changes. Keep checkbox and PR triggers outside the task navigation button; retain a
 full-row navigation target for active tasks and no dead target for archived tasks.

@@ -85,8 +85,14 @@
 - [x] Retry cancellation boundaries: prevent starting an attempt with a pre-aborted signal
   or when cancellation arrives after backoff settles; define rejection semantics first.
 
-- [ ] PR refresh cancellation: inspect refreshPullRequest signal handling across asynchronous
-  setup and rate-limit acquisition; reproduce abort before the actual GitHub request.
+- [x] PR refresh cancellation: connect repository cancellation to single refreshes;
+  guard asynchronous setup, rate-limit acquisition and late responses, and forward the
+  signal to retries and GraphQL. Deferred unit tests cover cancellation boundaries;
+  live GitHub/Electron acceptance remains separate.
+- [ ] Cancellable rate-limit waits: abort queued acquisition without consuming a token;
+  cover timer/listener cleanup, concurrent waiters and cancellation after timer resolution.
+- [ ] PR sync cancellation beyond single refresh: verify bulk/check-run requests and
+  cancellation during database upserts; prevent stale cleanup from removing a newer sync.
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.

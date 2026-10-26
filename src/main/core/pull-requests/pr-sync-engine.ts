@@ -161,6 +161,10 @@ export class PrSyncEngine {
     string,
     Promise<Result<PullRequest | null, PrSyncEngineError>>
   >();
+  private readonly _singleControllers = new Map<
+    string,
+    { repositoryUrl: string; controller: AbortController }
+  >();
   private readonly _checksInflight = new Map<string, Promise<Result<boolean, PrSyncEngineError>>>();
 
   constructor(
@@ -212,8 +216,11 @@ export class PrSyncEngine {
     ]).then(() => this.sync(repositoryUrl));
   }
 
-  /** Abort and discard any in-flight sync for this repository URL. */
+  /** Abort repository and single-PR syncs; single refreshes stay deduplicated until settled. */
   cancel(repositoryUrl: string): void {
+    for (const entry of this._singleControllers.values()) {
+      if (entry.repositoryUrl === repositoryUrl) entry.controller.abort();
+    }
     const ctrl = this._controllers.get(repositoryUrl);
     if (ctrl) {
       ctrl.abort();
@@ -541,9 +548,10 @@ export class PrSyncEngine {
 
     const ctrl = new AbortController();
 
+    this._singleControllers.set(key, { repositoryUrl, controller: ctrl });
     const promise = this._runSyncSingle(repositoryUrl, prNumber, ctrl.signal)
       .catch((e: unknown) => {
-        if ((e as { name?: string }).name !== 'AbortError') {
+        if (!ctrl.signal.aborted && (e as { name?: string }).name !== 'AbortError') {
           log.error('PrSyncEngine: syncSingle failed', {
             repositoryUrl,
             prNumber,
@@ -555,6 +563,7 @@ export class PrSyncEngine {
       })
       .finally(() => {
         this._singleInflight.delete(key);
+        this._singleControllers.delete(key);
       });
 
     this._singleInflight.set(key, promise);
@@ -572,21 +581,27 @@ export class PrSyncEngine {
     if (!repository.success) return err(repository.error);
     const { owner, repo } = repository.data;
     const octokit = await this.getOctokit(repository.data.host);
+    if (signal.aborted) return ok(null);
     if (!octokit.success) return err(octokit.error);
 
     let response: { repository: { pullRequest: GqlPrNode | null } };
     try {
-      response = await withRetry(() =>
-        githubRateLimiter.acquire().then(() =>
-          octokit.data.graphql<{
+      response = await withRetry(
+        async () => {
+          await githubRateLimiter.acquire();
+          signal.throwIfAborted();
+          return octokit.data.graphql<{
             repository: { pullRequest: GqlPrNode | null };
-          }>(GET_PR_BY_NUMBER_QUERY, { owner, repo, number: prNumber })
-        )
+          }>(GET_PR_BY_NUMBER_QUERY, { owner, repo, number: prNumber, request: { signal } });
+        },
+        { signal }
       );
     } catch (error) {
+      if (signal.aborted) return ok(null);
       return err(toPrApiError(error, 'Unable to refresh pull request', repository.data.host));
     }
 
+    if (signal.aborted) return ok(null);
     const node = response.repository.pullRequest;
     if (!node) return ok(null);
 
