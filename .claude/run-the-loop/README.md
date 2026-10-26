@@ -138,3 +138,19 @@ do not prove PR-sync cancellation in a running Electron app.
 For retry delay caps, set initialDelayMs above maxDelayMs and assert the first
 retry honors the cap, then verify subsequent retry timestamps. Advancing only
 through later exponential delays misses an uncapped initial wait.
+
+For task-row semantics, run the Chromium task-row-keyboard regression before and after
+changes. Keep checkbox and PR triggers outside the task navigation button; retain a
+full-row navigation target for active tasks and no dead target for archived tasks.
+Cover Space, Shift+Space, subsequent plain activation, Enter and independent PR controls.
+Keep provider/status hover targets pointer-enabled and preserve their navigation behavior.
+Class assertions alone do not verify computed focus visibility or pointer hit testing;
+retain the real-renderer accessibility gate until those interactions are observed.
+When recovering a failed run, copy only reviewed source/tests, rerun every gate and
+write agent-report.json before ending; old logs are recovery hints, not fresh proof.
+
+For a styled Chromium spot check after build, import the generated out/renderer/assets/index-*.css
+into a temporary copy of the task-row browser test. Assert computed checkbox-wrapper opacity
+while focused, elementFromPoint at row padding hitting the navigation button, and metadata
+pointer events. Preserve the temporary case with run evidence, not a hash-specific import in git.
+Passing this check still does not prove native Electron navigation or a real PR popover.

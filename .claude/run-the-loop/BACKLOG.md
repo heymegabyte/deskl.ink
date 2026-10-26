@@ -30,7 +30,8 @@
   avoid presenting creation onboarding for a search with no matches.
 - [x] Bulk archive/restore failures: handle rejected task-manager operations with visible feedback.
 - [ ] Task-list accessibility: label search explicitly, identify row checkboxes by task name,
-  and verify unchecked selectors remain visible on keyboard focus in a real renderer.
+  and verify unchecked selectors remain visible on keyboard focus in a real Electron renderer.
+  Labels and compiled-production-CSS Chromium focus/hit-testing checks now pass; native acceptance remains open.
 
 - [x] Delete preflight failure: require visible retry/error handling rather than proceeding
   with hidden worktree options and default destructive choices after a failed preflight.
@@ -47,7 +48,7 @@
 
 - [x] Bulk retry selection history: preserve a user's select-then-deselect intent while
   archive/restore requests are pending; cover both actions with the real task-view store.
-- [ ] Task-row interaction semantics: separate the nested checkbox/navigation buttons and
+- [x] Task-row interaction semantics: separate the nested checkbox/navigation buttons and
   add headless browser keyboard coverage alongside the real-renderer accessibility gate.
 
 - [x] Project directory sanitization: reject Windows device names with extensions and
@@ -89,3 +90,7 @@
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.
+
+- [ ] Task-row renderer acceptance: verify full-row pointer target, independent PR
+  popover, computed selector visibility on keyboard focus and native task navigation
+  in an isolated Electron journey. Chromium keyboard regressions do not complete this gate.

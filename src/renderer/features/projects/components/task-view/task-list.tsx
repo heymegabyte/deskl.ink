@@ -275,6 +275,7 @@ export const TaskList = observer(function TaskList() {
           </ToggleGroup>
           <div className="flex items-center gap-2">
             <SearchInput
+              aria-label="Search tasks"
               placeholder="Search tasks…"
               value={taskView.searchQuery}
               onChange={(e) => taskView.setSearchQuery(e.target.value)}

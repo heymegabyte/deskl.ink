@@ -73,6 +73,11 @@ export const TaskRow = observer(function TaskRow({
     });
 
   const isArchived = Boolean(task.data.archivedAt);
+  const handleOpen = () => {
+    if (isArchived) return;
+    handleProvision();
+    navigate('task', { projectId: task.data.projectId, taskId: task.data.id });
+  };
   const canPin = task.state !== 'unregistered';
   const agentAttention = taskAgentStatus(task);
   const currentPr = task.data.prs ? selectCurrentPr(task.data.prs) : undefined;
@@ -92,14 +97,15 @@ export const TaskRow = observer(function TaskRow({
       onRestore={handleRestore}
       onDelete={handleDelete}
     >
-      <button
-        onClick={() => {
-          if (isArchived) return;
-          handleProvision();
-          navigate('task', { projectId: task.data.projectId, taskId: task.data.id });
-        }}
-        className="group flex w-full items-center gap-2 rounded-lg p-3 transition-colors hover:bg-background-1"
-      >
+      <div className="group relative flex w-full items-center gap-2 rounded-lg p-3 transition-colors hover:bg-background-1">
+        {!isArchived && (
+          <button
+            type="button"
+            aria-label={`Open task ${task.data.name}`}
+            onClick={handleOpen}
+            className="focus-visible:outline-ring absolute inset-0 rounded-lg focus-visible:outline-2"
+          />
+        )}
         <div
           onPointerDownCapture={(e) => {
             shiftKeyRef.current = e.shiftKey;
@@ -109,8 +115,10 @@ export const TaskRow = observer(function TaskRow({
           }}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            'transition-opacity',
-            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            'relative transition-opacity',
+            isSelected
+              ? 'opacity-100'
+              : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
           )}
         >
           <Checkbox
@@ -120,17 +128,22 @@ export const TaskRow = observer(function TaskRow({
               shiftKeyRef.current = false;
               onToggleSelect(shift);
             }}
-            aria-label="Select task"
+            aria-label={`Select task ${task.data.name}`}
           />
         </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="min-w-0 truncate text-left text-sm">{task.data.name}</span>
-            <TaskGitDiffStats task={task} className="shrink-0 text-xs" />
-            {currentPr && <PrBadge pr={currentPr} />}
-          </div>
+        <div className="pointer-events-none relative flex min-w-0 flex-1 items-center gap-2">
+          <span className="min-w-0 truncate text-left text-sm">{task.data.name}</span>
+          <TaskGitDiffStats task={task} className="shrink-0 text-xs" />
+          {currentPr && (
+            <div className="pointer-events-auto">
+              <PrBadge pr={currentPr} />
+            </div>
+          )}
         </div>
-        <div className="flex shrink-0 items-center [&>span]:ring-2 [&>span]:ring-background [&>span:not(:first-child)]:-ml-1.5">
+        <div
+          onClick={handleOpen}
+          className="relative flex shrink-0 items-center [&>span]:ring-2 [&>span]:ring-background [&>span:not(:first-child)]:-ml-1.5"
+        >
           {Object.entries(task.conversationStats).map(([providerId, count]) => {
             const config = agentConfig[providerId as keyof typeof agentConfig];
             if (!config) return null;
@@ -158,8 +171,9 @@ export const TaskRow = observer(function TaskRow({
           })}
         </div>
         <div
+          onClick={handleOpen}
           className={cn(
-            'flex min-w-8 shrink-0 items-center justify-end',
+            'relative flex min-w-8 shrink-0 items-center justify-end',
             agentAttention ? 'justify-end' : 'justify-middle'
           )}
         >
@@ -173,7 +187,7 @@ export const TaskRow = observer(function TaskRow({
             />
           )}
         </div>
-      </button>
+      </div>
     </TaskContextMenu>
   );
 });
