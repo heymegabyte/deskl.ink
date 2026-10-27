@@ -166,3 +166,10 @@ into a temporary copy of the task-row browser test. Assert computed checkbox-wra
 while focused, elementFromPoint at row padding hitting the navigation button, and metadata
 pointer events. Preserve the temporary case with run evidence, not a hash-specific import in git.
 Passing this check still does not prove native Electron navigation or a real PR popover.
+
+For bulk sync lifecycle changes, defer authentication in two consecutive public sync calls.
+Cancel the first, start its replacement, then settle the first before the replacement.
+Assert both replacement deduplication and cancellation survive old finally cleanup.
+Cleanup must compare controller identity before deleting shared entries; clearing by key
+alone can release another operation's ownership. Keep queued bulk/check-run cancellation
+and cancellation during persistence as separate acceptance gates.

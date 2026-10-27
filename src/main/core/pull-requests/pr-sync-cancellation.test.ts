@@ -7,7 +7,11 @@ import { PrSyncEngine } from './pr-sync-engine';
 
 vi.mock('@main/core/github/services/octokit-provider', () => ({ getOctokit: vi.fn() }));
 vi.mock('@main/db/client', () => ({ db: {} }));
-vi.mock('@main/db/kv', () => ({ KV: class {} }));
+vi.mock('@main/db/kv', () => ({
+  KV: class {
+    get = vi.fn().mockResolvedValue(null);
+  },
+}));
 vi.mock('@main/lib/events', () => ({ events: { emit: vi.fn() } }));
 vi.mock('@main/lib/logger', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('@main/lib/rate-limiter', () => ({ githubRateLimiter: { acquire: vi.fn() } }));
@@ -191,4 +195,42 @@ describe('single PR refresh cancellation', () => {
     expect(graphql).toHaveBeenCalledTimes(1);
     expect(graphql.mock.calls[0][1]).toMatchObject({ repo: 'other', number: 12 });
   });
+});
+
+describe('bulk sync controller ownership', () => {
+  beforeEach(() => {
+    vi.mocked(githubRateLimiter.acquire).mockReset().mockResolvedValue(undefined);
+    vi.mocked(events.emit).mockClear();
+  });
+
+  it.each(['deduplication', 'cancellation'])(
+    'retains replacement sync %s when a cancelled sync settles late',
+    async (operation) => {
+      const { engine, getOctokit, client, graphql } = setup();
+      const oldAuth = deferred<ReturnType<typeof ok<Octokit>>>();
+      const replacementAuth = deferred<ReturnType<typeof ok<Octokit>>>();
+      getOctokit.mockReturnValueOnce(oldAuth.promise).mockReturnValueOnce(replacementAuth.promise);
+
+      engine.sync(repositoryUrl);
+      await vi.waitFor(() => expect(getOctokit).toHaveBeenCalledTimes(1));
+      engine.cancel(repositoryUrl);
+      engine.sync(repositoryUrl);
+      await vi.waitFor(() => expect(getOctokit).toHaveBeenCalledTimes(2));
+
+      // Drain the old operation and its finally handler while replacement auth is pending.
+      oldAuth.resolve(ok(client));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      if (operation === 'deduplication') {
+        engine.sync(repositoryUrl);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        expect(getOctokit).toHaveBeenCalledTimes(2);
+      }
+      engine.cancel(repositoryUrl);
+      replacementAuth.resolve(ok(client));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(githubRateLimiter.acquire).not.toHaveBeenCalled();
+      expect(graphql).not.toHaveBeenCalled();
+    }
+  );
 });

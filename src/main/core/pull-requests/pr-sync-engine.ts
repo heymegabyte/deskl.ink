@@ -200,8 +200,12 @@ export class PrSyncEngine {
         }
       })
       .finally(() => {
-        this._controllers.delete(repositoryUrl);
-        this._inflight.delete(key);
+        // A cancelled operation can settle after a replacement has started.
+        // Only the current owner may release the repository's sync entries.
+        if (this._controllers.get(repositoryUrl) === ctrl) {
+          this._controllers.delete(repositoryUrl);
+          this._inflight.delete(key);
+        }
       });
 
     this._inflight.set(key, promise);

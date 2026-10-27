@@ -504,3 +504,23 @@ Loop improvement: agents/workflows/testing.md now documents sequential shared-ru
 gates, bounded-worker retries and honest reporting of interrupted/heap-limited runs.
 No live Electron/GitHub journey, deployment or publication is claimed. The outer
 runner owns publication; the full generic role roster was not performed.
+
+## 2026-10-27 — bulk sync replacement ownership
+
+Run: `heymegabyte--deskl.ink-40506359551-1`, base `cea79acb`.
+Cancelled bulk sync finally cleanup used repository keys without checking ownership,
+so a late completion removed a replacement sync's controller and deduplication entry.
+Cleanup now requires controller identity. Two public sync/cancel regressions failed
+before implementation and pass afterward; 32 focused tests pass. Independent read-only
+adversarial review found no blocking defects. Retained failed work is already recovered.
+
+Fresh gates: `corepack pnpm run format`, `corepack pnpm run format:check`,
+`corepack pnpm run lint`, `NODE_OPTIONS=--max-old-space-size=6144 corepack pnpm run typecheck`,
+and `corepack pnpm test --maxWorkers=1` pass (168 files, 1249 tests). Lint retains two
+existing renderer warnings; Vite reported a dependency optimization reload during browser
+tests. Loop improvement: README now describes replacement-ownership regression boundaries;
+backlog separates completed ownership from outstanding bulk/check-run request and DB cancellation.
+
+No live Electron/GitHub journey, full generic role roster or desktop release performed.
+This bounded native iteration used one read-only recovery/review agent. Publication belongs
+to the outer runner; local verification is not publication evidence.
