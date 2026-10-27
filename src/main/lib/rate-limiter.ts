@@ -3,7 +3,8 @@
  *
  * Tokens refill at `refillRate` per second up to `capacity`.
  * Each `acquire()` call consumes one token; if none are available the call
- * waits until one becomes available.
+ * waits until one becomes available. An optional signal cancels waiting without
+ * consuming a token and rejects with its abort reason.
  */
 export class RateLimiter {
   private tokens: number;
@@ -18,8 +19,9 @@ export class RateLimiter {
     this.lastRefill = performance.now();
   }
 
-  async acquire(): Promise<void> {
+  async acquire(signal?: AbortSignal): Promise<void> {
     while (true) {
+      signal?.throwIfAborted();
       this._refill();
 
       if (this.tokens >= 1) {
@@ -29,7 +31,18 @@ export class RateLimiter {
 
       // Another waiter may consume the next token first; recheck after waking.
       const waitMs = Math.ceil(((1 - this.tokens) / this.refillRate) * 1000);
-      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = () => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', onAbort);
+          reject(signal?.reason);
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve();
+        }, waitMs);
+        signal?.addEventListener('abort', onAbort, { once: true });
+      });
     }
   }
 

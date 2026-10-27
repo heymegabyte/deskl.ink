@@ -89,7 +89,7 @@
   guard asynchronous setup, rate-limit acquisition and late responses, and forward the
   signal to retries and GraphQL. Deferred unit tests cover cancellation boundaries;
   live GitHub/Electron acceptance remains separate.
-- [ ] Cancellable rate-limit waits: abort queued acquisition without consuming a token;
+- [x] Cancellable rate-limit waits: abort queued acquisition without consuming a token;
   cover timer/listener cleanup, concurrent waiters and cancellation after timer resolution.
 - [ ] PR sync cancellation beyond single refresh: verify bulk/check-run requests and
   cancellation during database upserts; prevent stale cleanup from removing a newer sync.

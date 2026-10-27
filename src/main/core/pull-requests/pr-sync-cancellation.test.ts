@@ -75,6 +75,24 @@ describe('single PR refresh cancellation', () => {
     }
   );
 
+  it('releases a queued refresh on cancellation and allows a fresh refresh', async () => {
+    const { engine, graphql } = setup();
+    vi.mocked(githubRateLimiter.acquire).mockImplementationOnce(
+      (signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+        })
+    );
+    const request = engine.syncSingle(repositoryUrl, 12);
+    await vi.waitFor(() => expect(githubRateLimiter.acquire).toHaveBeenCalledTimes(1));
+    expect(githubRateLimiter.acquire).toHaveBeenCalledWith(expect.any(AbortSignal));
+    engine.cancel(repositoryUrl);
+    await expect(request).resolves.toEqual(ok(null));
+    expect(graphql).not.toHaveBeenCalled();
+    await expect(engine.syncSingle(repositoryUrl, 12)).resolves.toEqual(ok(null));
+    expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
   it('consumes an aborted in-flight request rejection without reporting an API failure', async () => {
     const { engine, graphql } = setup();
     graphql.mockImplementationOnce(

@@ -588,7 +588,7 @@ export class PrSyncEngine {
     try {
       response = await withRetry(
         async () => {
-          await githubRateLimiter.acquire();
+          await githubRateLimiter.acquire(signal);
           signal.throwIfAborted();
           return octokit.data.graphql<{
             repository: { pullRequest: GqlPrNode | null };

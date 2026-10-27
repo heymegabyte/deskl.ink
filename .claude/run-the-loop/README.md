@@ -145,8 +145,11 @@ authentication, token acquisition, request and retry backoff; also cancel after 
 token promise resolves but before its continuation. Verify deduplicated callers,
 repository isolation, late response suppression and fresh controller cleanup. Mocked
 requests do not establish live GitHub cancellation or cancellation during DB writes.
-RateLimiter.acquire still waits for a token after cancellation; the refresh guard
-prevents the subsequent request but does not reclaim the queued token.
+For cancellable acquisition, test pre-aborted signals and exact abort reasons, timer/listener
+cleanup, concurrent waiters without token loss, and abort after timer resolution before
+continuation. Forward the refresh signal to acquire; keep the post-acquire guard because
+cancellation can still arrive before the API continuation. A mocked abort-aware waiter
+must settle without manually granting a token and allow a fresh same-PR refresh.
 
 For task-row semantics, run the Chromium task-row-keyboard regression before and after
 changes. Keep checkbox and PR triggers outside the task navigation button; retain a

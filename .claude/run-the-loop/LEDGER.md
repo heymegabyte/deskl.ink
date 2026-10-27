@@ -468,3 +468,19 @@ were compared and left intact because 96adb338 supersedes them. One bounded nati
 and focused review were performed; the full generic standing-role fan-out and live
 Electron/GitHub journeys were not performed. No deployment or push: publication belongs
 to the outer runner.
+
+## 2026-10-26 — Recover cancellable rate-limit acquisition
+
+Recovered the uncommitted cancellation slice from failed run 40408381089 after
+checking main ancestry and retained diffs; older renderer work remains untouched.
+The recovered regression tests failed on main (4 failures), then all 17 focused
+tests passed with optional AbortSignal acquisition and single-refresh forwarding.
+Read-only adversarial review found no token/listener defect. Full-suite attempt
+passed 1,222 non-browser tests but could not launch missing Chromium 1208.
+Formatting passed; lint reported two warnings in unchanged renderer files.
+Final typecheck/browser outcomes are recorded in the run report. No native
+Electron journey, live GitHub acceptance, deployment or publication is claimed.
+Loop improvement: acquisition cancellation checklist now covers abort reasons,
+timer/listener cleanup, survivor tokens and post-timer cancellation. One bounded
+slice and focused review ran; the full generic role roster did not run.
+Next frontier: bulk/check-run cancellation and database-upsert boundaries.
