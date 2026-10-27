@@ -40,6 +40,13 @@ pnpm run test
   leaves browser tests unverified even if every non-browser test passed.
 - Tests use per-file `vi.mock()` setup.
 - Integration-style tests create temporary repos and worktrees in `os.tmpdir()`.
+- On a memory-constrained shared runner, run the core gates sequentially. If the
+  default test concurrency times out under resource pressure, rerun the complete
+  suite with `pnpm test --maxWorkers=1` and retain both outcomes. Do not infer a
+  product regression or a passing gate from an interrupted attempt. A typecheck
+  heap exhaustion can be retried with
+  `NODE_OPTIONS=--max-old-space-size=6144 pnpm run typecheck` when memory permits;
+  record the actual result rather than treating the larger heap as proof of success.
 
 ## Native Journey Evidence
 

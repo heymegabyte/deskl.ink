@@ -484,3 +484,23 @@ Loop improvement: acquisition cancellation checklist now covers abort reasons,
 timer/listener cleanup, survivor tokens and post-timer cancellation. One bounded
 slice and focused review ran; the full generic role roster did not run.
 Next frontier: bulk/check-run cancellation and database-upsert boundaries.
+
+## 2026-10-27 — Finish retained cancellation verification
+
+Recovered d0ef8b41 as fc0d20dc after inspecting retained worktrees, failed GitHub
+Actions receipts and origin/main ancestry. Preserved every retained worktree.
+Independent read-only review found no blocking defect in optional AbortSignal
+acquisition or single-refresh forwarding; bulk/incremental sync waits remain the
+next product frontier.
+
+Fresh verification: format and lint passed (two existing renderer warnings),
+typecheck passed with NODE_OPTIONS=--max-old-space-size=6144, and all 27 focused
+rate-limiter/retry/cancellation tests passed. The initial concurrent full-suite
+attempt hit two SSH timeouts and was interrupted. The complete one-worker rerun
+passed all 168 files / 1,247 tests, including browser and database projects.
+Chromium 1208 launched; Vite emitted a dependency-optimization reload warning.
+
+Loop improvement: agents/workflows/testing.md now documents sequential shared-runner
+gates, bounded-worker retries and honest reporting of interrupted/heap-limited runs.
+No live Electron/GitHub journey, deployment or publication is claimed. The outer
+runner owns publication; the full generic role roster was not performed.
