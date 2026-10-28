@@ -5,11 +5,17 @@ import { githubRateLimiter } from '@main/lib/rate-limiter';
 import { ok } from '@shared/result';
 import { PrSyncEngine } from './pr-sync-engine';
 
+const bulkMode = vi.hoisted(() => ({ incremental: false }));
+
 vi.mock('@main/core/github/services/octokit-provider', () => ({ getOctokit: vi.fn() }));
 vi.mock('@main/db/client', () => ({ db: {} }));
 vi.mock('@main/db/kv', () => ({
   KV: class {
-    get = vi.fn().mockResolvedValue(null);
+    get = vi
+      .fn()
+      .mockImplementation(async () =>
+        bulkMode.incremental ? { done: true, lastUpdatedAt: '2026-01-01T00:00:00Z' } : null
+      );
   },
 }));
 vi.mock('@main/lib/events', () => ({ events: { emit: vi.fn() } }));
@@ -233,4 +239,52 @@ describe('bulk sync controller ownership', () => {
       expect(graphql).not.toHaveBeenCalled();
     }
   );
+});
+
+describe.each(['full', 'incremental'])('%s bulk sync token cancellation', (kind) => {
+  beforeEach(() => {
+    bulkMode.incremental = kind === 'incremental';
+    vi.mocked(githubRateLimiter.acquire).mockReset().mockResolvedValue(undefined);
+    vi.mocked(events.emit).mockClear();
+  });
+  afterEach(() => {
+    bulkMode.incremental = false;
+  });
+
+  it.each(['waiting', 'resolved'])(
+    'does not start GraphQL when a %s token is cancelled',
+    async (phase) => {
+      const { engine, graphql } = setup();
+      const token = deferred<void>();
+      vi.mocked(githubRateLimiter.acquire).mockReturnValueOnce(token.promise);
+      engine.sync(repositoryUrl);
+      await vi.waitFor(() => expect(githubRateLimiter.acquire).toHaveBeenCalledTimes(1));
+      if (phase === 'resolved') token.resolve();
+      engine.cancel(repositoryUrl);
+      token.resolve();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(graphql).not.toHaveBeenCalled();
+      expect(githubRateLimiter.acquire).toHaveBeenCalledWith(expect.any(AbortSignal));
+    }
+  );
+
+  it('releases the queued token wait immediately on cancellation', async () => {
+    const { engine, graphql } = setup();
+    vi.mocked(githubRateLimiter.acquire).mockImplementationOnce(
+      (signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+        })
+    );
+    engine.sync(repositoryUrl);
+    await vi.waitFor(() => expect(githubRateLimiter.acquire).toHaveBeenCalledTimes(1));
+    engine.cancel(repositoryUrl);
+    await vi.waitFor(() =>
+      expect(events.emit).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ remoteUrl: repositoryUrl, kind, status: 'cancelled' })
+      )
+    );
+    expect(graphql).not.toHaveBeenCalled();
+  });
 });

@@ -319,18 +319,19 @@ export class PrSyncEngine {
         if (signal.aborted) return;
 
         const response = await withRetry(
-          () =>
-            githubRateLimiter.acquire().then(() =>
-              octokit.data.graphql<{
-                repository: {
-                  pullRequests: {
-                    totalCount: number;
-                    pageInfo: { hasNextPage: boolean; endCursor: string | null };
-                    nodes: GqlPrNode[];
-                  };
+          async () => {
+            await githubRateLimiter.acquire(signal);
+            signal.throwIfAborted();
+            return octokit.data.graphql<{
+              repository: {
+                pullRequests: {
+                  totalCount: number;
+                  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+                  nodes: GqlPrNode[];
                 };
-              }>(SYNC_PRS_QUERY, { owner, repo, cursor: pageCursor ?? null, request: { signal } })
-            ),
+              };
+            }>(SYNC_PRS_QUERY, { owner, repo, cursor: pageCursor ?? null, request: { signal } });
+          },
           { signal }
         );
 
@@ -443,22 +444,23 @@ export class PrSyncEngine {
         if (signal.aborted) return;
 
         const response = await withRetry(
-          () =>
-            githubRateLimiter.acquire().then(() =>
-              octokit.data.graphql<{
-                repository: {
-                  pullRequests: {
-                    pageInfo: { hasNextPage: boolean; endCursor: string | null };
-                    nodes: GqlPrNode[];
-                  };
+          async () => {
+            await githubRateLimiter.acquire(signal);
+            signal.throwIfAborted();
+            return octokit.data.graphql<{
+              repository: {
+                pullRequests: {
+                  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+                  nodes: GqlPrNode[];
                 };
-              }>(INCREMENTAL_SYNC_PRS_QUERY, {
-                owner,
-                repo,
-                cursor: pageCursor ?? null,
-                request: { signal },
-              })
-            ),
+              };
+            }>(INCREMENTAL_SYNC_PRS_QUERY, {
+              owner,
+              repo,
+              cursor: pageCursor ?? null,
+              request: { signal },
+            });
+          },
           { signal }
         );
 

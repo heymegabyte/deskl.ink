@@ -524,3 +524,26 @@ backlog separates completed ownership from outstanding bulk/check-run request an
 No live Electron/GitHub journey, full generic role roster or desktop release performed.
 This bounded native iteration used one read-only recovery/review agent. Publication belongs
 to the outer runner; local verification is not publication evidence.
+
+## 2026-10-28 — recover bulk queued cancellation
+
+Run: `heymegabyte--deskl.ink-40617141370-1`, base `131d2c00`.
+Recovered the reviewed uncommitted patch from failed run `40595651264-1`;
+`40559496202-1` retained the same affected paths. Full and incremental bulk syncs
+now forward their signal to token acquisition and check cancellation again before
+GraphQL starts. Six new regressions failed against the base (12 existing passed);
+after recovery all 39 focused tests passed. Two independent read-only reviews
+found no blocking defects. Retained worktrees were preserved. The older retained
+`d0ef8b41` rate-limiter source patch matches already-landed `fc0d20dc`.
+
+Fresh gates: `corepack pnpm run format`, `corepack pnpm run lint`,
+`NODE_OPTIONS=--max-old-space-size=6144 corepack pnpm run typecheck`, and
+`corepack pnpm test --maxWorkers=1` passed (168 files, 1255 tests, 314.55 seconds).
+Lint retains two existing renderer promise warnings; Vite reported an optimization
+reload during browser tests. Loop improvement: README records full/incremental,
+waiting/resolved token boundaries; backlog separates queued cancellation from
+late responses, persistence, retry-backoff reporting and check-run ownership.
+
+No live Electron/GitHub journey, full generic role roster or desktop release was
+performed. This bounded recovery iteration used two read-only reviewers. The outer
+runner owns publication; passing local tests and a commit do not establish publication.

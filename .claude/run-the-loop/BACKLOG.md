@@ -93,9 +93,12 @@
   cover timer/listener cleanup, concurrent waiters and cancellation after timer resolution.
 - [x] Bulk sync controller ownership: prevent cancelled sync cleanup from removing a
   replacement sync; cover retained deduplication and cancellation through the public API.
-- [ ] PR sync cancellation beyond single refresh: verify bulk/check-run requests and
-  cancellation during database upserts. Bulk token waits still omit the signal; check-run
-  controllers are not registered for repository cancellation. Cover these independently.
+- [x] Bulk sync queued token cancellation: forward the signal in full/incremental syncs
+  and guard the token continuation; verify waiting/resolved boundaries and prompt release.
+- [ ] PR sync cancellation beyond queued waits: verify check-run requests and cancellation
+  during database upserts/late bulk responses. Check-run controllers are not registered
+  for repository cancellation. Cover these independently, including cancellation during
+  retry backoff preserving cancelled progress rather than reporting the last API error.
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.

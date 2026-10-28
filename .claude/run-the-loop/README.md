@@ -173,3 +173,10 @@ Assert both replacement deduplication and cancellation survive old finally clean
 Cleanup must compare controller identity before deleting shared entries; clearing by key
 alone can release another operation's ownership. Keep queued bulk/check-run cancellation
 and cancellation during persistence as separate acceptance gates.
+
+For bulk token cancellation, parameterize public sync() regressions for both full and
+incremental cursors. Cover pending acquisition, resolved-token-before-continuation,
+and an abort-aware waiter that settles without a token grant. Assert no GraphQL starts
+and cancelled progress is emitted for prompt release. Passing a signal alone does not
+close the continuation race; check it again after acquisition. Keep late response,
+persistence and check-run lifecycle acceptance separate.
