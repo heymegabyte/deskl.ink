@@ -97,8 +97,8 @@
   and guard the token continuation; verify waiting/resolved boundaries and prompt release.
 - [ ] PR sync cancellation beyond queued waits: verify check-run requests and cancellation
   during database upserts/late bulk responses. Check-run controllers are not registered
-  for repository cancellation. Cover these independently, including cancellation during
-  retry backoff preserving cancelled progress rather than reporting the last API error.
+  for repository cancellation. Cover these independently; retry-backoff progress
+  classification is covered by the completed bulk retry cancellation item below.
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.
@@ -113,3 +113,6 @@
   by 96adb338; leave their files intact.
 - [ ] Optional docs scripts: decide whether to restore the separate docs app or retire
   its retained package scripts; do not infer app availability from package.json alone.
+
+- [x] Bulk retry cancellation reporting: preserve cancelled progress when retry backoff
+  rethrows the last API failure; cover full/incremental modes and uncancelled failures.

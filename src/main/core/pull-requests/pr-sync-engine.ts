@@ -368,7 +368,7 @@ export class PrSyncEngine {
       await this._archiveOldPrs(repositoryUrl);
       this._emitProgress({ remoteUrl: repositoryUrl, kind: 'full', status: 'done', synced });
     } catch (e: unknown) {
-      if ((e as { name?: string })?.name === 'AbortError') {
+      if (signal.aborted || (e as { name?: string })?.name === 'AbortError') {
         this._emitProgress({ remoteUrl: repositoryUrl, kind: 'full', status: 'cancelled' });
         return;
       }
@@ -525,7 +525,7 @@ export class PrSyncEngine {
         synced,
       });
     } catch (e: unknown) {
-      if ((e as { name?: string })?.name === 'AbortError') {
+      if (signal.aborted || (e as { name?: string })?.name === 'AbortError') {
         this._emitProgress({ remoteUrl: repositoryUrl, kind: 'incremental', status: 'cancelled' });
         return;
       }

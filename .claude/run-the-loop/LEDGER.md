@@ -547,3 +547,25 @@ late responses, persistence, retry-backoff reporting and check-run ownership.
 No live Electron/GitHub journey, full generic role roster or desktop release was
 performed. This bounded recovery iteration used two read-only reviewers. The outer
 runner owns publication; passing local tests and a commit do not establish publication.
+
+## 2026-10-28 — verified recovery of bulk retry cancellation
+
+Run `heymegabyte--deskl.ink-40793122851-1`, base `e9acf6f0`: recovered
+unpublished `274fdb91` after inspecting actual retained commits/files, failed
+receipts, GitHub history and origin/main ancestry. Retained worktrees unchanged.
+Full/incremental sync catches inspect the aborted signal because retry deliberately
+preserves the last API failure. Fresh RED: 2 failed, 20 passed before the fix;
+fresh focused GREEN: 4 files, 42 tests passed, including genuine API failure controls.
+
+Fresh format and lint passed (two existing renderer promise warnings).
+`NODE_OPTIONS=--max-old-space-size=6144 corepack pnpm run typecheck` passed.
+`corepack pnpm test --maxWorkers=1` passed: 168 files, 1259 tests, 174.84 seconds.
+Vite warned about dependency optimization reloading a browser test; suite exited 0.
+One independent read-only adversarial reviewer found no blocker. Loop improvement:
+require refreshing final report results after verification retries, preserving initial
+failure evidence rather than publishing stale pending/failed status.
+
+No native Electron/live GitHub, visual/a11y or long desktop journey ran; a full generic
+role roster was not executed in this bounded recovery. Late-response, persistence and
+check-run cancellation remain open. No desktop release/deployment performed. The outer
+runner owns publication; local verification and commits do not establish main publication.

@@ -180,3 +180,13 @@ and an abort-aware waiter that settles without a token grant. Assert no GraphQL 
 and cancelled progress is emitted for prompt release. Passing a signal alone does not
 close the continuation race; check it again after acquisition. Keep late response,
 persistence and check-run lifecycle acceptance separate.
+
+For bulk sync retry cancellation, assert progress as well as request counts. The retry
+helper deliberately preserves the last API failure after abort; callers must inspect the
+signal when classifying the outcome. Cover full and incremental modes and retain an
+uncancelled failure control so cancellation handling cannot mask genuine API errors.
+
+Before finishing a recovery run, refresh agent-report.json after the final gate settles.
+Replace pending/failed entries with the observed retry result while retaining the initial
+failure in evidence; a stale report can block publication despite later successful checks.
+A recovered commit and prior logs do not substitute for this run's completed checks.

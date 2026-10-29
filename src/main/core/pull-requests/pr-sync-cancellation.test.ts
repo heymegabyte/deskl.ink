@@ -268,6 +268,50 @@ describe.each(['full', 'incremental'])('%s bulk sync token cancellation', (kind)
     }
   );
 
+  it('still reports an API failure when the sync was not cancelled', async () => {
+    const { engine, graphql } = setup();
+    graphql.mockRejectedValueOnce({ status: 403 });
+    engine.sync(repositoryUrl);
+    await vi.waitFor(() =>
+      expect(events.emit).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ remoteUrl: repositoryUrl, kind, status: 'error' })
+      )
+    );
+    expect(events.emit).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'cancelled' })
+    );
+    expect(graphql).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports cancellation rather than the preserved API error during retry backoff', async () => {
+    vi.useFakeTimers();
+    try {
+      const { engine, graphql } = setup();
+      graphql.mockRejectedValueOnce({ status: 503 });
+      engine.sync(repositoryUrl);
+      await vi.waitFor(() => expect(graphql).toHaveBeenCalledTimes(1));
+      expect(vi.getTimerCount()).toBe(1);
+      engine.cancel(repositoryUrl);
+      await vi.waitFor(() =>
+        expect(events.emit).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ remoteUrl: repositoryUrl, kind, status: 'cancelled' })
+        )
+      );
+      expect(events.emit).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ status: 'error' })
+      );
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(graphql).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('releases the queued token wait immediately on cancellation', async () => {
     const { engine, graphql } = setup();
     vi.mocked(githubRateLimiter.acquire).mockImplementationOnce(
