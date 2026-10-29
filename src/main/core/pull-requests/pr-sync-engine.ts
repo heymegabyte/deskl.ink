@@ -692,19 +692,6 @@ export class PrSyncEngine {
     operation.cancelledRepositories.clear();
     if (signal.aborted) return ok(false);
 
-    const existing = await db
-      .select({ commitSha: pullRequestChecks.commitSha })
-      .from(pullRequestChecks)
-      .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl))
-      .limit(1);
-    if (signal.aborted) return ok(false);
-    if (existing.length > 0 && existing[0].commitSha !== headRefOid) {
-      await db
-        .delete(pullRequestChecks)
-        .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl));
-      if (signal.aborted) return ok(false);
-    }
-
     const prNumber = pr[0].identifier ? parseInt(pr[0].identifier.replace('#', ''), 10) : NaN;
     if (isNaN(prNumber)) return ok(false);
 
@@ -762,8 +749,12 @@ export class PrSyncEngine {
       }
       if (signal.aborted) return ok(false);
 
-      const contexts =
-        response.repository.pullRequest?.commits.nodes[0]?.commit?.statusCheckRollup?.contexts;
+      // The query reads the latest PR commit, which can change between pages.
+      // Never label another commit's checks with the caller's requested SHA or
+      // discard stored checks when the PR/commit is no longer available.
+      const commit = response.repository.pullRequest?.commits.nodes[0]?.commit;
+      if (!commit || commit.oid !== headRefOid) return ok(false);
+      const contexts = commit.statusCheckRollup?.contexts;
       if (!contexts) break;
 
       allNodes.push(...contexts.nodes);

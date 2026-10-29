@@ -47,6 +47,36 @@ function setup() {
   );
   return { engine: new PrSyncEngine(getOctokit), graphql, getOctokit };
 }
+function checkResponse(oid: string, hasNextPage = false) {
+  return {
+    repository: {
+      pullRequest: {
+        commits: {
+          nodes: [
+            {
+              commit: {
+                oid,
+                statusCheckRollup: {
+                  contexts: {
+                    pageInfo: { hasNextPage, endCursor: hasNextPage ? 'next' : null },
+                    nodes: [
+                      {
+                        __typename: 'CheckRun',
+                        name: 'build',
+                        status: 'IN_PROGRESS',
+                        conclusion: null,
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
 describe('check-run cancellation', () => {
   beforeEach(() => {
     mocks.select.mockReset();
@@ -167,6 +197,99 @@ describe('check-run cancellation', () => {
     expect(result).toMatchObject({ success: false, error: { type: 'auth_required' } });
     expect(mocks.remove).not.toHaveBeenCalled();
   });
+  it.each(['cancel', 'failure'])(
+    'preserves previous-head checks while a replacement fetch ends in %s',
+    async (outcome) => {
+      const { engine, graphql } = setup();
+      mocks.select.mockImplementation((columns) =>
+        selectRows(
+          Promise.resolve(
+            columns?.commitSha
+              ? [{ commitSha: 'previous-sha' }]
+              : [{ identifier: '#12', repositoryUrl }]
+          )
+        )
+      );
+      const response = deferred<unknown>();
+      graphql.mockReturnValueOnce(response.promise);
+      const request = engine.syncChecks(pullRequestUrl, 'sha');
+      await vi.waitFor(() => expect(graphql).toHaveBeenCalledTimes(1));
+      expect(mocks.remove).not.toHaveBeenCalled();
+      if (outcome === 'cancel') {
+        engine.cancel(repositoryUrl);
+        response.resolve(checkResponse('sha'));
+      } else {
+        response.resolve(Promise.reject({ status: 403 }));
+      }
+      if (outcome === 'cancel') await expect(request).resolves.toEqual(ok(false));
+      else
+        await expect(request).resolves.toMatchObject({
+          success: false,
+          error: { type: 'auth_required' },
+        });
+      expect(mocks.remove).not.toHaveBeenCalled();
+      expect(mocks.values).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+    }
+  );
+  it.each(['different-head', 'missing-pr', 'missing-commit', 'later-page'])(
+    'does not replace checks from an unverified commit: %s',
+    async (scenario) => {
+      const { engine, graphql } = setup();
+      if (scenario === 'different-head') graphql.mockResolvedValueOnce(checkResponse('new-sha'));
+      if (scenario === 'missing-pr')
+        graphql.mockResolvedValueOnce({ repository: { pullRequest: null } });
+      if (scenario === 'missing-commit')
+        graphql.mockResolvedValueOnce({ repository: { pullRequest: { commits: { nodes: [] } } } });
+      if (scenario === 'later-page') {
+        graphql.mockResolvedValueOnce(checkResponse('sha', true));
+        graphql.mockResolvedValueOnce(checkResponse('new-sha'));
+      }
+      await expect(engine.syncChecks(pullRequestUrl, 'sha')).resolves.toEqual(ok(false));
+      expect(mocks.remove).not.toHaveBeenCalled();
+      expect(mocks.values).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+      expect(graphql).toHaveBeenCalledTimes(scenario === 'later-page' ? 2 : 1);
+    }
+  );
+  it.each(['empty-rollup', 'two-pages'])(
+    'replaces checks only after a complete verified response: %s',
+    async (scenario) => {
+      const { engine, graphql } = setup();
+      // No stored PR remains by notification time; replacement should still finish.
+      mocks.select
+        .mockReturnValueOnce(selectRows(Promise.resolve([{ identifier: '#12', repositoryUrl }])))
+        .mockReturnValue(selectRows(Promise.resolve([])));
+      if (scenario === 'empty-rollup') {
+        graphql.mockResolvedValueOnce({
+          repository: {
+            pullRequest: {
+              commits: {
+                nodes: [{ commit: { oid: 'sha', statusCheckRollup: null } }],
+              },
+            },
+          },
+        });
+      } else {
+        const secondPage = deferred<unknown>();
+        graphql.mockResolvedValueOnce(checkResponse('sha', true));
+        graphql.mockReturnValueOnce(secondPage.promise);
+        const request = engine.syncChecks(pullRequestUrl, 'sha');
+        await vi.waitFor(() => expect(graphql).toHaveBeenCalledTimes(2));
+        expect(graphql.mock.calls[1][1].cursor).toBe('next');
+        expect(mocks.remove).not.toHaveBeenCalled();
+        secondPage.resolve(checkResponse('sha'));
+        await expect(request).resolves.toEqual(ok(true));
+        expect(mocks.values).toHaveBeenCalledTimes(1);
+        expect(mocks.values.mock.calls[0][0]).toHaveLength(2);
+      }
+      if (scenario === 'empty-rollup') {
+        await expect(engine.syncChecks(pullRequestUrl, 'sha')).resolves.toEqual(ok(false));
+        expect(mocks.values).not.toHaveBeenCalled();
+      }
+      expect(mocks.remove).toHaveBeenCalledTimes(1);
+    }
+  );
   it.each(['none', 'notification', 'replacement'])(
     'completes check replacement and suppresses cancelled notification: %s',
     async (cancelPhase) => {
@@ -179,7 +302,6 @@ describe('check-run cancellation', () => {
       const row = { url: pullRequestUrl, identifier: '#12', repositoryUrl, title: 'Test PR' };
       mocks.select
         .mockReturnValueOnce(selectRows(Promise.resolve([row])))
-        .mockReturnValueOnce(selectRows(Promise.resolve([{ commitSha: 'sha' }])))
         .mockReturnValueOnce(selectRows(notifyLookup.promise))
         .mockReturnValue(selectRows(Promise.resolve([])));
       graphql.mockResolvedValueOnce({
@@ -189,6 +311,7 @@ describe('check-run cancellation', () => {
               nodes: [
                 {
                   commit: {
+                    oid: 'sha',
                     statusCheckRollup: {
                       contexts: {
                         pageInfo: { hasNextPage: false },
@@ -217,7 +340,7 @@ describe('check-run cancellation', () => {
         // Cancellation cannot split an already-started delete/insert replacement.
         await expect(request).resolves.toEqual(ok(false));
       } else {
-        await vi.waitFor(() => expect(mocks.select).toHaveBeenCalledTimes(3));
+        await vi.waitFor(() => expect(mocks.select).toHaveBeenCalledTimes(2));
       }
       expect(mocks.values).toHaveBeenCalledWith([
         expect.objectContaining({

@@ -593,3 +593,29 @@ nontransactional; distinct head SHAs can race, and preliminary stale-row deletio
 leave checks empty on cancellation. No atomicity or native GitHub/Electron acceptance
 is claimed. Xvfb/weston were unavailable on PATH. Publication belongs to the outer
 runner; no deployment or push was performed in this worktree.
+
+## 2026-10-29 — preserve checks until verified replacement (40972868873-1)
+
+Removed the preliminary stale-SHA deletion and checked returned commit.oid against the
+requested head on every GraphQL page. Cancelled/failed requests, missing commits and
+mid-pagination head changes now leave stored checks untouched. Matching empty rollups
+still clear obsolete checks, and matching pages are accumulated before one replacement.
+
+Fresh TDD evidence: six new regressions failed against the base; all 19 focused tests
+passed after the fix and positive coverage. Full serialized suite: 169 files / 1,278 tests
+passed, including Chromium and database projects. Formatting, lint and the documented
+6-GiB typecheck passed. Lint retained two warnings in untouched renderer handlers; Vite
+reported an optimization reload during the passing full suite. Main build evidence is
+recorded in agent-report.json. Read-only adversarial review found no blocker within scope.
+
+Inspected four failed retained worktrees: source/tests were already included or improved
+in base 46622b58. git ls-remote confirmed that base was remote main; Actions API requests
+timed out, so prior history was inspected through structured local receipts. No retained
+files were changed. Loop improvement: documented commit identity fixtures, verified empty
+rollups and paginated preservation as future recovery/validation requirements.
+
+No native Electron/live GitHub, visual/a11y or long desktop journey ran; Xvfb/weston were
+unavailable on PATH. The generic full role roster was narrowed to lead implementation,
+read-only recovery and adversarial review. Concurrent valid-SHA replacement ordering,
+transactional rollback and bulk persistence cancellation remain open. No deployment or
+push performed; the outer runner owns publication of this iteration's commit.

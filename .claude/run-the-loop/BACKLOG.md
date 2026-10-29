@@ -100,8 +100,11 @@
   Deferred unit regressions cover ownership lookup, deduplication, repository isolation and cleanup.
 - [ ] PR sync persistence cancellation: verify database upserts/late bulk responses, concurrent
   head-SHA check replacements and real Electron/GitHub cancellation. Unit mocks do not prove
-  atomic database replacement or native behavior. Cancellation during the preliminary
-  stale-SHA deletion can also leave checks empty; cover that boundary separately.
+  atomic database replacement or native behavior. Valid old/new SHA responses can still
+  race during replacement; serialize or establish per-PR ownership before claiming safety.
+- [x] Check fetch preservation: retain stored checks until all replacement pages are fetched;
+  reject missing or mismatched commit identities on every page. Cover cancellation/failure
+  with previous-head checks, paginated head changes, valid empty rollups and completed pages.
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.

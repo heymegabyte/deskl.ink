@@ -202,3 +202,9 @@ cancellation. Deferred mocks prove boundary ordering, not transaction atomicity 
 For retained-commit recovery, read the final gate logs as well as agent-report.json. An
 interrupted report may still say running after checks completed. Always rerun gates here;
 record GitHub API timeouts separately from local ancestry and retained-file evidence.
+
+For check-run persistence, include real commit.oid values in GraphQL fixtures and verify
+identity on every page. A missing PR/commit is not a verified empty rollup. Assert that
+cancelled/failed fetches and mid-pagination head changes leave stored checks untouched;
+matching empty rollups may clear them and matching pages must replace only after completion.
+Keep concurrent valid-SHA ordering, transaction rollback and native acceptance separate.
