@@ -95,10 +95,13 @@
   replacement sync; cover retained deduplication and cancellation through the public API.
 - [x] Bulk sync queued token cancellation: forward the signal in full/incremental syncs
   and guard the token continuation; verify waiting/resolved boundaries and prompt release.
-- [ ] PR sync cancellation beyond queued waits: verify check-run requests and cancellation
-  during database upserts/late bulk responses. Check-run controllers are not registered
-  for repository cancellation. Cover these independently; retry-backoff progress
-  classification is covered by the completed bulk retry cancellation item below.
+- [x] PR check-run cancellation: register repository ownership, abort queued tokens/retries/requests,
+  suppress late persistence/notifications, and finish any already-started check replacement.
+  Deferred unit regressions cover ownership lookup, deduplication, repository isolation and cleanup.
+- [ ] PR sync persistence cancellation: verify database upserts/late bulk responses, concurrent
+  head-SHA check replacements and real Electron/GitHub cancellation. Unit mocks do not prove
+  atomic database replacement or native behavior. Cancellation during the preliminary
+  stale-SHA deletion can also leave checks empty; cover that boundary separately.
 
 - [x] Retry maximum backoff: cap the initial delay as well as subsequent delays;
   reproduce oversized initialDelayMs and verify exact attempt times.

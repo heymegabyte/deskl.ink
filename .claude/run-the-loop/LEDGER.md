@@ -569,3 +569,27 @@ No native Electron/live GitHub, visual/a11y or long desktop journey ran; a full 
 role roster was not executed in this bounded recovery. Late-response, persistence and
 check-run cancellation remain open. No desktop release/deployment performed. The outer
 runner owns publication; local verification and commits do not establish main publication.
+
+## 2026-10-29 — recover unpublished check-run cancellation (40938629797-1)
+
+Recovered the source and regression file from retained commit `302d4d4f` after
+verifying it is absent from local main ancestry. Retained worktrees were preserved.
+The earlier run's final gate logs completed, but its stale agent report and interrupted
+runtime did not establish publication. Two bounded GitHub API retries timed out; the initial Actions list eventually
+completed and confirmed the two prior failures. Local receipts, actual source comparisons
+and ancestry supplied recovery evidence.
+
+Fresh reproduction: 10 failing / 1 passing check-run tests before source recovery.
+After recovery: 53 focused tests passed, and the complete serialized suite passed
+169 files / 1,270 tests, including Chromium. Formatting passed; lint completed with
+two existing promise-handler warnings in untouched renderer files. The default
+TypeScript heap was exhausted; retry with the documented 6-GiB heap passed.
+Build passed with the same larger heap after default-heap exhaustion.
+Final evidence is recorded in this run's agent-report.json. Read-only adversarial review found no blocking recovery regression.
+
+Loop improvement: added retained-report/final-log reconciliation guidance and explicit
+stale-SHA cancellation risk to the persistence backlog. Check replacement is still
+nontransactional; distinct head SHAs can race, and preliminary stale-row deletion can
+leave checks empty on cancellation. No atomicity or native GitHub/Electron acceptance
+is claimed. Xvfb/weston were unavailable on PATH. Publication belongs to the outer
+runner; no deployment or push was performed in this worktree.

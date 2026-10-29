@@ -150,6 +150,13 @@ interface GqlStatusContextNode {
 // PrSyncEngine
 // ---------------------------------------------------------------------------
 
+interface CheckSyncOperation {
+  controller: AbortController;
+  repositoryUrl?: string;
+  // Scoped to the pending lookup; discarded as soon as ownership is known.
+  cancelledRepositories: Set<string>;
+}
+
 export class PrSyncEngine {
   private readonly kv = new KV<PrKvSchema>('pr');
 
@@ -166,6 +173,8 @@ export class PrSyncEngine {
     { repositoryUrl: string; controller: AbortController }
   >();
   private readonly _checksInflight = new Map<string, Promise<Result<boolean, PrSyncEngineError>>>();
+
+  private readonly _checksControllers = new Map<string, CheckSyncOperation>();
 
   constructor(
     private readonly getOctokit: (host: string) => Promise<Result<Octokit, GitHubApiAuthError>>
@@ -220,10 +229,14 @@ export class PrSyncEngine {
     ]).then(() => this.sync(repositoryUrl));
   }
 
-  /** Abort repository and single-PR syncs; single refreshes stay deduplicated until settled. */
+  /** Abort repository, single-PR and check syncs; individual operations deduplicate until settled. */
   cancel(repositoryUrl: string): void {
     for (const entry of this._singleControllers.values()) {
       if (entry.repositoryUrl === repositoryUrl) entry.controller.abort();
+    }
+    for (const entry of this._checksControllers.values()) {
+      if (entry.repositoryUrl === repositoryUrl) entry.controller.abort();
+      else if (!entry.repositoryUrl) entry.cancelledRepositories.add(repositoryUrl);
     }
     const ctrl = this._controllers.get(repositoryUrl);
     if (ctrl) {
@@ -637,16 +650,21 @@ export class PrSyncEngine {
 
     const ctrl = new AbortController();
 
-    const promise = this._runSyncChecks(pullRequestUrl, headRefOid, ctrl.signal)
+    const operation: CheckSyncOperation = { controller: ctrl, cancelledRepositories: new Set() };
+    this._checksControllers.set(key, operation);
+    const promise = this._runSyncChecks(pullRequestUrl, headRefOid, operation)
       .catch((e: unknown) => {
-        if ((e as { name?: string }).name !== 'AbortError') {
+        if (!ctrl.signal.aborted && (e as { name?: string }).name !== 'AbortError') {
           log.error('PrSyncEngine: syncChecks failed', { pullRequestUrl, error: String(e) });
           return err(toPrApiError(e, 'Unable to sync check runs'));
         }
         return ok(false);
       })
       .finally(() => {
-        this._checksInflight.delete(key);
+        if (this._checksControllers.get(key) === operation) {
+          this._checksInflight.delete(key);
+          this._checksControllers.delete(key);
+        }
       });
 
     this._checksInflight.set(key, promise);
@@ -656,31 +674,36 @@ export class PrSyncEngine {
   private async _runSyncChecks(
     pullRequestUrl: string,
     headRefOid: string,
-    signal: AbortSignal
+    operation: CheckSyncOperation
   ): Promise<Result<boolean, PrSyncEngineError>> {
+    const signal = operation.controller.signal;
     if (signal.aborted) return ok(false);
 
-    // Detect stale checks: delete if commitSha changed
-    const existing = await db
-      .select({ commitSha: pullRequestChecks.commitSha })
-      .from(pullRequestChecks)
-      .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl))
-      .limit(1);
-
-    if (existing.length > 0 && existing[0].commitSha !== headRefOid) {
-      await db
-        .delete(pullRequestChecks)
-        .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl));
-    }
-
-    // Fetch fresh check runs from GitHub
+    // Resolve repository ownership before touching check rows. A repository may
+    // be cancelled while this lookup is pending, before its URL is known.
     const pr = await db
       .select({ identifier: pullRequests.identifier, repositoryUrl: pullRequests.repositoryUrl })
       .from(pullRequests)
       .where(eq(pullRequests.url, pullRequestUrl))
       .limit(1);
-
     if (!pr[0]) return ok(false);
+    operation.repositoryUrl = pr[0].repositoryUrl;
+    if (operation.cancelledRepositories.has(pr[0].repositoryUrl)) operation.controller.abort();
+    operation.cancelledRepositories.clear();
+    if (signal.aborted) return ok(false);
+
+    const existing = await db
+      .select({ commitSha: pullRequestChecks.commitSha })
+      .from(pullRequestChecks)
+      .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl))
+      .limit(1);
+    if (signal.aborted) return ok(false);
+    if (existing.length > 0 && existing[0].commitSha !== headRefOid) {
+      await db
+        .delete(pullRequestChecks)
+        .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl));
+      if (signal.aborted) return ok(false);
+    }
 
     const prNumber = pr[0].identifier ? parseInt(pr[0].identifier.replace('#', ''), 10) : NaN;
     if (isNaN(prNumber)) return ok(false);
@@ -689,6 +712,7 @@ export class PrSyncEngine {
     if (!repository.success) return err(repository.error);
     const { owner, repo } = repository.data;
     const octokit = await this.getOctokit(repository.data.host);
+    if (signal.aborted) return ok(false);
     if (!octokit.success) return err(octokit.error);
 
     type CheckNode = GqlCheckRunNode | GqlStatusContextNode;
@@ -718,19 +742,25 @@ export class PrSyncEngine {
         };
       };
       try {
-        response = await withRetry(() =>
-          githubRateLimiter.acquire().then(() =>
-            octokit.data.graphql(GET_PR_CHECK_RUNS_BY_URL_QUERY, {
+        response = await withRetry(
+          async () => {
+            await githubRateLimiter.acquire(signal);
+            signal.throwIfAborted();
+            return octokit.data.graphql(GET_PR_CHECK_RUNS_BY_URL_QUERY, {
               owner,
               repo,
               number: prNumber,
               cursor: cursor ?? null,
-            })
-          )
+              request: { signal },
+            });
+          },
+          { signal }
         );
       } catch (error) {
+        if (signal.aborted) return ok(false);
         return err(toPrApiError(error, 'Unable to sync check runs', repository.data.host));
       }
+      if (signal.aborted) return ok(false);
 
       const contexts =
         response.repository.pullRequest?.commits.nodes[0]?.commit?.statusCheckRollup?.contexts;
@@ -741,7 +771,8 @@ export class PrSyncEngine {
       cursor = contexts.pageInfo.endCursor ?? undefined;
     }
 
-    // Delete and re-insert
+    // Once replacement starts, finish delete/insert even if cancelled during the
+    // delete. Stopping between them would discard the stored checks.
     await db.delete(pullRequestChecks).where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl));
 
     if (allNodes.length > 0) {
@@ -787,6 +818,8 @@ export class PrSyncEngine {
       );
     }
 
+    if (signal.aborted) return ok(false);
+
     // Return true if any check is still in-progress
     const hasRunning = allNodes.some((n) => {
       if (n.__typename === 'CheckRun') {
@@ -801,19 +834,20 @@ export class PrSyncEngine {
     });
 
     // Notify the renderer with the fully-assembled PR so checks appear reactively.
-    await this._notifyPrWithChecks(pullRequestUrl);
+    await this._notifyPrWithChecks(pullRequestUrl, signal);
+    if (signal.aborted) return ok(false);
 
     return ok(hasRunning);
   }
 
-  private async _notifyPrWithChecks(pullRequestUrl: string): Promise<void> {
+  private async _notifyPrWithChecks(pullRequestUrl: string, signal: AbortSignal): Promise<void> {
     const [prRow] = await db
       .select()
       .from(pullRequests)
       .where(eq(pullRequests.url, pullRequestUrl))
       .limit(1);
 
-    if (!prRow) return;
+    if (!prRow || signal.aborted) return;
 
     const [checkRows, labelRows, assigneeJoins] = await Promise.all([
       db
@@ -848,7 +882,7 @@ export class PrSyncEngine {
       assigneeJoins.map((j) => j.user),
       checkRows
     );
-    this._notifyPrUpdated(assembled);
+    if (!signal.aborted) this._notifyPrUpdated(assembled);
   }
 
   // ── Users sync ─────────────────────────────────────────────────────────────

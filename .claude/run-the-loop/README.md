@@ -190,3 +190,15 @@ Before finishing a recovery run, refresh agent-report.json after the final gate 
 Replace pending/failed entries with the observed retry result while retaining the initial
 failure in evidence; a stale report can block publication despite later successful checks.
 A recovered commit and prior logs do not substitute for this run's completed checks.
+
+For check-run cancellation recovery, run pr-sync-check-cancellation.test.ts alongside the
+engine, cancellation, limiter and retry suites. Defer initial ownership lookup, token waits,
+authentication, GraphQL, replacement DELETE and notification lookup independently. Cancel
+through the public repository API; retain an uncancelled success/error control. Once check
+replacement starts, finish its delete/insert pair before returning cancelled: an abort guard
+between those writes silently empties stored checks. Keep notifications suppressed after
+cancellation. Deferred mocks prove boundary ordering, not transaction atomicity or native UI.
+
+For retained-commit recovery, read the final gate logs as well as agent-report.json. An
+interrupted report may still say running after checks completed. Always rerun gates here;
+record GitHub API timeouts separately from local ancestry and retained-file evidence.
