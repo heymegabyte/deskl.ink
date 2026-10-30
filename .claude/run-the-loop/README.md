@@ -208,3 +208,9 @@ identity on every page. A missing PR/commit is not a verified empty rollup. Asse
 cancelled/failed fetches and mid-pagination head changes leave stored checks untouched;
 matching empty rollups may clear them and matching pages must replace only after completion.
 Keep concurrent valid-SHA ordering, transaction rollback and native acceptance separate.
+
+For check replacement rollback, run pr-sync-check-persistence.db.test.ts under main-db
+with the system-Node SQLite build. Reject inserts using a SQLite trigger and compare
+the entire previous snapshot after failure, then remove the trigger and retry. Keep
+better-sqlite3 transaction callbacks synchronous and execute writes with .run(); an
+async callback does not provide atomic replacement. Retain cancellation boundary tests.

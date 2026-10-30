@@ -619,3 +619,29 @@ unavailable on PATH. The generic full role roster was narrowed to lead implement
 read-only recovery and adversarial review. Concurrent valid-SHA replacement ordering,
 transactional rollback and bulk persistence cancellation remain open. No deployment or
 push performed; the outer runner owns publication of this iteration's commit.
+
+
+## 2026-10-30 — Atomic check replacement recovery
+
+Recovered the uncommitted transaction and regression tests retained by failed runs
+41036449890 and 40994074561 after inspecting their diffs/receipts. Remote main
+was verified at 871d9614; those retained files were not published. The new real
+SQLite regression failed twice before recovery: rejected first/later inserts lost
+the previous checks. Synchronous transaction recovery passes all four persistence
+cases and 19 cancellation cases; an independent read-only adversarial review found
+no concrete regression. No schema/migration changes.
+
+Fresh gates: corepack pnpm format, lint, format:check, typecheck with a 6144 MB heap,
+and pnpm test --maxWorkers=1 passed (170 files, 1282 tests). Lint retains two existing
+renderer promise warnings. Default-heap production build exhausted memory; the
+6144 MB retry passed. build:main also enters renderer compilation, so that duplicate
+was stopped before the full retry. A diagnostic non-browser duplicate was started
+while the full suite was silent; its result is recorded separately in the report.
+
+Loop improvement: documented synchronous transaction/.run() requirements and the
+trigger-based rollback/retry verification gate. Scope was lead recovery/testing/docs
+plus read-only adversarial review; the generic website/full-roster and long native
+journeys were not executed for this bounded native persistence recovery. GitHub API
+timed out; local failed receipts and live git remote ancestry were inspected.
+Concurrent valid-SHA ordering and Electron/live GitHub cancellation remain open.
+No deployment or push; outer runner owns publication of this entry's commit.

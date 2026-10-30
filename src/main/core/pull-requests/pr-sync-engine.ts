@@ -762,52 +762,58 @@ export class PrSyncEngine {
       cursor = contexts.pageInfo.endCursor ?? undefined;
     }
 
-    // Once replacement starts, finish delete/insert even if cancelled during the
-    // delete. Stopping between them would discard the stored checks.
-    await db.delete(pullRequestChecks).where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl));
+    // better-sqlite3 transactions must stay synchronous. Commit the complete
+    // snapshot together, or retain the previous checks if insertion fails.
+    db.transaction((tx) => {
+      tx.delete(pullRequestChecks)
+        .where(eq(pullRequestChecks.pullRequestUrl, pullRequestUrl))
+        .run();
 
-    if (allNodes.length > 0) {
-      await db.insert(pullRequestChecks).values(
-        allNodes.map((node) => {
-          if (node.__typename === 'CheckRun') {
-            return {
-              id: randomUUID(),
-              pullRequestUrl,
-              commitSha: headRefOid,
-              name: node.name,
-              status: node.status,
-              conclusion: node.conclusion ?? 'NEUTRAL',
-              detailsUrl: node.detailsUrl ?? null,
-              startedAt: node.startedAt ?? null,
-              completedAt: node.completedAt ?? null,
-              workflowName: node.checkSuite?.workflowRun?.workflow?.name ?? null,
-              appName: node.checkSuite?.app?.name ?? null,
-              appLogoUrl: node.checkSuite?.app?.logoUrl ?? null,
-            };
-          }
-          // StatusContext
-          return {
-            id: randomUUID(),
-            pullRequestUrl,
-            commitSha: headRefOid,
-            name: node.context,
-            status: node.state === 'PENDING' ? 'IN_PROGRESS' : 'COMPLETED',
-            conclusion:
-              node.state === 'SUCCESS'
-                ? 'SUCCESS'
-                : node.state === 'FAILURE' || node.state === 'ERROR'
-                  ? 'FAILURE'
-                  : 'NEUTRAL',
-            detailsUrl: node.targetUrl ?? null,
-            startedAt: node.createdAt,
-            completedAt: node.state !== 'PENDING' ? node.createdAt : null,
-            workflowName: null,
-            appName: null,
-            appLogoUrl: null,
-          };
-        })
-      );
-    }
+      if (allNodes.length > 0) {
+        tx.insert(pullRequestChecks)
+          .values(
+            allNodes.map((node) => {
+              if (node.__typename === 'CheckRun') {
+                return {
+                  id: randomUUID(),
+                  pullRequestUrl,
+                  commitSha: headRefOid,
+                  name: node.name,
+                  status: node.status,
+                  conclusion: node.conclusion ?? 'NEUTRAL',
+                  detailsUrl: node.detailsUrl ?? null,
+                  startedAt: node.startedAt ?? null,
+                  completedAt: node.completedAt ?? null,
+                  workflowName: node.checkSuite?.workflowRun?.workflow?.name ?? null,
+                  appName: node.checkSuite?.app?.name ?? null,
+                  appLogoUrl: node.checkSuite?.app?.logoUrl ?? null,
+                };
+              }
+              // StatusContext
+              return {
+                id: randomUUID(),
+                pullRequestUrl,
+                commitSha: headRefOid,
+                name: node.context,
+                status: node.state === 'PENDING' ? 'IN_PROGRESS' : 'COMPLETED',
+                conclusion:
+                  node.state === 'SUCCESS'
+                    ? 'SUCCESS'
+                    : node.state === 'FAILURE' || node.state === 'ERROR'
+                      ? 'FAILURE'
+                      : 'NEUTRAL',
+                detailsUrl: node.targetUrl ?? null,
+                startedAt: node.createdAt,
+                completedAt: node.state !== 'PENDING' ? node.createdAt : null,
+                workflowName: null,
+                appName: null,
+                appLogoUrl: null,
+              };
+            })
+          )
+          .run();
+      }
+    });
 
     if (signal.aborted) return ok(false);
 

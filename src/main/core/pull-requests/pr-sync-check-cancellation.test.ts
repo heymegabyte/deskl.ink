@@ -10,9 +10,15 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   insert: vi.fn(),
   values: vi.fn(),
+  transaction: vi.fn(),
 }));
 vi.mock('@main/db/client', () => ({
-  db: { select: mocks.select, delete: mocks.remove, insert: mocks.insert },
+  db: {
+    select: mocks.select,
+    delete: mocks.remove,
+    insert: mocks.insert,
+    transaction: mocks.transaction,
+  },
 }));
 vi.mock('@main/db/kv', () => ({ KV: class {} }));
 vi.mock('@main/lib/events', () => ({ events: { emit: vi.fn() } }));
@@ -80,8 +86,11 @@ function checkResponse(oid: string, hasNextPage = false) {
 describe('check-run cancellation', () => {
   beforeEach(() => {
     mocks.select.mockReset();
-    mocks.remove.mockReset().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-    mocks.values.mockReset().mockResolvedValue(undefined);
+    mocks.remove.mockReset().mockReturnValue({ where: () => ({ run: vi.fn() }) });
+    mocks.transaction
+      .mockReset()
+      .mockImplementation((callback) => callback({ delete: mocks.remove, insert: mocks.insert }));
+    mocks.values.mockReset().mockReturnValue({ run: vi.fn() });
     mocks.insert.mockReset().mockReturnValue({ values: mocks.values });
     vi.mocked(events.emit).mockClear();
     vi.mocked(githubRateLimiter.acquire).mockReset().mockResolvedValue(undefined);
@@ -295,9 +304,10 @@ describe('check-run cancellation', () => {
     async (cancelPhase) => {
       const { engine, graphql } = setup();
       const notifyLookup = deferred<unknown[]>();
-      const replacement = deferred<void>();
       if (cancelPhase === 'replacement') {
-        mocks.remove.mockReturnValueOnce({ where: () => replacement.promise });
+        mocks.remove.mockReturnValueOnce({
+          where: () => ({ run: () => engine.cancel(repositoryUrl) }),
+        });
       }
       const row = { url: pullRequestUrl, identifier: '#12', repositoryUrl, title: 'Test PR' };
       mocks.select
@@ -334,10 +344,7 @@ describe('check-run cancellation', () => {
       });
       const request = engine.syncChecks(pullRequestUrl, 'sha');
       if (cancelPhase === 'replacement') {
-        await vi.waitFor(() => expect(mocks.remove).toHaveBeenCalledTimes(1));
-        engine.cancel(repositoryUrl);
-        replacement.resolve();
-        // Cancellation cannot split an already-started delete/insert replacement.
+        // Synchronous cancellation cannot split the transaction.
         await expect(request).resolves.toEqual(ok(false));
       } else {
         await vi.waitFor(() => expect(mocks.select).toHaveBeenCalledTimes(2));

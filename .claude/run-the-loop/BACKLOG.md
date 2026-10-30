@@ -122,3 +122,7 @@
 
 - [x] Bulk retry cancellation reporting: preserve cancelled progress when retry backoff
   rethrows the last API failure; cover full/incremental modes and uncancelled failures.
+
+- [x] Check replacement rollback: retain previous stored checks if SQLite rejects a
+  replacement insert; verify first/later-row failures, retry, empty snapshots and PR
+  isolation with real SQLite. Concurrent valid-SHA ordering and native acceptance remain open.
