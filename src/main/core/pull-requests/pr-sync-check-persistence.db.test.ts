@@ -31,7 +31,7 @@ const previousCheck = {
   status: 'COMPLETED',
   conclusion: 'SUCCESS',
 };
-function response(nodes: unknown[]) {
+function response(nodes: unknown[], oid = 'sha') {
   return {
     repository: {
       pullRequest: {
@@ -39,7 +39,7 @@ function response(nodes: unknown[]) {
           nodes: [
             {
               commit: {
-                oid: 'sha',
+                oid,
                 statusCheckRollup: {
                   contexts: {
                     pageInfo: { hasNextPage: false, endCursor: null },
@@ -134,6 +134,81 @@ describe('check-run replacement persistence', () => {
       expect(events.emit).toHaveBeenCalledTimes(1);
     }
   );
+
+  it('keeps the newer head snapshot when an older valid response finishes last', async () => {
+    let finishOld!: (value: ReturnType<typeof response>) => void;
+    const oldResponse = new Promise<ReturnType<typeof response>>((resolve) => {
+      finishOld = resolve;
+    });
+    const graphql = vi
+      .fn()
+      .mockReturnValueOnce(oldResponse)
+      .mockResolvedValueOnce(response([{ ...runningCheck, name: 'new build' }], 'new-sha'));
+    const engine = new PrSyncEngine(
+      vi.fn().mockResolvedValue(ok({ graphql } as unknown as Octokit))
+    );
+    const old = engine.syncChecks(pullRequestUrl, 'sha');
+    await vi.waitFor(() => expect(graphql).toHaveBeenCalledTimes(1));
+    await expect(engine.syncChecks(pullRequestUrl, 'new-sha')).resolves.toEqual(ok(true));
+    const newerChecks = checks();
+    finishOld(response([runningCheck]));
+    await expect(old).resolves.toEqual(ok(false));
+    expect(checks()).toEqual(newerChecks);
+    expect(checks().map(({ commitSha }) => commitSha)).toEqual(['new-sha']);
+    expect(events.emit).toHaveBeenCalledTimes(1);
+    expect(checks(otherPullRequestUrl)).toHaveLength(1);
+  });
+
+  it('does not let an older completion release a pending newer operation', async () => {
+    const resolvers: Array<(value: ReturnType<typeof response>) => void> = [];
+    const graphql = vi.fn().mockImplementation(
+      () =>
+        new Promise<ReturnType<typeof response>>((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+    const engine = new PrSyncEngine(
+      vi.fn().mockResolvedValue(ok({ graphql } as unknown as Octokit))
+    );
+    const previous = checks();
+    const old = engine.syncChecks(pullRequestUrl, 'sha');
+    await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+    const newer = engine.syncChecks(pullRequestUrl, 'new-sha');
+    await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+    resolvers[0](response([runningCheck]));
+    await expect(old).resolves.toEqual(ok(false));
+    expect(checks()).toEqual(previous);
+    resolvers[1](response([runningCheck], 'new-sha'));
+    await expect(newer).resolves.toEqual(ok(true));
+    expect(checks().map(({ commitSha }) => commitSha)).toEqual(['new-sha']);
+    expect(events.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves stored checks after a newer unavailable head and permits a fresh retry', async () => {
+    let finishOld!: (value: ReturnType<typeof response>) => void;
+    const graphql = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<ReturnType<typeof response>>((resolve) => {
+          finishOld = resolve;
+        })
+      )
+      .mockResolvedValueOnce(response([], 'unavailable'))
+      .mockResolvedValueOnce(response([runningCheck], 'new-sha'));
+    const engine = new PrSyncEngine(
+      vi.fn().mockResolvedValue(ok({ graphql } as unknown as Octokit))
+    );
+    const previous = checks();
+    const old = engine.syncChecks(pullRequestUrl, 'sha');
+    await vi.waitFor(() => expect(graphql).toHaveBeenCalledTimes(1));
+    await expect(engine.syncChecks(pullRequestUrl, 'new-sha')).resolves.toEqual(ok(false));
+    finishOld(response([runningCheck]));
+    await expect(old).resolves.toEqual(ok(false));
+    expect(checks()).toEqual(previous);
+    expect(events.emit).not.toHaveBeenCalled();
+    await expect(engine.syncChecks(pullRequestUrl, 'new-sha')).resolves.toEqual(ok(true));
+    expect(checks().map(({ commitSha }) => commitSha)).toEqual(['new-sha']);
+  });
 
   it('replaces a complete snapshot without changing another PR', async () => {
     const engine = setup([

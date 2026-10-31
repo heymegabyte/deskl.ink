@@ -175,6 +175,9 @@ export class PrSyncEngine {
   private readonly _checksInflight = new Map<string, Promise<Result<boolean, PrSyncEngineError>>>();
 
   private readonly _checksControllers = new Map<string, CheckSyncOperation>();
+  // Different heads share the same stored snapshot. Only the latest operation
+  // started for a PR may replace it, even after that operation has finished.
+  private readonly _latestCheckOperations = new Map<string, CheckSyncOperation>();
 
   constructor(
     private readonly getOctokit: (host: string) => Promise<Result<Octokit, GitHubApiAuthError>>
@@ -652,6 +655,7 @@ export class PrSyncEngine {
 
     const operation: CheckSyncOperation = { controller: ctrl, cancelledRepositories: new Set() };
     this._checksControllers.set(key, operation);
+    this._latestCheckOperations.set(pullRequestUrl, operation);
     const promise = this._runSyncChecks(pullRequestUrl, headRefOid, operation)
       .catch((e: unknown) => {
         if (!ctrl.signal.aborted && (e as { name?: string }).name !== 'AbortError') {
@@ -661,6 +665,9 @@ export class PrSyncEngine {
         return ok(false);
       })
       .finally(() => {
+        if (this._latestCheckOperations.get(pullRequestUrl) === operation) {
+          this._latestCheckOperations.delete(pullRequestUrl);
+        }
         if (this._checksControllers.get(key) === operation) {
           this._checksInflight.delete(key);
           this._checksControllers.delete(key);
@@ -761,6 +768,10 @@ export class PrSyncEngine {
       if (!contexts.pageInfo.hasNextPage) break;
       cursor = contexts.pageInfo.endCursor ?? undefined;
     }
+
+    // A newer head request supersedes this snapshot even if its own fetch failed
+    // or already completed. Never let an older response restore stale checks.
+    if (this._latestCheckOperations.get(pullRequestUrl) !== operation) return ok(false);
 
     // better-sqlite3 transactions must stay synchronous. Commit the complete
     // snapshot together, or retain the previous checks if insertion fails.

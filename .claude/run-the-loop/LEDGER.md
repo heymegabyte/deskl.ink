@@ -645,3 +645,28 @@ journeys were not executed for this bounded native persistence recovery. GitHub 
 timed out; local failed receipts and live git remote ancestry were inspected.
 Concurrent valid-SHA ordering and Electron/live GitHub cancellation remain open.
 No deployment or push; outer runner owns publication of this entry's commit.
+
+## 2026-10-31 — recover concurrent check snapshot ownership
+
+Recovered the missing product/test slice from retained failed commit 9fe5cc63
+(base b69b199a); verified it is absent from origin/main and left retained files
+intact. Fresh SQLite RED: three stale-response tests failed on the base; GREEN:
+all seven persistence tests pass with latest-started per-PR ownership. Older
+responses cannot replace newer snapshots or emit stale notifications, including
+a newer unavailable response. Independent read-only review found no blocker.
+
+Verification: format and format:check passed; lint passed with two existing
+renderer promise warnings; typecheck passed with a 6144 MB Node heap; full
+production build passed with the same heap. Initial full-suite attempt emitted a
+React JSX development-runtime optimizer reload and was stopped without results.
+Loop improvement: explicitly prebundle that runtime in the browser project and
+document the fresh-suite requirement. Retry completed: 170 files / 1285 tests
+passed, including browser, main-db and migration projects. Logs are in the private
+run directory heymegabyte--deskl.ink-41152336963-1.
+
+This bounded native recovery used lead implementation/testing/docs and independent
+adversarial review; no long native Electron/live GitHub journey or full generic
+website roster was executed. GitHub history queries timed out; local GitHub failed
+receipts and freshly fetched origin/main ancestry supplied recovery evidence.
+Next frontier: bulk persistence cancellation and Electron/live GitHub acceptance.
+No deployment or push; outer runner owns publication of this entry's commit.

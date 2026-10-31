@@ -98,10 +98,9 @@
 - [x] PR check-run cancellation: register repository ownership, abort queued tokens/retries/requests,
   suppress late persistence/notifications, and finish any already-started check replacement.
   Deferred unit regressions cover ownership lookup, deduplication, repository isolation and cleanup.
-- [ ] PR sync persistence cancellation: verify database upserts/late bulk responses, concurrent
-  head-SHA check replacements and real Electron/GitHub cancellation. Unit mocks do not prove
-  atomic database replacement or native behavior. Valid old/new SHA responses can still
-  race during replacement; serialize or establish per-PR ownership before claiming safety.
+- [ ] PR sync persistence cancellation: verify database upserts/late bulk responses and
+  real Electron/GitHub cancellation. Unit mocks do not prove native behavior; SQLite
+  rollback and concurrent valid-SHA ordering are covered separately below.
 - [x] Check fetch preservation: retain stored checks until all replacement pages are fetched;
   reject missing or mismatched commit identities on every page. Cover cancellation/failure
   with previous-head checks, paginated head changes, valid empty rollups and completed pages.
@@ -125,4 +124,8 @@
 
 - [x] Check replacement rollback: retain previous stored checks if SQLite rejects a
   replacement insert; verify first/later-row failures, retry, empty snapshots and PR
-  isolation with real SQLite. Concurrent valid-SHA ordering and native acceptance remain open.
+  isolation with real SQLite. Native acceptance remains open.
+
+- [x] Concurrent check snapshot ownership: only the latest started per-PR operation may
+  replace stored checks; cover both completion orders, unavailable newer heads, retry,
+  stale notification suppression and PR isolation with real SQLite.

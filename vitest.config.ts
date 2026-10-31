@@ -79,6 +79,7 @@ export default defineConfig({
         // Renderer terminal tests that need a real browser environment
         // (real CSS layout, ResizeObserver, requestAnimationFrame, WebGL).
         extends: true,
+        optimizeDeps: { include: ['react/jsx-dev-runtime'] },
         test: {
           name: 'browser',
           browser: {

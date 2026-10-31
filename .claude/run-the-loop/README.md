@@ -214,3 +214,14 @@ with the system-Node SQLite build. Reject inserts using a SQLite trigger and com
 the entire previous snapshot after failure, then remove the trigger and retry. Keep
 better-sqlite3 transaction callbacks synchronous and execute writes with .run(); an
 async callback does not provide atomic replacement. Retain cancellation boundary tests.
+
+For concurrent check-head replacement, defer valid old/new SHA responses in the real-SQLite
+persistence suite and settle them in both orders. Only the latest started operation owns
+replacement; a failed/unavailable newer fetch must not revive an older response. Verify
+stored rows, stale notification suppression, retry and identity-guarded cleanup separately.
+Keep same-head deduplication and repository cancellation regressions in the full gate.
+
+For first-use browser-suite startup, prebundle react/jsx-dev-runtime in the browser
+project optimizeDeps.include. An unexpected Vite reload can interrupt a test before
+results are reported; retain the interrupted log and require a completed fresh suite
+after changing optimizer configuration. A reload-free startup alone is not a pass.
