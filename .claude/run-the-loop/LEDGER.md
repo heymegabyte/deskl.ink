@@ -670,3 +670,18 @@ website roster was executed. GitHub history queries timed out; local GitHub fail
 receipts and freshly fetched origin/main ancestry supplied recovery evidence.
 Next frontier: bulk persistence cancellation and Electron/live GitHub acceptance.
 No deployment or push; outer runner owns publication of this entry's commit.
+
+## 2026-10-31 — recovered bulk shared-worktree preflight (e9dda7c1)
+
+Recovered reviewed source and real-SQLite tests from failed run 41178354156. Fresh
+regression before the fix: 4 failed, 2 passed. After excluding all selected IDs from
+sibling lookup: 16 focused tests passed. Updated recovery guidance to require real
+SQL coverage and a fresh RED before recovering source. Native Electron acceptance
+remains open; no Xvfb or Weston available on PATH. Publication belongs to outer runner.
+
+Fresh validation: format, lint (two existing renderer warnings), typecheck and full
+suite passed: 171 files / 1291 tests including Chromium. Build exhausted the default
+Node heap (exit 134); retry with NODE_OPTIONS=--max-old-space-size=6144 passed.
+GitHub history API queries timed out; remote main was independently confirmed as
+ad605629 by git ls-remote. Next frontier: WorktreeService lookup failures and native
+rollback/journey acceptance. No deployment; source publication is pending outer runner.

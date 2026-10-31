@@ -65,7 +65,10 @@
   reconcile partial backend deletion with renderer state using a real Electron journey.
 
 - [ ] Preflight lookup completeness: distinguish missing worktrees from swallowed fallback
-  lookup errors in WorktreeService; inspect dirty shared branches when every sibling is selected.
+  lookup errors in WorktreeService.
+- [x] Bulk shared-worktree preflight: inspect dirty shared branches when every sibling is
+  selected; retain the worktree when an unselected sibling remains. Real SQLite regressions
+  cover both selection orders, status rejection, project isolation and source-branch safety.
 
 - [x] Individual delete rejection: consume task-row and sidebar manager rejection and show action-specific
   feedback. Keep native rollback/partial backend deletion verification separate.

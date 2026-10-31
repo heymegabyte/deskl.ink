@@ -225,3 +225,9 @@ For first-use browser-suite startup, prebundle react/jsx-dev-runtime in the brow
 project optimizeDeps.include. An unexpected Vite reload can interrupt a test before
 results are reported; retain the interrupted log and require a completed fresh suite
 after changing optimizer configuration. A reload-free startup alone is not a pass.
+
+For shared-worktree preflight changes, run both getDeletePreflight.test.ts and
+getDeletePreflight.db.test.ts. Queue-shaped query mocks do not verify sibling SQL:
+use real SQLite with all siblings selected, a retained sibling, reversed selection,
+another project sharing the branch name, status rejection and source-branch protection.
+Recover retained regression tests before source changes to obtain fresh RED evidence.
