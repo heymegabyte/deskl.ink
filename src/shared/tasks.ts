@@ -126,7 +126,7 @@ export type DeleteTaskOptions = {
 
 export type TaskDeletePreflightItem = {
   taskId: string;
-  /** taskBranch exists and no sibling task shares it */
+  /** taskBranch exists and no unselected sibling task shares it */
   hasWorktree: boolean;
   /** staged or unstaged changes exist in the worktree */
   hasUncommittedChanges: boolean;

@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import { projectManager } from '@main/core/projects/project-manager';
 import { db } from '@main/db/client';
 import { tasks } from '@main/db/schema';
@@ -7,7 +7,8 @@ import type { DeletePreflightResult, TaskDeletePreflightItem } from '@shared/tas
 
 async function getTaskPreflight(
   projectId: string,
-  taskId: string
+  taskId: string,
+  selectedTaskIds: string[]
 ): Promise<TaskDeletePreflightItem> {
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
   if (!task?.taskBranch) {
@@ -21,7 +22,7 @@ async function getTaskPreflight(
       and(
         eq(tasks.projectId, projectId),
         eq(tasks.taskBranch, task.taskBranch),
-        ne(tasks.id, taskId)
+        notInArray(tasks.id, selectedTaskIds)
       )
     )
     .limit(1);
@@ -60,6 +61,6 @@ export async function getDeletePreflight(
   projectId: string,
   taskIds: string[]
 ): Promise<DeletePreflightResult> {
-  const items = await Promise.all(taskIds.map((id) => getTaskPreflight(projectId, id)));
+  const items = await Promise.all(taskIds.map((id) => getTaskPreflight(projectId, id, taskIds)));
   return { tasks: items };
 }
