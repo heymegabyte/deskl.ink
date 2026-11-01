@@ -37,6 +37,11 @@ describe('delete preflight inspection', () => {
     await expect(getDeletePreflight('project', ['task'])).rejects.toThrow('inspection unavailable');
   });
 
+  it('requests read-only strict worktree inspection', async () => {
+    await getDeletePreflight('project', ['task']);
+    expect(mocks.getWorktree).toHaveBeenCalledWith('task-branch', { strict: true });
+  });
+
   it('rejects when the project is unavailable for inspection', async () => {
     mocks.getProject.mockReturnValue(undefined);
     await expect(getDeletePreflight('project', ['task'])).rejects.toThrow('Project not found');

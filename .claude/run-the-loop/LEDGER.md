@@ -685,3 +685,25 @@ Node heap (exit 134); retry with NODE_OPTIONS=--max-old-space-size=6144 passed.
 GitHub history API queries timed out; remote main was independently confirmed as
 ad605629 by git ls-remote. Next frontier: WorktreeService lookup failures and native
 rollback/journey acceptance. No deployment; source publication is pending outer runner.
+
+## 2026-10-31 — strict worktree inspection recovery
+
+Run heymegabyte--deskl.ink-41256432366-1 recovered the reviewed source/tests from
+retained commit 79f760e6, which is absent from main. Inspected both prior failed
+worktrees and kept retained files intact. Fresh regression before source recovery:
+7 failed / 25 passed. After recovery: 32 focused tests passed. Strict preflight now
+propagates failed local/remote inspections and skips lookup-time directory removal
+and pruning; constructor maintenance is outside that guarantee.
+
+Fresh gates: format, lint (two existing renderer warnings), typecheck with a 6144 MiB
+heap, full suite (171 files / 1302 tests), and production build with a 6144 MiB heap
+all passed. Two read-only reviews found no introduced blocker. Loop improvement:
+added strict-inspection regression and interruption-safe report guidance. Backlog
+retains preexisting fallback pool containment work.
+
+This bounded recovery used lead implementation/testing/docs plus read-only safety,
+adversarial and documentation reviews rather than the full generic role roster.
+No native golden/long journey ran: Xvfb/Weston are unavailable; SSH tests are mocked.
+GitHub history requests timed out; local receipts and git ancestry supplied recovery
+evidence. No deployment or publication claim. Outer runner owns publication of the
+commit containing this entry. Report and fresh logs are in this run's private logdir.

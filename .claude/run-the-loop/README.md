@@ -231,3 +231,15 @@ getDeletePreflight.db.test.ts. Queue-shaped query mocks do not verify sibling SQ
 use real SQLite with all siblings selected, a retained sibling, reversed selection,
 another project sharing the branch name, status rejection and source-branch protection.
 Recover retained regression tests before source changes to obtain fresh RED evidence.
+
+For strict deletion inspection recovery, run worktree-service.test.ts and
+getDeletePreflight.test.ts before restoring the implementation, then again afterward.
+Cover local access, realpath and Git-list failures, remote stat failures, absent pools,
+and stale directories without lookup-time cleanup. The service constructor's existing
+maintenance is separate from the strict lookup contract. Keep SSH mocks and native
+Electron acceptance distinct from real local Git worktree tests.
+
+Write agent-report.json as an interruption-safe checkpoint once fresh results exist,
+then replace pending entries with final observed outcomes before ending. A prior report
+containing a failed default-heap attempt must retain that failure alongside a successful
+larger-heap retry; never silently convert an unfinished or failed check to a pass.

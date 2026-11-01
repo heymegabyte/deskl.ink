@@ -157,14 +157,38 @@ export class WorktreeService {
     }
   }
 
-  async getWorktree(branchName: string): Promise<string | undefined> {
+  async getWorktree(
+    branchName: string,
+    options: {
+      /** Propagate inspection errors and skip stale-directory removal and pruning. */
+      strict?: boolean;
+    } = {}
+  ): Promise<string | undefined> {
+    const strict = options.strict ?? false;
+    const exists = async (candidate: string): Promise<boolean> => {
+      if (!strict) return this.host.existsAbsolute(candidate);
+      if (!this.ctx.supportsLocalSpawn) return (await this.host.statAbsolute(candidate)) !== null;
+      try {
+        await fsPromises.access(candidate);
+        return true;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+        throw error;
+      }
+    };
+    const isValid = (candidate: string) =>
+      strict ? exists(this.host.pathApi.join(candidate, '.git')) : this.isValidWorktree(candidate);
     const worktreePoolPath = await this.resolveWorktreePoolPath();
     const worktreePath = this.host.pathApi.join(worktreePoolPath, branchName);
-    if (await this.host.existsAbsolute(worktreePath)) {
-      if (await this.isValidWorktree(worktreePath)) return worktreePath;
-      await this.host.removeAbsolute(worktreePath, { recursive: true }).catch(() => {});
+    if (await exists(worktreePath)) {
+      if (await isValid(worktreePath)) return worktreePath;
+      if (!strict)
+        await this.host.removeAbsolute(worktreePath, { recursive: true }).catch(() => {});
     }
 
+    // Inspection must distinguish an absent pool from an unsuccessful lookup.
+    if (strict && !(await exists(worktreePoolPath))) return undefined;
     try {
       const realPoolPath = await this.host.realPathAbsolute(worktreePoolPath);
       const { stdout } = await this.ctx.exec('git', ['worktree', 'list', '--porcelain']);
@@ -174,11 +198,13 @@ export class WorktreeService {
           const match = /^worktree (.+)$/m.exec(block);
           const candidatePath = match?.[1];
           if (!candidatePath?.startsWith(realPoolPath)) continue;
-          if (await this.isValidWorktree(candidatePath)) return candidatePath;
-          await this.ctx.exec('git', ['worktree', 'prune']).catch(() => {});
+          if (await isValid(candidatePath)) return candidatePath;
+          if (!strict) await this.ctx.exec('git', ['worktree', 'prune']).catch(() => {});
         }
       }
-    } catch {}
+    } catch (error) {
+      if (strict) throw error;
+    }
     return undefined;
   }
 

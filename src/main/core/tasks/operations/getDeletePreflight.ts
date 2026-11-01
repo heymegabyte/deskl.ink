@@ -38,7 +38,9 @@ async function getTaskPreflight(
     const project = projectManager.getProject(projectId);
     if (!project) throw new Error(`Project not found: ${projectId}`);
     try {
-      const worktreePath = await project.worktreeService.getWorktree(task.taskBranch);
+      const worktreePath = await project.worktreeService.getWorktree(task.taskBranch, {
+        strict: true,
+      });
       if (worktreePath) {
         const { stdout } = await project.ctx.exec('git', [
           '-C',

@@ -132,3 +132,10 @@
 - [x] Concurrent check snapshot ownership: only the latest started per-PR operation may
   replace stored checks; cover both completion orders, unavailable newer heads, retry,
   stale notification suppression and PR isolation with real SQLite.
+
+- [x] Strict deletion lookup: recover retained commit 79f760e6 after confirming it is
+  absent from main; propagate inspection failures through preflight without lookup-time
+  directory removal/pruning. Fresh regression recovery reproduces seven failures.
+- [ ] Worktree fallback pool containment: replace string-prefix membership with a
+  path-boundary check; cover a sibling pool whose name begins with the configured pool.
+  Strict inspection recovery preserves this preexisting behavior.

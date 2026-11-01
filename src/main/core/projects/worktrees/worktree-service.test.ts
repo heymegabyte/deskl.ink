@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs, { promises as fsPromises } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -127,6 +127,136 @@ describe('WorktreeService', () => {
       'host-dir:/remote/worktrees/project/emdash',
       { recursive: true }
     );
+  });
+
+  describe('strict inspection', () => {
+    it.each(['realpath', 'list'])('rejects a failed %s lookup', async (stage) => {
+      const error = new Error('inspection unavailable');
+      const ctx = new LocalExecutionContext({ root: repoDir });
+      const exec = vi.spyOn(ctx, 'exec');
+      if (stage === 'list') {
+        exec.mockImplementation(async (_command, args) => {
+          if (args?.includes('list')) throw error;
+          return { stdout: '', stderr: '' };
+        });
+      } else {
+        vi.spyOn(host, 'realPathAbsolute').mockRejectedValueOnce(error);
+      }
+      const svc = new WorktreeService({
+        repoPath: repoDir,
+        ctx,
+        host,
+        projectSettings: makeSettings(),
+        resolveWorktreePoolPath: async () => poolDir,
+      });
+      await expect(svc.getWorktree('missing', { strict: true })).rejects.toThrow(error);
+    });
+
+    it.each(['direct', 'nested'])('finds a valid %s worktree without cleanup', async (location) => {
+      const branch = 'inspection-task';
+      const target = path.join(
+        poolDir,
+        ...(location === 'nested' ? ['relocated', branch] : [branch])
+      );
+      await git(['branch', branch], { cwd: repoDir });
+      await git(['worktree', 'add', target, branch], { cwd: repoDir });
+      const ctx = new LocalExecutionContext({ root: repoDir });
+      const exec = vi.spyOn(ctx, 'exec');
+      const remove = vi.spyOn(host, 'removeAbsolute');
+      const svc = new WorktreeService({
+        repoPath: repoDir,
+        ctx,
+        host,
+        projectSettings: makeSettings(),
+        resolveWorktreePoolPath: async () => poolDir,
+      });
+      // Constructor maintenance is separate from this read-only inspection.
+      exec.mockClear();
+      await expect(svc.getWorktree(branch, { strict: true })).resolves.toBe(target);
+      expect(remove).not.toHaveBeenCalled();
+      expect(exec.mock.calls.some(([, args]) => args?.includes('prune'))).toBe(false);
+    });
+
+    it('rejects local access errors during inspection', async () => {
+      const svc = makeService();
+      const error = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      const access = vi.spyOn(fsPromises, 'access').mockRejectedValueOnce(error);
+      try {
+        await expect(svc.getWorktree('missing', { strict: true })).rejects.toThrow(error);
+      } finally {
+        access.mockRestore();
+      }
+    });
+
+    it('permits an absent remote pool without resolving its real path', async () => {
+      const remoteHost = {
+        pathApi: path.posix,
+        statAbsolute: vi.fn().mockResolvedValue(null),
+        realPathAbsolute: vi.fn(),
+      } as unknown as WorktreeHost;
+      const ctx = {
+        root: '/remote',
+        supportsLocalSpawn: false,
+        exec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+        execStreaming: vi.fn(),
+        dispose: vi.fn(),
+      } satisfies IExecutionContext;
+      const svc = new WorktreeService({
+        repoPath: '/remote',
+        ctx,
+        host: remoteHost,
+        projectSettings: makeSettings(),
+        resolveWorktreePoolPath: async () => '/pool',
+      });
+      await expect(svc.getWorktree('missing', { strict: true })).resolves.toBeUndefined();
+      expect(remoteHost.realPathAbsolute).not.toHaveBeenCalled();
+    });
+
+    it('rejects remote permission failures without removing directories', async () => {
+      const error = new Error('permission denied');
+      const remoteHost = {
+        ...host,
+        pathApi: path.posix,
+        statAbsolute: vi.fn().mockRejectedValue(error),
+        removeAbsolute: vi.fn(),
+      } as unknown as WorktreeHost;
+      const ctx = {
+        root: '/remote',
+        supportsLocalSpawn: false,
+        exec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+        execStreaming: vi.fn(),
+        dispose: vi.fn(),
+      } satisfies IExecutionContext;
+      const svc = new WorktreeService({
+        repoPath: '/remote',
+        ctx,
+        host: remoteHost,
+        projectSettings: makeSettings(),
+        resolveWorktreePoolPath: async () => '/pool',
+      });
+      await expect(svc.getWorktree('missing', { strict: true })).rejects.toThrow(error);
+      expect(remoteHost.removeAbsolute).not.toHaveBeenCalled();
+    });
+
+    it('keeps legacy callers tolerant of failed fallback lookup', async () => {
+      vi.spyOn(host, 'realPathAbsolute').mockRejectedValueOnce(new Error('unavailable'));
+      await expect(makeService().getWorktree('missing')).resolves.toBeUndefined();
+    });
+
+    it('preserves directories without .git during inspection', async () => {
+      const candidate = path.join(poolDir, 'missing');
+      fs.mkdirSync(candidate);
+      fs.writeFileSync(path.join(candidate, 'important.txt'), 'keep');
+      await expect(makeService().getWorktree('missing', { strict: true })).resolves.toBeUndefined();
+      expect(fs.existsSync(path.join(candidate, 'important.txt'))).toBe(true);
+    });
+
+    it('permits a genuinely missing worktree pool', async () => {
+      const missing = path.join(poolDir, 'absent');
+      await expect(
+        makeService({ worktreePoolPath: missing }).getWorktree('missing', { strict: true })
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('checkoutBranchWorktree', () => {
