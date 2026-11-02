@@ -748,3 +748,25 @@ golden/long journey ran; private Xvfb/Weston launchers are unavailable. Existing
 native journey acceptance remains the next unmet frontier; component tests do not
 close it. Loop improvement: require checking package-command targets and consumers
 before restoring commands, and update guides with command changes. No deployment.
+
+## 2026-11-02 — recover absent-docs tooling retirement (41512574512-1)
+
+Inspected remote main, Actions history, failed receipts and retained worktrees.
+Retained commit `9cbe0769` was absent from origin/main; recovered it as `c27f96ce`
+without changing prior worktrees. The earlier entry remains historical evidence.
+The recovery removes scripts targeting the absent docs app and reconciles active
+guides; searches found no active command consumers.
+
+Fresh checks: frozen dependency install/native rebuild, format, lint and typecheck
+passed. Lint retains two existing no-misused-promises warnings. An initial full
+test attempt overlapped lint under shared-host pressure and was interrupted with
+exit 130; the sequential rerun passed all 171 files / 1332 tests in 106.72 seconds.
+Direct package-target, guide-reference and whitespace checks passed. No application
+build was required for this configuration/documentation slice.
+
+Three read-only agents grouped the generic roster's review responsibilities; final
+adversarial review found no blocker. No golden/long native journey ran: private
+Xvfb/Weston launchers are unavailable, and this slice changes no desktop workflow.
+Native acceptance items remain open. Loop improvement: README now requires separate
+retained/recovery SHAs and fresh validation rather than reusing historical ledger
+claims. No deployment or publication is claimed; the outer runner owns publication.

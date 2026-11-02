@@ -5,6 +5,10 @@ run ledger; git/files record retained work. Inspect actual main ancestry, failed
 and retained worktrees before repeating a reported fix. The outer fleet runner publishes
 commits; do not push from an isolated run.
 
+When recovering a committed failed run, record both the retained SHA and its new
+recovery SHA. Keep the prior validation entry historical; append fresh results for
+the current run instead of treating the recovered ledger as new execution evidence.
+
 Use agents/workflows/testing.md for the real validation commands. Record fresh results and
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite
 is not proof of a real Electron journey or a published build. Keep fixtures opt-in.
