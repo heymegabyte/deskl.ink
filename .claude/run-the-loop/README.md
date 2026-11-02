@@ -243,3 +243,9 @@ Write agent-report.json as an interruption-safe checkpoint once fresh results ex
 then replace pending entries with final observed outcomes before ending. A prior report
 containing a failed default-heap attempt must retain that failure alongside a successful
 larger-heap retry; never silently convert an unfinished or failed check to a pass.
+
+For repeated recovery attempts, compare retained diffs before copying and reserve time
+for sequential core gates, build, final report and commit using prior observed durations.
+Start the full suite after focused recovery passes; defer additional scope until required
+gates finish. Record interrupted validation explicitly rather than repeating completed
+exploration next run. A completed build log must include the renderer completion.

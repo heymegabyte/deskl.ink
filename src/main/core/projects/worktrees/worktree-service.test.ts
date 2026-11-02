@@ -92,6 +92,7 @@ describe('WorktreeService', () => {
       copyFileAbsolute: vi.fn().mockResolvedValue(undefined),
       statAbsolute: vi.fn().mockResolvedValue(null),
       pathApi: {
+        ...path.posix,
         join: (...segments: string[]) => `host:${path.posix.join(...segments)}`,
         dirname: (input: string) => `host-dir:${path.posix.dirname(input.replace(/^host:/, ''))}`,
       },
@@ -127,6 +128,167 @@ describe('WorktreeService', () => {
       'host-dir:/remote/worktrees/project/emdash',
       { recursive: true }
     );
+  });
+
+  describe('fallback pool containment', () => {
+    const cases = [
+      {
+        name: 'POSIX parent',
+        api: path.posix,
+        pool: '/pool/nested',
+        candidate: '/pool',
+        accepted: false,
+      },
+      {
+        name: 'Windows other UNC share',
+        api: path.win32,
+        pool: '//server/share/pool',
+        candidate: '//server/other/task',
+        accepted: false,
+      },
+      {
+        name: 'POSIX nested child',
+        api: path.posix,
+        pool: '/pool',
+        candidate: '/pool/nested/task',
+        accepted: true,
+      },
+      {
+        name: 'POSIX sibling prefix',
+        api: path.posix,
+        pool: '/pool',
+        candidate: '/pool-other/task',
+        accepted: false,
+      },
+      {
+        name: 'POSIX normalized escape',
+        api: path.posix,
+        pool: '/pool',
+        candidate: '/pool/../outside/task',
+        accepted: false,
+      },
+      {
+        name: 'POSIX dot-prefixed child',
+        api: path.posix,
+        pool: '/pool',
+        candidate: '/pool/..tasks/task',
+        accepted: true,
+      },
+      {
+        name: 'POSIX pool itself',
+        api: path.posix,
+        pool: '/pool',
+        candidate: '/pool',
+        accepted: true,
+      },
+      {
+        name: 'POSIX root pool',
+        api: path.posix,
+        pool: '/',
+        candidate: '/nested/task',
+        accepted: true,
+      },
+      {
+        name: 'Windows child',
+        api: path.win32,
+        pool: 'C:\\pool',
+        candidate: 'C:\\pool\\nested\\task',
+        accepted: true,
+      },
+      {
+        name: 'Windows sibling prefix',
+        api: path.win32,
+        pool: 'C:\\pool',
+        candidate: 'C:\\pool-other\\task',
+        accepted: false,
+      },
+      {
+        name: 'Windows other drive',
+        api: path.win32,
+        pool: 'C:\\pool',
+        candidate: 'D:\\pool\\task',
+        accepted: false,
+      },
+      {
+        name: 'Windows mixed separators and case',
+        api: path.win32,
+        pool: 'C:\\Pool',
+        candidate: 'c:/pool/nested/task',
+        accepted: true,
+      },
+      {
+        name: 'Windows UNC child',
+        api: path.win32,
+        pool: '\\\\server\\share\\pool',
+        candidate: '\\\\server\\share\\pool\\nested\\task',
+        accepted: true,
+      },
+      {
+        name: 'Windows UNC sibling',
+        api: path.win32,
+        pool: '\\\\server\\share\\pool',
+        candidate: '\\\\server\\share\\pool-other\\task',
+        accepted: false,
+      },
+    ];
+
+    it.each([false, true])('excludes a real sibling-pool worktree (strict=%s)', async (strict) => {
+      const configuredPool = path.join(poolDir, 'project');
+      const siblingWorktree = path.join(poolDir, 'project-other', 'nested', 'task');
+      fs.mkdirSync(configuredPool);
+      await git(['worktree', 'add', '-b', 'task', siblingWorktree], { cwd: repoDir });
+      const svc = makeService({ worktreePoolPath: configuredPool });
+
+      await expect(svc.getWorktree('task', { strict })).resolves.toBeUndefined();
+      expect(fs.existsSync(path.join(siblingWorktree, '.git'))).toBe(true);
+      const { stdout } = await git(['worktree', 'list', '--porcelain'], { cwd: repoDir });
+      expect(stdout).toContain(`worktree ${siblingWorktree}`);
+    });
+
+    describe.each([false, true])('strict=%s', (strict) => {
+      it.each(cases)('$name', async ({ api, pool, candidate, accepted }) => {
+        const gitMarker = api.join(candidate, '.git');
+        const exists = vi.fn(async (input: string) => input === pool || input === gitMarker);
+        const remoteHost: WorktreeHost = {
+          pathApi: api,
+          existsAbsolute: exists,
+          statAbsolute: vi.fn(async (input: string) =>
+            (await exists(input)) ? { path: input, type: 'dir' as const } : null
+          ),
+          realPathAbsolute: vi.fn().mockResolvedValue(pool),
+          mkdirAbsolute: vi.fn(),
+          removeAbsolute: vi.fn(),
+          globAbsolute: vi.fn(),
+          readFileAbsolute: vi.fn(),
+          copyFileAbsolute: vi.fn(),
+        };
+        const exec = vi.fn(async (_command: string, args: string[]) => ({
+          stdout: args.includes('list') ? `worktree ${candidate}\nbranch refs/heads/task\n\n` : '',
+          stderr: '',
+        }));
+        const ctx = {
+          root: '/remote',
+          supportsLocalSpawn: false,
+          exec,
+          execStreaming: vi.fn(),
+          dispose: vi.fn(),
+        } satisfies IExecutionContext;
+        const svc = new WorktreeService({
+          repoPath: '/remote',
+          ctx,
+          host: remoteHost,
+          projectSettings: makeSettings(),
+          resolveWorktreePoolPath: async () => pool,
+        });
+        exec.mockClear();
+        await expect(svc.getWorktree('task', { strict })).resolves.toBe(
+          accepted ? candidate : undefined
+        );
+        if (!accepted) expect(exists).not.toHaveBeenCalledWith(gitMarker);
+        expect(remoteHost.removeAbsolute).not.toHaveBeenCalled();
+        expect(exec.mock.calls.some(([, args]) => args.includes('prune'))).toBe(false);
+      });
+    });
   });
 
   describe('strict inspection', () => {

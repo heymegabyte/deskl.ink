@@ -136,6 +136,10 @@
 - [x] Strict deletion lookup: recover retained commit 79f760e6 after confirming it is
   absent from main; propagate inspection failures through preflight without lookup-time
   directory removal/pruning. Fresh regression recovery reproduces seven failures.
-- [ ] Worktree fallback pool containment: replace string-prefix membership with a
+- [x] Worktree fallback pool containment: replace string-prefix membership with a
   path-boundary check; cover a sibling pool whose name begins with the configured pool.
   Strict inspection recovery preserves this preexisting behavior.
+
+- [ ] Native worktree containment acceptance: on an isolated Electron display, verify
+  deletion preflight ignores a matching branch in a sibling-prefix pool. Unit tests
+  establish lexical host-path boundaries; Windows/SSH behavior remains simulated.

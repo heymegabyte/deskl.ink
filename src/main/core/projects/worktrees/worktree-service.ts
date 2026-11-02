@@ -197,7 +197,14 @@ export class WorktreeService {
         if (block.split('\n').some((line) => line === branchLine)) {
           const match = /^worktree (.+)$/m.exec(block);
           const candidatePath = match?.[1];
-          if (!candidatePath?.startsWith(realPoolPath)) continue;
+          if (!candidatePath) continue;
+          const relativePath = this.host.pathApi.relative(realPoolPath, candidatePath);
+          if (
+            relativePath === '..' ||
+            relativePath.startsWith(`..${this.host.pathApi.sep}`) ||
+            this.host.pathApi.isAbsolute(relativePath)
+          )
+            continue;
           if (await isValid(candidatePath)) return candidatePath;
           if (!strict) await this.ctx.exec('git', ['worktree', 'prune']).catch(() => {});
         }

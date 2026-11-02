@@ -707,3 +707,21 @@ No native golden/long journey ran: Xvfb/Weston are unavailable; SSH tests are mo
 GitHub history requests timed out; local receipts and git ancestry supplied recovery
 evidence. No deployment or publication claim. Outer runner owns publication of the
 commit containing this entry. Report and fresh logs are in this run's private logdir.
+
+## 2026-11-01 — containment recovery (41374711357-1)
+
+Recovered the still-unpublished sibling-prefix containment slice from retained failed
+worktrees after checking actual diffs and remote main (2c0a55a3). Regression-first
+recovery reproduced 12 failures; the corrected host-aware relative-path boundary
+check passed all 62 focused worktree/preflight tests. Formatting and lint completed;
+lint retains two existing renderer promise warnings. Broader gates were started but
+had no completed results at this checkpoint; consult this run's agent-report.json
+for final observed outcomes. Do not merge while required gates remain incomplete.
+
+Three read-only reviewers covered safety/architecture/performance, test/native journey
+limits, and product/docs/loop guidance. This bounded recovery grouped the generic role
+roster rather than spawning sixteen workers; no native golden/long journey ran because
+no private display launcher was available. Windows/SSH paths are simulated and lexical
+containment does not establish symlink confinement. Loop improvement: budget validation,
+report and commit time before repeating retained recovery. Outer runner owns publication;
+this entry makes no publication or deployment claim.
