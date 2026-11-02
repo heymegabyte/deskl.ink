@@ -249,3 +249,7 @@ for sequential core gates, build, final report and commit using prior observed d
 Start the full suite after focused recovery passes; defer additional scope until required
 gates finish. Record interrupted validation explicitly rather than repeating completed
 exploration next run. A completed build log must include the renderer completion.
+
+Before restoring package commands, confirm the target is tracked and executable in
+this checkout. Search workflows, hooks and agent guides for consumers, then update
+commands and guidance together. An inherited script is not evidence of a bundled app.

@@ -94,4 +94,3 @@ Start here. Load only the linked `agents/` docs that are relevant to the task.
 - New views must be registered in `src/renderer/app/view-registry.ts`.
 - Treat `src/main/core/pty/`, `src/main/core/ssh/`, `src/main/db/`, and updater code as high risk.
 - Avoid editing `dist/`, `release/`, and `build/` unless the task is explicitly about packaging or updater/signing behavior.
-- The docs app in `docs/` is separate from the Electron renderer and also defaults to port `3000`.

@@ -79,10 +79,10 @@ Keep component-test results and native journey results separate in the run repor
   the diff, and verify referenced source paths and commands against this checkout.
   `.oxfmtrc.json` excludes Markdown, so a green formatting gate does not validate
   Markdown layout, links or command accuracy; review those explicitly.
-- after docs-app changes: run `pnpm run docs:build` only when `docs/package.json`
-  exists. This checkout has no `docs/` app; the retained package script fails at
-  `cd docs`. Report that prerequisite as unavailable rather than treating a
-  Markdown-only change as an application build failure or claiming a docs build passed.
+- this checkout has no separate docs app or docs package commands. Validate agent
+  and root Markdown with the checks above rather than an application build. Before
+  adding or restoring a package command, verify that its target exists and check
+  workflow and guide references together.
 
 ## Retained Run Recovery
 

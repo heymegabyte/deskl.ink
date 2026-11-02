@@ -6,7 +6,6 @@
 - `src/preload/`: Electron preload bridge — exposes typed `invoke`, `eventSend`, `eventOn` to renderer
 - `src/renderer/`: React UI — views, components, hooks, contexts, typed RPC client
 - `src/shared/`: Provider registry, IPC primitives (RPC + events), MCP types, skills types, shared domain types
-- `docs/`: Separate Next.js + Fumadocs site
 
 ## Boot Sequence
 

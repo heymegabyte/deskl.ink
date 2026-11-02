@@ -119,8 +119,8 @@
   the optional docs app; reproduce absent-docs failure and document retained-worktree
   comparison before recovery. Renderer changes retained by failed runs are superseded
   by 96adb338; leave their files intact.
-- [ ] Optional docs scripts: decide whether to restore the separate docs app or retire
-  its retained package scripts; do not infer app availability from package.json alone.
+- [x] Optional docs scripts: retire the commands targeting the absent docs app and
+  reconcile setup, architecture and validation guidance; verify no CI/hook consumers.
 
 - [x] Bulk retry cancellation reporting: preserve cancelled progress when retry backoff
   rethrows the last API failure; cover full/incremental modes and uncancelled failures.

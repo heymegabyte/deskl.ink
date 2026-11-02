@@ -725,3 +725,26 @@ no private display launcher was available. Windows/SSH paths are simulated and l
 containment does not establish symlink confinement. Loop improvement: budget validation,
 report and commit time before repeating retained recovery. Outer runner owns publication;
 this entry makes no publication or deployment claim.
+
+## 2026-11-02 — retire absent docs tooling (41419523678-1)
+
+Verified remote main contains e055cfb9 and compared retained failed worktree diffs
+before selecting the optional-docs backlog item. Reproduced `docs:build` failing
+at the absent docs directory, removed both dead docs package commands and reconciled
+quickstart, architecture, config and testing guidance. No workflow/hook consumers
+were found. The commit containing this entry records the bounded slice; the outer
+runner owns publication, which is not yet claimed.
+
+Fresh validation: frozen install/native rebuild, format, lint (two existing renderer
+promise warnings), typecheck with a 6144 MiB heap, and full tests with one worker all
+passed. Full suite: 171 files / 1332 tests. Package JSON, guide targets and whitespace
+were checked directly. No application build was needed for this configuration/docs
+slice. Install warned about ignored @parcel/watcher and sqlite3 build scripts.
+
+Three read-only reviewers grouped the generic roster's tooling, architecture,
+discovery, compression, docs, hygiene, security, performance, accessibility and
+verification responsibilities. Final adversarial review found no blocker. No native
+golden/long journey ran; private Xvfb/Weston launchers are unavailable. Existing
+native journey acceptance remains the next unmet frontier; component tests do not
+close it. Loop improvement: require checking package-command targets and consumers
+before restoring commands, and update guides with command changes. No deployment.
