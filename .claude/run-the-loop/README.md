@@ -263,3 +263,10 @@ changes and require all seven cases to fail then pass on this checkout. Retained
 logs may cover only six cases even when seven exist on disk. Keep resources live until
 backend confirmation; cleanup exceptions must not restore backend-deleted tasks or stop
 later releases. Review replacement ownership separately from mocked registry calls.
+
+For replacement deletion ownership, run task-manager-delete.test.ts together with
+workspace-view-model.test.ts and snapshot-registry.test.ts. Manager mocks only establish
+option forwarding: use the real view model for history and real registry/cache for snapshot
+ownership. Exercise repeated stale disposal and a third registration, since losing the
+second owner's disposer can leave an obsolete reaction writing after takeover. Preserve
+normal final-owner history pruning/cache eviction; keep native lifecycle acceptance separate.

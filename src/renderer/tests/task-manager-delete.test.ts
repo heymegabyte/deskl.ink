@@ -140,6 +140,7 @@ describe('TaskManagerStore deletion resource lifetime', () => {
     await rejected;
     expect(manager.tasks.get('task')).toBe(replacement);
     expect(viewModel?.dispose).toHaveBeenCalledOnce();
+    expect(viewModel?.dispose).toHaveBeenCalledWith({ preserveHistory: true });
     expect(task.draftComments).toBeNull();
     expect(mocks.releaseWorkspace).toHaveBeenCalledExactlyOnceWith('project', 'workspace');
     expect(mocks.releaseConversation).not.toHaveBeenCalled();
@@ -178,6 +179,7 @@ describe('TaskManagerStore deletion resource lifetime', () => {
     expect(mocks.releaseConversation).not.toHaveBeenCalled();
     expect(mocks.releaseTerminal).not.toHaveBeenCalled();
     expect(viewModel?.dispose).toHaveBeenCalledOnce();
+    expect(viewModel?.dispose).toHaveBeenCalledWith({ preserveHistory: true });
     manager.dispose();
   });
 

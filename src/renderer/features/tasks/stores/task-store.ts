@@ -151,8 +151,8 @@ export class TaskStore {
     }
   }
 
-  dispose(): void {
-    this.viewModel?.dispose();
+  dispose(options?: { preserveHistory?: boolean }): void {
+    this.viewModel?.dispose(options);
     this.viewModel = null;
     if (this.workspaceId) {
       const projectId = (this.data as Task).projectId;

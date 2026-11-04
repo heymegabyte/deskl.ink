@@ -592,7 +592,7 @@ export class TaskManagerStore {
           } else if (this.tasks.get(id) !== t) {
             // A replacement owns the ID-keyed registries; release only the old store.
             try {
-              t.dispose();
+              t.dispose({ preserveHistory: true });
             } catch (cleanupError) {
               log.warn('TaskManagerStore: failed to dispose replaced task after deletion failure', {
                 taskId: id,
@@ -610,7 +610,7 @@ export class TaskManagerStore {
     removed.forEach((t, id) => {
       // A concurrent reload may have installed a new owner of these ID-keyed registries.
       const cleanup = this.tasks.has(id)
-        ? [() => t.dispose()]
+        ? [() => t.dispose({ preserveHistory: true })]
         : [
             () => conversationRegistry.release(id),
             () => terminalRegistry.release(id),

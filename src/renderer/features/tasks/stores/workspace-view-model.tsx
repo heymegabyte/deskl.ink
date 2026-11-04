@@ -347,11 +347,13 @@ export class WorkspaceViewModel implements ILifecycle {
 
   /**
    * Full teardown: suspend + dispose all permanent stores and reactions.
-   * Call only when the task is being permanently removed.
+   * Preserve shared task history when a replacement store now owns the task ID.
    */
-  dispose(): void {
+  dispose(options?: { preserveHistory?: boolean }): void {
     this.suspend();
-    appState.history.prune((e) => e.kind === 'tab' && e.taskId === this.taskId);
+    if (!options?.preserveHistory) {
+      appState.history.prune((e) => e.kind === 'tab' && e.taskId === this.taskId);
+    }
     for (const d of this._disposers) d();
     this.tabGroupManager.dispose();
     this.terminalTabs.dispose();

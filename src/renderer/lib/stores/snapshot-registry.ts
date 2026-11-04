@@ -39,6 +39,8 @@ export class SnapshotRegistry {
 
     return () => {
       disposer();
+      // A newer view model may already own this entity's cache and reaction.
+      if (this.disposers.get(key) !== disposer) return;
       viewStateCache.delete(key);
       this.disposers.delete(key);
     };

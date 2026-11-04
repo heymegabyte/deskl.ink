@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { appState } from '@renderer/lib/stores/app-state';
 import type { Task } from '@shared/tasks';
 import type { TaskStore } from './task-store';
 import { WorkspaceViewModel } from './workspace-view-model';
@@ -37,6 +38,30 @@ function makeViewModel(): WorkspaceViewModel {
 }
 
 describe('WorkspaceViewModel terminal drawer snapshot', () => {
+  it('preserves replacement tab history when disposing a superseded view model', () => {
+    const old = makeViewModel();
+    const replacement = makeViewModel();
+    appState.history.push({
+      kind: 'tab',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      tabId: 'replacement-tab',
+    });
+
+    old.dispose({ preserveHistory: true });
+
+    expect(appState.history.entries).toContainEqual({
+      kind: 'tab',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      tabId: 'replacement-tab',
+    });
+    replacement.dispose();
+    expect(
+      appState.history.entries.some((entry) => entry.kind === 'tab' && entry.taskId === 'task-1')
+    ).toBe(false);
+  });
+
   it('persists and restores the active terminal drawer item', () => {
     const source = makeViewModel();
     source.setTerminalDrawerActiveItem({ kind: 'script', id: 'script-lifecycle-run' });

@@ -149,6 +149,10 @@
   cover resource identity, rollback, replacement ownership and cleanup continuation.
   Partial backend deletion and native Electron acceptance remain open above.
 
-- [ ] Replacement deletion ownership: exercise real WorkspaceViewModel snapshot disposal
-  and task history when an old deletion settles after a newer store registers the same
-  task ID. Mocked view models do not establish replacement cache/history safety.
+- [x] Replacement deletion ownership units: preserve replacement tab history during old
+  deletion cleanup on success/rejection and guard snapshot eviction by registration identity.
+  Real WorkspaceViewModel history and SnapshotRegistry cache/reaction regressions cover
+  stale disposal, repeated disposal and third-owner takeover; manager tests verify forwarding.
+- [ ] Replacement deletion native acceptance: exercise old deletion settlement after a
+  newer store registers the same task ID in Electron; verify replacement persistence and
+  back/forward navigation. Composed unit regressions do not prove the native lifecycle.

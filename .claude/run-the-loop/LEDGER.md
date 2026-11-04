@@ -794,3 +794,26 @@ and native runtime acceptance remain open. No golden/long Electron journey ran:
 Xvfb and Weston are unavailable. No deployment/publication is claimed; outer runner
 owns publication. Loop improvement: require seven fresh recovery regressions rather
 than relying on a retained six-test log, and reconcile superseded lookup backlog.
+
+## 2026-11-04 — replacement deletion ownership (run 41881801076)
+
+One bounded iteration from base 62232168. Fetched origin/main and confirmed prior
+recovery ancestry; inspected retained failed receipts/worktree diffs without changing
+those worktrees. GitHub history requests timed out; no remote run success inferred.
+
+Reproduced two snapshot ownership failures before fixing registration-identity cleanup:
+stale disposal evicted the replacement cache and removed tracking needed to stop its
+reaction on third-owner takeover. Both real registry/cache tests now pass. A real
+WorkspaceViewModel history regression also failed before repair; replacement deletion
+cleanup now preserves shared history on backend success/rejection, while ordinary
+final-owner disposal still prunes. Manager tests assert option forwarding. A delegated
+read-only adversarial review of the combined changes found no blocking regression.
+
+Fresh format, lint, typecheck (6144 MiB heap), full suite (173 files / 1342 tests,
+101.08 seconds) and renderer build (1m 3s) passed. Lint retains two preexisting
+promise-handler warnings in untouched task-row/sidebar code. No golden/long Electron
+journey ran: Xvfb and Weston are absent. Component/SQLite tests do not prove native
+lifecycle, partial backend deletion, visual quality or screen-reader behavior. No
+publication/deployment claimed; the outer runner owns publication. Loop improvement:
+record the three-layer ownership regression recipe and separate native acceptance
+from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
