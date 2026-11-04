@@ -583,19 +583,50 @@ export class TaskManagerStore {
     });
 
     try {
-      // Release conversation and terminal registries before disposing each task.
-      removed.forEach((t, id) => {
-        conversationRegistry.release(id);
-        terminalRegistry.release(id);
-        t.dispose();
-      });
       await rpc.tasks.deleteTasks(this.projectId, taskIds, opts);
     } catch (e) {
       runInAction(() => {
-        removed.forEach((t, id) => this.tasks.set(id, t));
+        removed.forEach((t, id) => {
+          if (!this.tasks.has(id)) {
+            this.tasks.set(id, t);
+          } else if (this.tasks.get(id) !== t) {
+            // A replacement owns the ID-keyed registries; release only the old store.
+            try {
+              t.dispose();
+            } catch (cleanupError) {
+              log.warn('TaskManagerStore: failed to dispose replaced task after deletion failure', {
+                taskId: id,
+                error: cleanupError,
+              });
+            }
+          }
+        });
       });
       throw e;
     }
+
+    // Keep resources alive until deletion is confirmed so rollback restores usable stores.
+    // Cleanup failures must not roll back an already completed backend deletion.
+    removed.forEach((t, id) => {
+      // A concurrent reload may have installed a new owner of these ID-keyed registries.
+      const cleanup = this.tasks.has(id)
+        ? [() => t.dispose()]
+        : [
+            () => conversationRegistry.release(id),
+            () => terminalRegistry.release(id),
+            () => t.dispose(),
+          ];
+      for (const release of cleanup) {
+        try {
+          release();
+        } catch (cleanupError) {
+          log.warn('TaskManagerStore: failed to clean up deleted task resources', {
+            taskId: id,
+            error: cleanupError,
+          });
+        }
+      }
+    });
   }
 
   dispose(): void {

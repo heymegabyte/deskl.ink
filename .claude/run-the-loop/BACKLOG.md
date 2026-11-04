@@ -64,8 +64,8 @@
 - [ ] Delete rollback integrity: verify failed deletion does not restore disposed task stores;
   reconcile partial backend deletion with renderer state using a real Electron journey.
 
-- [ ] Preflight lookup completeness: distinguish missing worktrees from swallowed fallback
-  lookup errors in WorktreeService.
+- [x] Preflight lookup completeness: strict deletion lookup now propagates fallback
+  inspection errors; see the verified strict deletion lookup recovery below.
 - [x] Bulk shared-worktree preflight: inspect dirty shared branches when every sibling is
   selected; retain the worktree when an unselected sibling remains. Real SQLite regressions
   cover both selection orders, status rejection, project isolation and source-branch safety.
@@ -143,3 +143,12 @@
 - [ ] Native worktree containment acceptance: on an isolated Electron display, verify
   deletion preflight ignores a matching branch in a sibling-prefix pool. Unit tests
   establish lexical host-path boundaries; Windows/SSH behavior remains simulated.
+
+- [x] Rejected deletion resource lifetime: retain live task stores until backend success;
+  preserve replacement entries and isolate cleanup failures. Seven manager regressions
+  cover resource identity, rollback, replacement ownership and cleanup continuation.
+  Partial backend deletion and native Electron acceptance remain open above.
+
+- [ ] Replacement deletion ownership: exercise real WorkspaceViewModel snapshot disposal
+  and task history when an old deletion settles after a newer store registers the same
+  task ID. Mocked view models do not establish replacement cache/history safety.

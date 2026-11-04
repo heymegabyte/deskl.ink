@@ -770,3 +770,27 @@ Xvfb/Weston launchers are unavailable, and this slice changes no desktop workflo
 Native acceptance items remain open. Loop improvement: README now requires separate
 retained/recovery SHAs and fresh validation rather than reusing historical ledger
 claims. No deployment or publication is claimed; the outer runner owns publication.
+
+## 2026-11-04 — recover task deletion resource lifetime (41810786110-1)
+
+Recovered reviewed uncommitted source and seven regressions from retained failed run
+41761995241; the two earlier attempts lacked its cleanup-continuation regression.
+All retained tips remain at base 1858c92e, and fetched origin/main still matches that
+base. No prior worktree was altered. GitHub history API queries timed out; recent
+local failed receipts and actual files supplied recovery evidence.
+
+Fresh RED: all seven tests failed, with one unhandled rejection. After source
+recovery all seven passed. Required format, lint, typecheck (6144 MiB heap), full
+suite (172 files / 1339 tests in 121.04 seconds) and renderer build passed. Lint
+retains two existing promise-handler warnings. Renderer build completed in 1m 10s.
+
+Task resources now stay alive until backend deletion succeeds; rejected deletion
+restores original usable stores without overwriting replacements. Successful backend
+deletion cannot be rolled back by cleanup errors; independent cleanup continues.
+Three read-only agents grouped the standing roster roles. Adversarial review found
+that real replacement snapshot/history ownership is not proved by mocked view-model
+regressions; recorded a separate backlog item. Partial backend deletion reconciliation
+and native runtime acceptance remain open. No golden/long Electron journey ran:
+Xvfb and Weston are unavailable. No deployment/publication is claimed; outer runner
+owns publication. Loop improvement: require seven fresh recovery regressions rather
+than relying on a retained six-test log, and reconcile superseded lookup backlog.

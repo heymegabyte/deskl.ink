@@ -257,3 +257,9 @@ exploration next run. A completed build log must include the renderer completion
 Before restoring package commands, confirm the target is tracked and executable in
 this checkout. Search workflows, hooks and agent guides for consumers, then update
 commands and guidance together. An inherited script is not evidence of a bundled app.
+
+For task deletion resource recovery, restore task-manager-delete.test.ts before source
+changes and require all seven cases to fail then pass on this checkout. Retained green
+logs may cover only six cases even when seven exist on disk. Keep resources live until
+backend confirmation; cleanup exceptions must not restore backend-deleted tasks or stop
+later releases. Review replacement ownership separately from mocked registry calls.
