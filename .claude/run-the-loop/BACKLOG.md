@@ -164,3 +164,7 @@
 - [ ] Deletion ownership native acceptance: reject a mismatched project/task request
   through the real Electron bridge; verify preserved task/workspace data and no provider
   cleanup. SQLite service tests do not establish native IPC behavior.
+
+- [x] IPC documentation drift: reconcile the renderer client path and preload bridge
+  description with lib/ipc.ts, globals.d.ts and preload/index.ts; remove obsolete named
+  bridge methods and verify actual worktree guidance before editing injected-context hints.

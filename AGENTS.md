@@ -89,7 +89,7 @@ Start here. Load only the linked `agents/` docs that are relevant to the task.
 - Run `pnpm run format`, `pnpm run lint`, `pnpm run typecheck`, and `pnpm test` before merging.
 - Do not hand-edit numbered Drizzle migrations or `drizzle/meta/`.
 - New RPC methods go in the appropriate `src/main/core/*/controller.ts` and are auto-registered via `src/main/rpc.ts`.
-- Only use manual IPC in `electron-api.d.ts` for methods requiring `event.sender`.
+- Only use manual IPC for methods requiring `event.sender`; the preload bridge is declared in `src/renderer/globals.d.ts`.
 - New modals must be registered in `src/renderer/app/modal-registry.ts`.
 - New views must be registered in `src/renderer/app/view-registry.ts`.
 - Treat `src/main/core/pty/`, `src/main/core/ssh/`, `src/main/db/`, and updater code as high risk.

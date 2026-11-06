@@ -846,3 +846,27 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   display/config/SQLite. Provider-failure atomic rollback remains outside this recovery.
 - Current-run logs and final agent-report.json:
   /home/professormanhattan/ai/logs/heymegabyte--deskl.ink-42179765373-1/
+
+## 2026-11-06 — IPC guide reconciliation (42240790148)
+
+- Verified origin/main contains the prior deletion ownership recovery f2eb3e00;
+  retained service/batch source matches current files, with newer service-hook tests
+  in this checkout. Preserved retained worktrees rather than copying superseded work.
+- Corrected AGENTS.md's absent bridge declaration reference and the IPC guide's
+  retired renderer client path and named bridge methods. Checked all concrete source
+  references against preload, global declarations, typed client and RPC registration.
+- Loop improvement: verify actual worktree documentation before acting on injected
+  context, and compare all three IPC boundary files together. Read-only documentation
+  audit and adversarial review approved the final diff without blockers.
+- Fresh gates: frozen install, format, format:check, lint (two existing warnings),
+  typecheck with 6144 MiB heap, and all four default test projects with one worker
+  passed: 174 files / 1351 tests. git diff --check passed. Markdown prose/source links
+  reviewed separately because oxfmt excludes Markdown.
+- Scope: one bounded documentation slice, not the generic full product role roster.
+  No product code, UI implementation, architecture change or deployment. Build skipped
+  for documentation-only scope. No Xvfb/Weston command available; no native golden/long
+  journey, Electron acceptance or live GitHub integration claimed.
+- Commit: this entry is committed with the documentation slice; resolve its SHA with
+  git log --grep='reconcile IPC bridge and client guidance'. Publication belongs to the
+  outer runner and was not observed here. Next frontier remains isolated native Electron
+  journey setup and the unchecked runtime acceptance items in BACKLOG.md.

@@ -276,3 +276,9 @@ When a failed receipt lists checks as running, inspect their final logs and exit
 for recovery context, then rerun the necessary gates here. A prior passing log is historical
 evidence, not a fresh pass. Write the final report only after all started gates settle;
 include observed failures and successful retries instead of replacing them with a plan.
+
+Before correcting agent guidance, read the actual file in the assigned worktree and
+verify the referenced paths. Injected workspace context may describe another checkout
+or revision. Distinguish stale injected text from tracked documentation drift; amend
+only the latter. For IPC guidance, compare the preload implementation, renderer global
+declaration and typed client together rather than inferring the bridge from old names.
