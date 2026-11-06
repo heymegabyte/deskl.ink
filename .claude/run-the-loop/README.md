@@ -2,8 +2,9 @@
 
 Read this file and BACKLOG.md before choosing one bounded iteration. GitHub Actions is the
 run ledger; git/files record retained work. Inspect actual main ancestry, failed receipts,
-and retained worktrees before repeating a reported fix. The outer fleet runner publishes
-commits; do not push from an isolated run.
+and retained worktrees before repeating a reported fix. Fetch origin and check ancestry
+against `origin/main` explicitly: the local `main` ref can be stale in fleet worktrees.
+The outer fleet runner publishes commits; do not push from an isolated run.
 
 When recovering a committed failed run, record both the retained SHA and its new
 recovery SHA. Keep the prior validation entry historical; append fresh results for
@@ -270,3 +271,8 @@ option forwarding: use the real view model for history and real registry/cache f
 ownership. Exercise repeated stale disposal and a third registration, since losing the
 second owner's disposer can leave an obsolete reaction writing after takeover. Preserve
 normal final-owner history pruning/cache eviction; keep native lifecycle acceptance separate.
+
+When a failed receipt lists checks as running, inspect their final logs and exit status
+for recovery context, then rerun the necessary gates here. A prior passing log is historical
+evidence, not a fresh pass. Write the final report only after all started gates settle;
+include observed failures and successful retries instead of replacing them with a plan.

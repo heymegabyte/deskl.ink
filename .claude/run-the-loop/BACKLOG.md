@@ -156,3 +156,11 @@
 - [ ] Replacement deletion native acceptance: exercise old deletion settlement after a
   newer store registers the same task ID in Electron; verify replacement persistence and
   back/forward navigation. Composed unit regressions do not prove the native lifecycle.
+
+- [x] Project-owned deletion recovery: restore missing single/preflight ownership guards
+  and validate the entire batch before dispatching deletions. Real SQLite regressions
+  reproduce five failures before recovery and cover both mixed-batch orders, service
+  hook suppression, owner cleanup and missing IDs. Native acceptance remains open.
+- [ ] Deletion ownership native acceptance: reject a mismatched project/task request
+  through the real Electron bridge; verify preserved task/workspace data and no provider
+  cleanup. SQLite service tests do not establish native IPC behavior.

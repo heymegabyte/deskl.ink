@@ -33,7 +33,11 @@ pnpm run test
 - If the machine's pnpm shim is unavailable, use `corepack pnpm` with the version pinned in
   `package.json`, including for installation and validation commands.
 - Browser tests require the Chromium version installed for the current Playwright
-  dependency. If launch reports a missing executable, run `pnpm exec playwright install chromium`.
+  dependency. If launch reports a missing executable, first check whether
+  `PLAYWRIGHT_BROWSERS_PATH` points to a different cache than the installed revision.
+  An existing executable for the exact required revision can be selected with a
+  command-scoped `PLAYWRIGHT_BROWSERS_PATH`; do not substitute another revision.
+  Otherwise run `pnpm exec playwright install chromium`.
   For a worktree-local download, use
   `PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.cache/playwright" pnpm exec playwright install chromium`
   and set the same variable when running `pnpm test`. An executable-launch failure

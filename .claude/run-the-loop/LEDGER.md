@@ -817,3 +817,32 @@ lifecycle, partial backend deletion, visual quality or screen-reader behavior. N
 publication/deployment claimed; the outer runner owns publication. Loop improvement:
 record the three-layer ownership regression recipe and separate native acceptance
 from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
+
+
+## 2026-11-06 — deletion ownership recovery, run 42179765373
+
+- Verified origin/main is d689853e and retained f6c0989c/2f44b730 are absent
+  from its ancestry. Local main differs from origin/main; retained worktrees remain intact.
+- Recovered implementation f6c0989c as f2eb3e00: task/preflight ownership guards,
+  whole-batch validation before deletion, service wiring and real SQLite regressions.
+  Assigned architect restored/reviewed OpenSpec and adversarially reviewed the final diff;
+  no concrete blocking regression found.
+- Fresh RED: retained SQLite tests against old guards/service wiring failed 5 of 9.
+  Fresh GREEN: deletion/preflight focused tests passed 20/20.
+- Fresh gates: frozen-lockfile install, format, lint, increased-heap typecheck,
+  complete serial suite (174 files, 1351 tests), format:check, diff whitespace check
+  and increased-heap production build all passed. Lint retains two existing renderer
+  no-misused-promises warnings; build retains telemetry mixed-import/outDir warnings.
+- Browser suite used the installed required Chromium revision via command-scoped
+  PLAYWRIGHT_BROWSERS_PATH; no alternate revision or browser harness substituted.
+- Loop improvement: explicitly inspect origin/main ancestry when local main is stale;
+  await final gate outcomes before writing receipts. Recovered exact-revision cache
+  selection guidance from 2f44b730 after observing it work in this run.
+- This bounded recovery used one assigned architect/adversarial reviewer rather than
+  the generic full roster. No native golden/long journey: Xvfb and Weston are absent.
+  No native IPC/provider acceptance or live GitHub behavior claimed. No deployment
+  or publication performed; the outer runner owns ordinary fast-forward publication.
+- Next unmet unit: native deletion ownership and rollback acceptance with isolated
+  display/config/SQLite. Provider-failure atomic rollback remains outside this recovery.
+- Current-run logs and final agent-report.json:
+  /home/professormanhattan/ai/logs/heymegabyte--deskl.ink-42179765373-1/

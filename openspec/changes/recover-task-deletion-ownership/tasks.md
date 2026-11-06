@@ -4,4 +4,4 @@
 - [x] Restore batch ownership validation and service wiring from `df69e896`.
 - [x] Restore regression tests and run targeted deletion/preflight checks.
 - [x] Run required repository checks; record observed results and blockers.
-- [ ] Review final diff and commit verified recovery for outer-runner publication.
+- [x] Review final diff and commit verified recovery for outer-runner publication (`f2eb3e00`).
