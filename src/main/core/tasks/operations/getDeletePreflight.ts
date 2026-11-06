@@ -11,6 +11,9 @@ async function getTaskPreflight(
   selectedTaskIds: string[]
 ): Promise<TaskDeletePreflightItem> {
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  if (task && task.projectId !== projectId) {
+    throw new Error(`Task does not belong to project: ${projectId}`);
+  }
   if (!task?.taskBranch) {
     return { taskId, hasWorktree: false, hasUncommittedChanges: false, hasDeletableBranch: false };
   }

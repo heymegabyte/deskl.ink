@@ -21,7 +21,9 @@ describe('delete preflight inspection', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.rows
-      .mockResolvedValueOnce([{ taskBranch: 'task-branch', sourceBranch: { branch: 'main' } }])
+      .mockResolvedValueOnce([
+        { projectId: 'project', taskBranch: 'task-branch', sourceBranch: { branch: 'main' } },
+      ])
       .mockResolvedValueOnce([]);
     mocks.getProject.mockReturnValue({
       worktreeService: { getWorktree: mocks.getWorktree },
@@ -73,8 +75,8 @@ describe('delete preflight inspection', () => {
   it('rejects a bulk inspection when one task cannot be inspected', async () => {
     mocks.rows
       .mockReset()
-      .mockResolvedValueOnce([{ taskBranch: 'first' }])
-      .mockResolvedValueOnce([{ taskBranch: 'second' }])
+      .mockResolvedValueOnce([{ projectId: 'project', taskBranch: 'first' }])
+      .mockResolvedValueOnce([{ projectId: 'project', taskBranch: 'second' }])
       .mockResolvedValue([]);
     mocks.getWorktree.mockImplementation(async (branch: string) => {
       if (branch === 'second') throw new Error('second worktree unavailable');
@@ -86,7 +88,7 @@ describe('delete preflight inspection', () => {
   });
 
   it('does not require project inspection for a task without a branch', async () => {
-    mocks.rows.mockReset().mockResolvedValueOnce([{ taskBranch: null }]);
+    mocks.rows.mockReset().mockResolvedValueOnce([{ projectId: 'project', taskBranch: null }]);
     await expect(getDeletePreflight('project', ['task'])).resolves.toEqual({
       tasks: [
         {
@@ -103,7 +105,7 @@ describe('delete preflight inspection', () => {
   it('does not inspect a shared branch worktree', async () => {
     mocks.rows
       .mockReset()
-      .mockResolvedValueOnce([{ taskBranch: 'shared' }])
+      .mockResolvedValueOnce([{ projectId: 'project', taskBranch: 'shared' }])
       .mockResolvedValueOnce([{ id: 'sibling' }]);
     await expect(getDeletePreflight('project', ['task'])).resolves.toEqual({
       tasks: [

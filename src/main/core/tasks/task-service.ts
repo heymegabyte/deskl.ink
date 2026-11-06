@@ -24,6 +24,7 @@ import type {
 import { archiveTask } from './operations/archiveTask';
 import { createTask } from './operations/createTask';
 import { deleteTask } from './operations/deleteTask';
+import { deleteTasks } from './operations/deleteTasks';
 import { getDeletePreflight } from './operations/getDeletePreflight';
 import { getTasks } from './operations/getTasks';
 import { renameTask } from './operations/renameTask';
@@ -184,7 +185,7 @@ export class TaskService implements Hookable<TaskCrudHooks> {
     taskIds: string[],
     options?: DeleteTaskOptions
   ): Promise<void> {
-    await Promise.all(taskIds.map((id) => deleteTask(projectId, id, options)));
+    await deleteTasks(projectId, taskIds, options);
     taskIds.forEach((id) => this._hooks.callHookBackground('task:deleted', id, projectId));
   }
 

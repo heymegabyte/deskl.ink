@@ -18,6 +18,9 @@ export async function deleteTask(
 
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
   if (!task) return;
+  if (task.projectId !== projectId) {
+    throw new Error(`Task does not belong to project: ${projectId}`);
+  }
   const sourceBranch = task.sourceBranch ?? undefined;
 
   const project = projectManager.getProject(projectId);
