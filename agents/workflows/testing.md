@@ -42,6 +42,13 @@ pnpm run test
   `PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.cache/playwright" pnpm exec playwright install chromium`
   and set the same variable when running `pnpm test`. An executable-launch failure
   leaves browser tests unverified even if every non-browser test passed.
+  On Ubuntu 26.04 x64, this pinned Playwright version has no native Chromium build
+  mapping. A command-scoped fallback can download the same required browser revision:
+  `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.cache/playwright" pnpm exec playwright install chromium`.
+  Use both variables for the subsequent test command too. This selects the Ubuntu
+  24.04 build on an unsupported host; only an actual successful test run establishes
+  compatibility. Record download and launch failures separately, and do not change
+  global shell configuration or substitute a system browser.
 - Tests use per-file `vi.mock()` setup.
 - Integration-style tests create temporary repos and worktrees in `os.tmpdir()`.
 - On a memory-constrained shared runner, run the core gates sequentially. If the

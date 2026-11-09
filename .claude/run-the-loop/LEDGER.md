@@ -870,3 +870,25 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   git log --grep='reconcile IPC bridge and client guidance'. Publication belongs to the
   outer runner and was not observed here. Next frontier remains isolated native Electron
   journey setup and the unchecked runtime acceptance items in BACKLOG.md.
+
+
+## 2026-11-09 — MCP documentation recovery, fresh validation
+
+- Recovered MCP source-map/compatibility guidance and loop checkpoints from retained
+  commit 08199bfc5bd5d84e3e258ce5bac7b53af79e23ac after fetching origin/main and
+  confirming it was not an ancestor. Compared retained failed-run diffs; preserved
+  those worktrees. Recovery commit: resolve with git log
+  --grep='recover MCP docs with verified Playwright fallback'.
+- Recovered the retained testing guide's command-scoped Ubuntu 24.04 browser fallback
+  for Ubuntu 26.04. Checked installed Playwright 1.58.2 mapping, downloaded revision
+  1208, and ran all four default projects using the documented override/cache variables.
+- Fresh gates: frozen install, format, format:check, lint (two existing warnings),
+  typecheck with 6144 MiB heap, MCP adapter/config tests (37 tests), and
+  pnpm test --maxWorkers=1 (174 files / 1351 tests) passed. git diff --check passed.
+  Twelve MCP source paths exist; independent read-only review found no inaccuracies.
+- Loop improvement: restored report checkpoint/deadline guidance and documented the
+  verified browser fallback, avoiding repeated missing-browser recovery failures.
+- Scope: one bounded documentation recovery iteration; full generic role roster,
+  native Electron golden/long journeys, UI/build and deployment skipped. No native
+  acceptance or publication inferred from component tests. Outer runner owns publication.
+  Next frontier remains the unchecked native/runtime acceptance in BACKLOG.md.

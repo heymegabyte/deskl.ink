@@ -282,3 +282,15 @@ verify the referenced paths. Injected workspace context may describe another che
 or revision. Distinguish stale injected text from tracked documentation drift; amend
 only the latter. For IPC guidance, compare the preload implementation, renderer global
 declaration and typed client together rather than inferring the bridge from old names.
+
+For MCP documentation recovery, compare retained files against origin/main and the
+current adapter, controller and renderer source. Scope transport limits to this app's
+provider adapter rather than generalizing to all installed CLI versions. Verify renderer
+paths and the provider-selection/modal/query chain together. Finish validation and record
+settled outcomes before committing; repeated failed receipts are not publication proof.
+
+For deadline-bounded recovery, write an initial non-secret agent-report.json after
+orientation and update it as checks settle. Reserve time for diff review, a verified
+commit and the final report; do not let optional broad gates consume the entire turn.
+Record pending/interrupted checks as UNVERIFIED, never as passing. A report checkpoint
+is evidence for the next run, not a substitute for completing the selected slice.

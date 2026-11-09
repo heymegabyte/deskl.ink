@@ -168,3 +168,7 @@
 - [x] IPC documentation drift: reconcile the renderer client path and preload bridge
   description with lib/ipc.ts, globals.d.ts and preload/index.ts; remove obsolete named
   bridge methods and verify actual worktree guidance before editing injected-context hints.
+
+- [x] MCP documentation recovery: replace retired renderer paths, identify view/query
+  ownership and scope the stdio-only constraint to the repository's Codex adapter.
+  Recovered retained documentation with fresh source checks; no transport behavior changed.
