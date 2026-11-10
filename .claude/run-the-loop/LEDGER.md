@@ -892,3 +892,24 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   native Electron golden/long journeys, UI/build and deployment skipped. No native
   acceptance or publication inferred from component tests. Outer runner owns publication.
   Next frontier remains the unchecked native/runtime acceptance in BACKLOG.md.
+
+## 2026-11-09 — TypeScript conventions recovery
+
+- Recovered uncommitted documentation from retained run 42704168709 (base d738c147),
+  after checking GitHub Actions history, actual retained files, and origin/main.
+  The TypeScript guide still referenced retired renderer directories; existing
+  deletion-ownership and MCP recovery commits are already in this checkout's history.
+- Reconciled app/features/lib ownership, release-script typechecking, direct imports,
+  mixed component filenames and Node/browser test discovery. Eleven documented paths
+  exist and four retired renderer directories are absent. Independent read-only review
+  found no inaccuracies.
+- Fresh validation: frozen install, format, format:check, lint (two existing warnings),
+  typecheck with 6144 MiB heap, and full pnpm test --maxWorkers=1 passed (174 files,
+  1351 tests). Browser tests used locally downloaded revision 1208 with the documented
+  command-scoped Ubuntu 24.04 fallback. git diff --check passed.
+- Loop improvement: added cross-guide path/config/test-glob verification guidance;
+  Markdown is excluded from formatting and needs explicit source checks.
+- One bounded documentation recovery iteration; generic full roster, native Electron
+  journeys, UI/build and deployment skipped. No desktop acceptance inferred from
+  component tests. Outer runner owns publication; native acceptance remains the next
+  unchecked frontier in BACKLOG.md.

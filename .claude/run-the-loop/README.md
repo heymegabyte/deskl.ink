@@ -34,6 +34,10 @@ one cell. Pass actual terminal.cols when selecting across wraps. Text-only ASCII
 cannot prove Unicode cell behavior; real Electron selection remains a separate gate.
 The verified renderer source map is agents/architecture/renderer.md; older conventions
 may still name retired core paths. Verify referenced files before copying their patterns.
+When reconciling renderer guidance, check agents/conventions/typescript.md as well as the
+architecture and pattern pages. Verify inline source paths against the current tree,
+test globs against vitest.config.ts, and config claims against the package scripts;
+formatting excludes Markdown and cannot detect stale directories or commands.
 
 For terminal search announcements, run the browser component regression in
 src/renderer/tests/browser/terminal-search-overlay.test.tsx. Keep the live region mounted

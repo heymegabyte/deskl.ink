@@ -1,5 +1,9 @@
 # Next verified frontier
 
+- [x] TypeScript/React conventions drift: replace retired renderer directories with
+  app/features/lib ownership, distinguish release-script typechecking, and document
+  TSX browser tests. Verify paths and configuration claims against the current checkout.
+
 - [x] External navigation: replace renderer URL prefix trust in
   src/main/utils/externalLinks.ts with parsed origin checks. Reproduce credentials-in-URL
   and wrong-port bypasses in tests; reconcile app:// handling with main/app/window.ts.
