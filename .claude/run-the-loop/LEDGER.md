@@ -932,3 +932,28 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - Full fresh test gate passed: command-scoped Ubuntu 24.04 Playwright fallback with
   pnpm test --maxWorkers=1 completed in 198.16s, 174 files and 1351 tests passed.
   This establishes component/database regressions, not native Electron acceptance.
+
+
+## 2026-11-10 — Display-free Electron native dependency verification
+
+- Inspected GitHub Actions history, origin/main ancestry and retained failed receipts
+  and worktrees. Current recovery commits are already on origin/main; retained files
+  were preserved, and no superseded recovery was copied again.
+- Added `pnpm run test:native`: launches the installed Electron binary in Node mode,
+  verifies an in-memory SQLite transaction/read and real PTY child input/output/exit.
+  The check bounds PTY and parent execution, returns nonzero on failure, and never
+  bootstraps the app or opens its persistent database. A negative system-Node invocation
+  rejected with exit 1 and the expected runtime diagnostic.
+- Fresh frozen install, format, lint, typecheck (6144 MiB heap), format:check,
+  syntax/diff checks and native smoke passed. Lint retains the same two existing
+  no-misused-promises warnings. Full `pnpm test --maxWorkers=1` passed: 174 files,
+  1351 tests in 145.66s, using the documented command-scoped Playwright Ubuntu 24.04
+  fallback. A read-only adversarial review found no concrete issues.
+- Loop improvement: documented the new native dependency gate for display-less runs,
+  with explicit separation from real application/preload/UI acceptance and the
+  CI job that intentionally skips Electron/native setup.
+- One bounded verification-tooling slice and one read-only reviewer; the full generic
+  roster, golden/long UI journeys, application build and deployment were skipped.
+  No DISPLAY/WAYLAND_DISPLAY, Xvfb, xvfb-run or Weston is available on this runner.
+  Real Electron UI acceptance remains unchecked in BACKLOG.md. Outer runner owns
+  publication; final commit and gate evidence are recorded in the run agent-report.json.

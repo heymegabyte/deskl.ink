@@ -14,6 +14,11 @@ Use agents/workflows/testing.md for the real validation commands. Record fresh r
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite
 is not proof of a real Electron journey or a published build. Keep fixtures opt-in.
 
+On a display-less runner, run `pnpm run test:native` before reporting all native
+verification blocked. This checks Electron-ABI SQLite and real PTY I/O without
+launching the app. Record its result separately from display/preload/UI acceptance;
+never tick a native journey frontier based on this smoke check alone.
+
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab
 selection preservation, and range-anchor reset. For typed WorktreeHost mocks, supply the
 host path API as well as filesystem methods.

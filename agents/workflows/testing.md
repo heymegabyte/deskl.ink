@@ -61,6 +61,17 @@ pnpm run test
 
 ## Native Journey Evidence
 
+Run `pnpm run test:native` for a display-free native dependency smoke check after
+installation or rebuild. It launches the installed Electron binary with
+`ELECTRON_RUN_AS_NODE=1`, exercises an in-memory SQLite transaction, and sends input
+through a real PTY child process, checking output and exit status. It uses the root
+Electron-compiled modules, not the system-Node database test alias. Each PTY check
+times out after 10 seconds; the parent limits the Electron child to 20 seconds.
+Missing binaries, ABI/load failures, PTY failures and timeouts return nonzero.
+It does not launch the application or access its persistent database/configuration.
+This optional command needs the Electron binary and rebuilt native modules; the
+format/typecheck CI job skips those and should not run it without full setup.
+
 The `browser` project checks renderer components in headless Chromium; it does not
 launch Electron or exercise the preload bridge, native PTY, or project/task workflow.
 Passing `pnpm test` alone is therefore not evidence of a complete desktop journey.

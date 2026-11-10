@@ -1,5 +1,9 @@
 # Next verified frontier
 
+- [x] Display-free native dependency gate: add `pnpm run test:native` to exercise
+  Electron-ABI SQLite transactions and real PTY input/output with bounded execution.
+  This establishes dependency readiness only; the real Electron journey remains open.
+
 - [x] TypeScript/React conventions drift: replace retired renderer directories with
   app/features/lib ownership, distinguish release-script typechecking, and document
   TSX browser tests. Verify paths and configuration claims against the current checkout.
