@@ -298,3 +298,7 @@ orientation and update it as checks settle. Reserve time for diff review, a veri
 commit and the final report; do not let optional broad gates consume the entire turn.
 Record pending/interrupted checks as UNVERIFIED, never as passing. A report checkpoint
 is evidence for the next run, not a substitute for completing the selected slice.
+
+After a retained commit is recovered, refresh agent-report.json after the final gates
+and commit. Include the resulting SHA and settled test outcomes; a report that still
+says tests are running can contradict completed logs and hide recoverable work.

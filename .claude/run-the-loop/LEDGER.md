@@ -913,3 +913,22 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   journeys, UI/build and deployment skipped. No desktop acceptance inferred from
   component tests. Outer runner owns publication; native acceptance remains the next
   unchecked frontier in BACKLOG.md.
+
+
+## 2026-11-10 — Retained TypeScript documentation recovery
+
+- Verified origin/main does not contain retained commit 0a63f773; recovered its
+  reviewed documentation as 0fc0b4ec. Retained worktrees were inspected and preserved.
+  Previous ledger checks above remain historical, not current-run evidence.
+- Fresh frozen install, format, lint, format:check, and typecheck with 6144 MiB
+  heap passed. Lint retains two existing no-misused-promises warnings. Source path,
+  TypeScript configuration and Vitest discovery audits passed; independent review
+  found no concrete discrepancies in either the recovery or new loop guidance.
+- Loop improvement: require final JSON report reconciliation after checks and commit,
+  since the prior failed receipt retained an in-progress report despite settled logs.
+- Scope: one bounded documentation recovery, with one read-only reviewer. Full generic
+  roster, native Electron journeys, application build and deployment were not run.
+  Outer runner owns publication; unchecked native acceptance remains the next frontier.
+- Full fresh test gate passed: command-scoped Ubuntu 24.04 Playwright fallback with
+  pnpm test --maxWorkers=1 completed in 198.16s, 174 files and 1351 tests passed.
+  This establishes component/database regressions, not native Electron acceptance.
