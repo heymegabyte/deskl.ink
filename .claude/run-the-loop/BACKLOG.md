@@ -1,5 +1,10 @@
 # Next verified frontier
 
+- [x] Main-process IPC architecture drift: replace the absent electron-api.d.ts and
+  retired manual-handler examples with the generic preload bridge, renderer client,
+  and actual RPC event boundary. Recovered the uncommitted failed-run diff and
+  verified it against current source and independent review.
+
 - [x] Display-free native dependency gate: add `pnpm run test:native` to exercise
   Electron-ABI SQLite transactions and real PTY input/output with bounded execution.
   This establishes dependency readiness only; the real Electron journey remains open.

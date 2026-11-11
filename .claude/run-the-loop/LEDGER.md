@@ -957,3 +957,21 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   No DISPLAY/WAYLAND_DISPLAY, Xvfb, xvfb-run or Weston is available on this runner.
   Real Electron UI acceptance remains unchecked in BACKLOG.md. Outer runner owns
   publication; final commit and gate evidence are recorded in the run agent-report.json.
+
+## 2026-11-11 — Retained IPC architecture documentation recovery
+
+- Recovered the uncommitted documentation diff from failed run 42932193386
+  (base a1ea191b); fetched origin/main and confirmed this correction was absent.
+  Preserved the retained worktree. Replaced the obsolete electron-api.d.ts/manual
+  method list with the actual preload bridge, renderer client and RPC event boundary.
+- Fresh source audit verified 19 documented references and all four bridge methods;
+  an independent read-only reviewer found no factual errors. Loop improvement:
+  cross-check main-process architecture alongside IPC conventions during recovery.
+- Fresh frozen install, format, lint, typecheck (6144 MiB heap), format:check,
+  diff check and Electron SQLite/PTY native smoke passed. Lint retains two existing
+  no-misused-promises warnings. Full suite passed: 174 files, 1351 tests in 115.73s,
+  with one worker and the documented command-scoped Playwright Ubuntu 24.04 fallback.
+- One bounded documentation slice and independent reviewer; full generic roster,
+  golden/long desktop journeys, application build and deployment were skipped.
+  Native smoke does not establish UI/preload acceptance; those frontiers remain open.
+  Outer runner owns publication. Final recovery SHA is recorded in agent-report.json.

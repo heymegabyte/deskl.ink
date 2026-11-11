@@ -6,6 +6,11 @@ and retained worktrees before repeating a reported fix. Fetch origin and check a
 against `origin/main` explicitly: the local `main` ref can be stale in fleet worktrees.
 The outer fleet runner publishes commits; do not push from an isolated run.
 
+When reconciling IPC documentation, check the main-process architecture page as well
+as IPC conventions. Verify every claimed manual handler against its controller and
+the actual preload implementation/declaration; a stale method list can survive an
+otherwise correct bridge-documentation recovery.
+
 When recovering a committed failed run, record both the retained SHA and its new
 recovery SHA. Keep the prior validation entry historical; append fresh results for
 the current run instead of treating the recovered ledger as new execution evidence.
