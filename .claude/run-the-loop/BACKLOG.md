@@ -1,5 +1,9 @@
 # Next verified frontier
 
+- [x] Shared-module guide drift: remove the absent lifecycle domain file, document
+  task-module ownership and the tooling alias, and distinguish per-target build,
+  test and release-script configurations. Verify paths and alias sets against source.
+
 - [x] Main-process IPC architecture drift: replace the absent electron-api.d.ts and
   retired manual-handler examples with the generic preload bridge, renderer client,
   and actual RPC event boundary. Recovered the uncommitted failed-run diff and

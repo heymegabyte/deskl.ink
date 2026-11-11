@@ -975,3 +975,25 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   golden/long desktop journeys, application build and deployment were skipped.
   Native smoke does not establish UI/preload acceptance; those frontiers remain open.
   Outer runner owns publication. Final recovery SHA is recorded in agent-report.json.
+
+## 2026-11-11 — Shared-module documentation recovery
+
+- Recovered the reviewed uncommitted shared-module guide, backlog entry and loop
+  cross-check from failed run 43047898600 (retained HEAD 72b2af13). Compared actual
+  retained files against this clean checkout and fetched origin/main; the edits
+  were absent. Preserved the retained worktree. GitHub confirms that run failed.
+- Corrected the complete event inventory, removed the absent lifecycle domain file,
+  documented task helpers and tooling aliases, distinguished per-process build/test
+  resolution, and corrected the provider classifier path. No runtime behavior changed.
+- Loop improvement: cross-check TypeScript, each Electron build target and Vitest
+  aliases independently before recovering shared-module documentation. Independent
+  read-only adversarial review verified source/config claims with no inaccuracies.
+- Fresh frozen install, format, lint, typecheck (6144 MiB heap), format:check,
+  source-inventory audit, diff check and Electron SQLite/PTY native smoke passed.
+  Lint retains two existing no-misused-promises warnings. Full suite passed:
+  174 files, 1351 tests, 265.14s, two workers, documented command-scoped Playwright
+  Ubuntu 24.04 fallback using the exact revision already in the retained cache.
+- One bounded documentation recovery; full generic roster, golden/long Electron
+  journey, build and deployment skipped. UI/preload/native acceptance frontiers stay
+  open. Repository skill-router and perfect-loop scripts are absent. Outer runner
+  owns publication; final recovery SHA and settled evidence are in agent-report.json.

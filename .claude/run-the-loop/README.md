@@ -312,3 +312,8 @@ is evidence for the next run, not a substitute for completing the selected slice
 After a retained commit is recovered, refresh agent-report.json after the final gates
 and commit. Include the resulting SHA and settled test outcomes; a report that still
 says tests are running can contradict completed logs and hide recoverable work.
+
+For shared-module documentation, compare aliases in tsconfig.json, each process target in
+electron.vite.config.ts, and vitest.config.ts separately. TypeScript acceptance does not
+prove build resolution. Verify flat domain-module filenames; event modules do not imply
+a matching domain file. Keep release-script typechecking distinct from application aliases.
