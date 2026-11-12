@@ -1020,3 +1020,19 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   skipped for this documentation slice. Native smoke does not establish UI/preload
   acceptance; native frontiers remain open. Repository router/perfect-loop scripts
   are absent. Outer runner owns publication; final SHA is recorded in agent-report.json.
+
+- 2026-11-12 — Cross-guide source accuracy: corrected renderer task-creation RPC,
+  PTY classifier ownership and agent/interactive environment distinction, and overview
+  typecheck scope. Independent read-only audit and adversarial diff review approved;
+  explicit source-path audit checked 35 paths and controller/helper/config contracts.
+  Retained MCP and deletion ownership files already match or are superseded by current
+  source; preserved retained worktrees. Fresh gates: install, format, format:check,
+  lint (two existing no-misused-promises warnings), application/release typecheck
+  with 6144 MiB heap, native Electron SQLite/PTY smoke, and full suite with two workers
+  (174 files, 1351 tests) passed. Chromium revision 1208 used the documented
+  command-scoped Ubuntu fallback and existing retained browser cache. No application
+  behavior changed; build and native GUI journey skipped for documentation scope.
+  Loop improvement: verify example method names, classifier ownership and environment
+  distinctions against implementation. Full generic role roster was bounded to two
+  independent read-only reviewers; no full golden/long journey claimed. Outer runner
+  owns publication; resulting commit SHA is recorded in agent-report.json.

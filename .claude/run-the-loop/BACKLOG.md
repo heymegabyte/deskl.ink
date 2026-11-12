@@ -1,5 +1,9 @@
 # Next verified frontier
 
+- [x] Cross-guide source accuracy: correct the renderer task-creation RPC example,
+  PTY classifier ownership and environment distinctions, and overview typecheck scope.
+  Verify contracts against controllers, helpers and current package/configuration files.
+
 - [x] Shared-module guide drift: remove the absent lifecycle domain file, document
   task-module ownership and the tooling alias, and distinguish per-target build,
   test and release-script configurations. Verify paths and alias sets against source.

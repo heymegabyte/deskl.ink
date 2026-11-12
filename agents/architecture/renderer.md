@@ -34,7 +34,7 @@
 ## When Editing Here
 
 - Check `agents/conventions/renderer-patterns.md` for modal, view, PTY frontend, and context patterns; resolve source locations against this map.
-- Call RPC methods via `rpc` from `src/renderer/lib/ipc.ts` (e.g., `rpc.tasks.create(...)`).
+- Call RPC methods via `rpc` from `src/renderer/lib/ipc.ts` (e.g., `rpc.tasks.createTask(...)`).
 - Register new modals in `src/renderer/app/modal-registry.ts` and new views in `src/renderer/app/view-registry.ts`.
 - Use the state selectors in `src/renderer/features/tasks/stores/task-selectors.ts` and `src/renderer/features/projects/stores/project-selectors.ts`; task view components can use `src/renderer/features/tasks/task-view-context.tsx`.
 - The direct preload bridge is declared in `src/renderer/globals.d.ts`; prefer typed RPC and events for application operations.

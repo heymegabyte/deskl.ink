@@ -322,3 +322,8 @@ For main-process pattern guidance, verify Result imports and discriminants again
 `src/shared/result.ts`, controller examples against their actual service wrappers,
 and project transport composition against `create-project-provider.ts`. A plausible
 provider directory diagram is not evidence that its paths or SSH stub still exist.
+
+When auditing risk and architecture guides, verify RPC example method names against
+the controller and an actual call site, not just the client import path. Check classifier
+ownership under agent-hooks and distinguish agent environment construction from interactive
+terminal inheritance; an allowlisted agent helper does not describe every PTY environment.

@@ -20,7 +20,7 @@
 
 - `electron.vite.config.ts` — electron-vite config for main, preload, and renderer builds.
 - `vitest.config.ts` — Vitest projects for unit, database integration, fixture generation, migration, and Playwright-backed renderer tests; see `../workflows/testing.md` for commands.
-- Single `tsconfig.json` for all targets.
+- `tsconfig.json` checks application sources and tooling; `scripts/release/tsconfig.json` separately checks release scripts. `pnpm run typecheck` runs both. Build resolution is configured per process target in `electron.vite.config.ts`.
 
 ## Read Next
 
