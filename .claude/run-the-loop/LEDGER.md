@@ -997,3 +997,26 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   journey, build and deployment skipped. UI/preload/native acceptance frontiers stay
   open. Repository skill-router and perfect-loop scripts are absent. Outer runner
   owns publication; final recovery SHA and settled evidence are in agent-report.json.
+
+## 2026-11-12 — Main-process conventions source reconciliation
+
+- One bounded documentation iteration. Inspected GitHub Actions history, fetched
+  origin/main and checked retained failed receipts/worktrees; shared-module and IPC
+  recoveries are already contained in origin/main, so no retained work was duplicated.
+- Corrected agents/conventions/main-patterns.md: shared Result location and success/data
+  discriminant, explicit RPC error conversion, actual thin controller wrappers,
+  implemented local/SSH project composition and IPC event direction. All 22 source
+  references exist. Independent read-only review caught two missing terminal-provider
+  impl/ segments; corrected them before final validation.
+- Loop improvement: added a targeted source cross-check for Result contracts,
+  controller examples and project transport composition to the orientation guide.
+- Fresh frozen install, format, lint, typecheck (6144 MiB heap), native SQLite/PTY smoke,
+  full suite and format:check passed. Full suite: 174 files, 1351 tests, 152.15s,
+  one worker and the documented command-scoped Playwright Ubuntu 24.04 fallback
+  using the exact revision in the retained cache. Lint has two existing promise-handler
+  warnings. Source-reference audit and git diff --check passed separately because
+  the formatter excludes Markdown.
+- Full generic roster, real golden/long desktop journeys, build and deployment were
+  skipped for this documentation slice. Native smoke does not establish UI/preload
+  acceptance; native frontiers remain open. Repository router/perfect-loop scripts
+  are absent. Outer runner owns publication; final SHA is recorded in agent-report.json.

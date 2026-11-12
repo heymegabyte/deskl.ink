@@ -189,3 +189,7 @@
 - [x] MCP documentation recovery: replace retired renderer paths, identify view/query
   ownership and scope the stdio-only constraint to the repository's Codex adapter.
   Recovered retained documentation with fresh source checks; no transport behavior changed.
+
+- [x] Main-process conventions drift: document shared Result semantics, actual thin
+  controllers, implemented local/SSH project composition and IPC event direction.
+  Verify source paths and example contracts against current implementation.

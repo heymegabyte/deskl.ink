@@ -317,3 +317,8 @@ For shared-module documentation, compare aliases in tsconfig.json, each process 
 electron.vite.config.ts, and vitest.config.ts separately. TypeScript acceptance does not
 prove build resolution. Verify flat domain-module filenames; event modules do not imply
 a matching domain file. Keep release-script typechecking distinct from application aliases.
+
+For main-process pattern guidance, verify Result imports and discriminants against
+`src/shared/result.ts`, controller examples against their actual service wrappers,
+and project transport composition against `create-project-provider.ts`. A plausible
+provider directory diagram is not evidence that its paths or SSH stub still exist.
