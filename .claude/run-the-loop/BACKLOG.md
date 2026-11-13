@@ -206,3 +206,11 @@
 - [x] Main-process conventions drift: document shared Result semantics, actual thin
   controllers, implemented local/SSH project composition and IPC event direction.
   Verify source paths and example contracts against current implementation.
+
+- [x] Updater/release guidance accuracy: correct the service path and Windows Node
+  version; trace channel identity, native rebuilds, signing and publication boundaries
+  through actual workflows, composite actions and release scripts.
+- [ ] Windows beta native rebuild parity: investigate the explicit `sqlite3,node-pty`
+  module list against the shared `better-sqlite3,node-pty,@parcel/watcher` list using
+  a real Windows packaging run before deciding whether workflow changes are needed.
+  Documentation inspection alone does not establish a broken installer.

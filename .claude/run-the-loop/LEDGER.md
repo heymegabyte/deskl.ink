@@ -1054,3 +1054,28 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   acceptance remains open; no Electron GUI, long journey, visual or deployed-host
   proof claimed. Documentation-only scope needs no app deployment; publication is
   owned by the outer runner. Recovery SHA is recorded in the run's agent-report.json.
+
+## 2026-11-13 — heymegabyte--deskl.ink-43383970736-1
+
+- One bounded documentation iteration: corrected the updater service path and Windows
+  beta Node version, and traced actual channel identity, native rebuilds, signing,
+  notarization and publication through source, workflows and composite actions.
+- Recovery inspection: fetched origin/main and confirmed d25af953 and e58277c5 are
+  ancestors. The failed SSH run retains only already-recovered guide changes; the
+  older MCP retained worktree is clean. No retained files were removed or duplicated.
+- Loop improvement: added a release-source tracing recipe that distinguishes the
+  publishing build helper from verification. Added Windows beta native rebuild parity
+  investigation without asserting an unobserved installer defect.
+- Fresh verification: dependency install, format, format:check, lint, typecheck and
+  diff whitespace checks passed. All 18 explicit guide source/config paths exist.
+  Lint retains two existing renderer no-misused-promises warnings.
+- Full suite passed: 174 files / 1,351 tests, using one worker and command-scoped
+  Ubuntu 24.04 Playwright platform override plus a worktree-local Chromium cache.
+  Electron SQLite transaction/read and real PTY input/output/exit smoke passed.
+- Two grouped read-only reviewers covered source/architecture/security/discovery and
+  validation/runtime roles; independent adversarial diff review found no inaccurate
+  claims. Product implementation, visual/performance/a11y and long UI journeys were
+  not executed for this prose-only slice. No display/compositor was found.
+- No signed/notarized package, live feed, installed update or Electron UI acceptance
+  claimed. No release commands or deployment performed. Commit publication belongs
+  to the outer runner; fresh evidence is in this run's agent-report.json/logs.

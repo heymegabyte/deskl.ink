@@ -337,3 +337,9 @@ to the shared secrets store, and distinguish mocked SSH tests from real-host acc
 Inspect test bodies before labeling the entire suite mocked: the connection test uses
 a local ssh2 server/client handshake with an injected resolver. That handshake does
 not establish host-key trust through the production resolver.
+
+For updater/packaging documentation, trace workflows through `.github/actions/` and
+`scripts/release/`, then compare both builder configs and shared app identities.
+Do not run the release build helper as a verification shortcut: it passes
+`--publish always`. Record signature, notarization, feed and installation evidence
+separately from typechecks and display-free native smoke checks.
