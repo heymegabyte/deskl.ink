@@ -1079,3 +1079,26 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - No signed/notarized package, live feed, installed update or Electron UI acceptance
   claimed. No release commands or deployment performed. Commit publication belongs
   to the outer runner; fresh evidence is in this run's agent-report.json/logs.
+
+## 2026-11-13 — heymegabyte--deskl.ink-43452727318-1
+
+- One bounded recovery iteration: recovered retained updater/release documentation
+  commit 36c4be77 as 0298af18 after fetching origin/main and confirming absence.
+  GitHub Actions records the prior run as failed; its passing receipt was not
+  treated as publication or fresh validation evidence. Retained files preserved.
+- Source and adversarial read-only reviewers found no corrections needed. All 18
+  explicit source/config references exist. No product behavior or release commands
+  changed. Loop improvement recovered: trace workflows through composite actions
+  and scripts, and distinguish publishing helpers from verification commands.
+- Windows beta native rebuild parity remains an investigation requiring Windows
+  packaging evidence. Signing, notarization, feed publication, installed updates,
+  Electron UI and long-journey acceptance remain unverified in this docs-only fire.
+- Fresh validation results and final commit are recorded in agent-report.json for
+  this run; prior ledger results above remain historical. Outer runner owns
+  publication; no push or release deployment performed here.
+- Fresh checks passed: dependency installation, format, format:check, lint, both
+  TypeScript projects, 18 source/config path checks and git diff --check. Lint
+  retains two existing renderer warnings; Markdown was reviewed separately.
+- Full suite passed: 174 files / 1,351 tests with one worker and command-scoped
+  Ubuntu 24.04 Playwright build/cache. Display-free Electron SQLite transaction/read
+  and real PTY input/output/exit also passed; neither establishes native UI acceptance.
