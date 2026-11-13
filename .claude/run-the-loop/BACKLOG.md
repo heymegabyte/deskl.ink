@@ -1,5 +1,14 @@
 # Next verified frontier
 
+- [x] SSH guidance accuracy: replace moved source paths, distinguish configurable
+  worktree directory/pool/branch composition, and describe credential storage and
+  the connection builder's host-verification boundary against current source.
+- [ ] SSH destination host verification: establish current behavior with a disposable
+  real SSH server and changed host key, including direct and proxied connections.
+  The inspected ssh2 builder configures no explicit host verifier; mocked connection
+  tests cannot establish trust behavior. Any behavior change needs scoped architecture
+  and security design before implementation.
+
 - [x] Cross-guide source accuracy: correct the renderer task-creation RPC example,
   PTY classifier ownership and environment distinctions, and overview typecheck scope.
   Verify contracts against controllers, helpers and current package/configuration files.

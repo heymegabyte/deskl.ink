@@ -327,3 +327,13 @@ When auditing risk and architecture guides, verify RPC example method names agai
 the controller and an actual call site, not just the client import path. Check classifier
 ownership under agent-hooks and distinguish agent environment construction from interactive
 terminal inheritance; an allowlisted agent helper does not describe every PTY environment.
+
+For SSH documentation, check the current lifecycle/connect/config/transport/credentials
+owners rather than assuming files remain at the module root. Trace worktree defaults,
+project-pool composition and branch paths separately. Verify host-key claims against
+the actual ssh2 connection config and proxy subprocesses; SSH config parsing alone does
+not establish destination verification. Keep credential encryption/storage claims tied
+to the shared secrets store, and distinguish mocked SSH tests from real-host acceptance.
+Inspect test bodies before labeling the entire suite mocked: the connection test uses
+a local ssh2 server/client handshake with an injected resolver. That handshake does
+not establish host-key trust through the production resolver.

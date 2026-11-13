@@ -1036,3 +1036,21 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   distinctions against implementation. Full generic role roster was bounded to two
   independent read-only reviewers; no full golden/long journey claimed. Outer runner
   owns publication; resulting commit SHA is recorded in agent-report.json.
+
+- 2026-11-12 — Recovered uncommitted SSH guide edits from failed run
+  heymegabyte--deskl.ink-43286333442-1 (retained HEAD d25af953; no retained change
+  commit). Verified recovery absent from origin/main, preserved retained worktrees,
+  and corrected one review finding: SSH tests include a local ssh2 handshake and
+  proxy child processes. Guides now trace moved source owners, configured remote
+  worktree composition, encrypted database credentials and the explicit host-verifier
+  boundary. Two read-only reviewers grouped the generic audit roles; final review
+  found no remaining inaccuracies. Fresh checks: install, format, format:check,
+  lint (two existing renderer warnings), application/release typecheck with 6144 MiB
+  heap, SSH tests (10 files / 95 tests), native Electron SQLite/PTY smoke and full
+  suite (174 files / 1351 tests) passed. All 25 explicit source/guide paths exist;
+  git diff --check passed. Chromium revision 1208 was installed locally using the
+  documented command-scoped Ubuntu fallback. Loop improvement: trace SSH owners and
+  inspect test bodies before labeling coverage mocked. Changed-host-key direct/proxy
+  acceptance remains open; no Electron GUI, long journey, visual or deployed-host
+  proof claimed. Documentation-only scope needs no app deployment; publication is
+  owned by the outer runner. Recovery SHA is recorded in the run's agent-report.json.
