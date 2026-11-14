@@ -343,3 +343,9 @@ For updater/packaging documentation, trace workflows through `.github/actions/` 
 Do not run the release build helper as a verification shortcut: it passes
 `--publish always`. Record signature, notarization, feed and installation evidence
 separately from typechecks and display-free native smoke checks.
+
+When diagnosing native setup, trace package scripts through scripts/postinstall.ts
+and vitest.config.ts before rebuilding. Electron and system-Node SQLite copies
+have separate owners: db:setup prepares tooling, rebuild prepares the app.
+An install with ignored lifecycle scripts proves neither copy is ready; record
+installation, static gates, database tests and test:native as separate outcomes.

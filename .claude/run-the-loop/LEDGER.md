@@ -1102,3 +1102,23 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - Full suite passed: 174 files / 1,351 tests with one worker and command-scoped
   Ubuntu 24.04 Playwright build/cache. Display-free Electron SQLite transaction/read
   and real PTY input/output/exit also passed; neither establishes native UI acceptance.
+
+## Native dependency setup guidance — 2026-11-13
+
+- Reconciled quickstart with scripts/postinstall.ts, package scripts, Vitest aliases
+  and native-smoke prerequisites. Explained separate system-Node/Electron copies,
+  lifecycle skip boundaries and command ownership; added a setup tracing recipe
+  to loop orientation. No runtime behavior changed.
+- Inspected GitHub Actions history and both retained failed worktrees (clean).
+  Fetched origin/main equals this run's base e76a4f7b; local main differs and was
+  preserved. No missing retained setup guidance required recovery.
+- Source reviewer checked claims and final diff; added explicit Electron binary
+  prerequisite. Generic roster grouped into source/adversarial review for this
+  prose-only iteration; no UI journey performed. Repository skill-router absent.
+- Fresh verification: install, format, format:check, lint, typecheck and native
+  smoke passed. Lint reports two existing renderer promise warnings. Initial full
+  test run passed 170 files/1326 tests but failed Chromium launch from default
+  cache; matching revision installed in worktree cache and browser rerun passed
+  4 files/25 tests. Final full rerun with the matching worktree cache passed
+  174 files/1351 tests; fresh logs are recorded in agent-report.json.
+- Publication belongs to outer runner; no deployed/native UI acceptance claim.

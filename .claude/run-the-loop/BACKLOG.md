@@ -214,3 +214,7 @@
   module list against the shared `better-sqlite3,node-pty,@parcel/watcher` list using
   a real Windows packaging run before deciding whether workflow changes are needed.
   Documentation inspection alone does not establish a broken installer.
+
+- [x] Native setup guidance: explain postinstall ordering, CI/skip/ignore-scripts
+  boundaries and the separate Electron and system-Node database copies. Link
+  display-free smoke verification to the isolated native acceptance guidance.
