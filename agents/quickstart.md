@@ -43,6 +43,8 @@ system-Node copy through `vitest.config.ts`; the app uses the root Electron copy
 
 - `CI` (when nonempty) or `EMDASH_SKIP_ELECTRON_REBUILD=1` skips the Electron
   rebuild after installing the tooling copy. Neither skips the tooling install.
+- `EMDASH_DISABLE_NATIVE_DB=1` and `EMDASH_DISABLE_PTY=1` omit the respective
+  module from the postinstall Electron rebuild. Neither skips the tooling install.
 - `pnpm install --ignore-scripts` skips the entire lifecycle. This is sufficient
   for the format/typecheck/lint CI job, but does not establish native readiness.
 - `pnpm run db:setup` installs the system-Node database copy; it does not rebuild

@@ -1122,3 +1122,24 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   4 files/25 tests. Final full rerun with the matching worktree cache passed
   174 files/1351 tests; fresh logs are recorded in agent-report.json.
 - Publication belongs to outer runner; no deployed/native UI acceptance claim.
+
+## Native setup recovery verification — 2026-11-14
+
+- Run: `heymegabyte--deskl.ink-43574132636-1`. Inspected clean isolated worktree,
+  worktree list, two previous failure receipts, GitHub Actions history and actual
+  commits. Prior execution failure produced no result changes. Setup guidance
+  commit `9ef7cd38e71c715b12cf12e3011405184cd11cfd` was absent from main and
+  origin/main; recovered as `483f0518`. Local main is an older ancestor, not a
+  divergent branch. Preserved it; publication remains the outer runner's job.
+- Added both native-disable flags after independent source review. Improved loop
+  report reconciliation: final gate evidence, historical attempts and publication
+  state must agree with logs and git. Prior ledger entries remain historical.
+- Fresh install, format, format:check, lint, typecheck and display-free native
+  smoke passed. Lint retains two existing renderer promise warnings. The full
+  suite passed 174 files / 1,351 tests with one worker, command-scoped Ubuntu
+  24.04 Playwright build and worktree-local cache. No failed test attempt this run.
+  Logs are under this run's log directory; agent-report.json indexes exact commands.
+- Independent source and adversarial reviews found no remaining discrepancies.
+  Generic role roster grouped into bounded recovery/review for this documentation
+  slice; no Browser Harness, application UI journey or release publication ran.
+  Native acceptance and Windows packaging frontiers remain open in BACKLOG.md.

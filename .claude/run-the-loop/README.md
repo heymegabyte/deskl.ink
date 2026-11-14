@@ -349,3 +349,10 @@ and vitest.config.ts before rebuilding. Electron and system-Node SQLite copies
 have separate owners: db:setup prepares tooling, rebuild prepares the app.
 An install with ignored lifecycle scripts proves neither copy is ready; record
 installation, static gates, database tests and test:native as separate outcomes.
+
+Before finalizing a recovery report, distinguish the prior receipt from this run's
+fresh validation. Record the final outcome of each required gate with its exact
+command and log path. Preserve failed attempts and their causes in warnings,
+including the passing retry command when resolved; do not imply an unresolved
+failure passed. Read the completed JSON back and compare it with the actual logs
+and git state before handing publication to the outer runner.
