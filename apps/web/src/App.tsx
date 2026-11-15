@@ -3,6 +3,7 @@ import { HomeOverlay } from './components/HomeOverlay.js';
 import { DesktopManager } from './components/DesktopManager.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { DistroLogo } from './components/DistroLogo.js';
+import { Wordmark } from './components/Logo.js';
 import { api, type SessionState } from './lib/api.js';
 import { readReduceMotion, applyReduceMotion } from './lib/prefs.js';
 import {
@@ -111,7 +112,9 @@ export function App() {
   const openDesktop = useCallback((desktop: DesktopResource, ticket?: string) => {
     setTabs((prev) =>
       prev.some((t) => t.desktop.id === desktop.id)
-        ? prev.map((t) => (t.desktop.id === desktop.id ? { desktop, ticket: ticket ?? t.ticket } : t))
+        ? prev.map((t) =>
+            t.desktop.id === desktop.id ? { desktop, ticket: ticket ?? t.ticket } : t
+          )
         : [...prev, { desktop, ticket }]
     );
     setActiveId(desktop.id);
@@ -130,6 +133,26 @@ export function App() {
   const requestNewComputer = useCallback(() => {
     setActiveId(null);
     setPickerNonce((n) => n + 1);
+  }, []);
+
+  /** Keep one persistent, visible tab for every computer returned by the manager. */
+  const syncDesktopTabs = useCallback((desktops: DesktopResource[]) => {
+    setTabs((prev) => {
+      const fresh = new Map(desktops.map((desktop) => [desktop.id, desktop]));
+      const retained = prev.flatMap((tab) => {
+        const desktop = fresh.get(tab.desktop.id);
+        if (!desktop) return [];
+        fresh.delete(tab.desktop.id);
+        return [{ desktop, ticket: tab.ticket }];
+      });
+      return [
+        ...retained,
+        ...Array.from(fresh.values(), (desktop) => ({ desktop, ticket: undefined })),
+      ];
+    });
+    setActiveId((current) =>
+      current && desktops.some((desktop) => desktop.id === current) ? current : null
+    );
   }, []);
 
   /** Reorder tabs by moving `draggedId` to `targetId`'s position (drag-and-drop, §35). The persist
@@ -216,12 +239,10 @@ export function App() {
       });
     })();
     return () => controller.abort();
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Run once on mount; savedTabIdsRef is an immutable first-render snapshot.
   }, []);
 
   const active = tabs.find((t) => t.desktop.id === activeId) ?? null;
-  const hasTabs = tabs.length > 0;
   // The manager grid is inert while a desktop covers it OR the command palette is open (so focus
   // can't escape behind the modal).
   const managerInert = active !== null || paletteOpen;
@@ -235,20 +256,18 @@ export function App() {
   // Authenticated → the app.
   return (
     <div className="relative h-full">
-      {hasTabs && (
-        <TabStrip
-          tabs={tabs}
-          activeId={activeId}
-          onSelect={setActiveId}
-          onClose={closeTab}
-          onHome={goHome}
-          onReorder={reorderTab}
-        />
-      )}
+      <TabStrip
+        tabs={tabs}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onLogo={goHome}
+        onNewComputer={requestNewComputer}
+        onReorder={reorderTab}
+      />
 
-      {/* Home = the desktop manager grid. Pushed below the strip when tabs are open. */}
+      {/* The desktop manager grid always sits below the single app bar. */}
       <div
-        className={hasTabs ? 'absolute inset-x-0 bottom-0 top-9' : 'h-full'}
+        className="absolute inset-x-0 bottom-0 top-9"
         aria-hidden={managerInert}
         {...(managerInert ? { inert: true } : {})}
       >
@@ -256,6 +275,7 @@ export function App() {
           onOpen={openDesktop}
           onSignOut={signOut}
           onDeleted={closeTab}
+          onDesktopsChange={syncDesktopTabs}
           openPickerSignal={pickerNonce}
           user={user}
         />
@@ -306,62 +326,46 @@ function tabDotColor(status: DesktopStatus): { color: string; live: boolean } {
 }
 
 /**
- * The tab strip (spec §33–35): Home + one tab per open computer + New. Each computer tab shows its
- * distro mark, name, a subtle state dot, and a close affordance (close = view only, never Stop).
+ * The single app bar: brand + one persistent tab per computer + New + manager controls.
  */
 function TabStrip({
   tabs,
   activeId,
   onSelect,
-  onClose,
-  onHome,
+  onLogo,
+  onNewComputer,
   onReorder,
 }: {
   tabs: OpenTab[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onClose: (id: string) => void;
-  onHome: () => void;
+  onLogo: () => void;
+  onNewComputer: () => void;
   onReorder: (draggedId: string, targetId: string) => void;
 }) {
   const dragId = useRef<string | null>(null);
   return (
     <div
       data-testid={desktopTestIds.tabStrip}
-      role="tablist"
-      aria-label="Open computers"
+      role="navigation"
+      aria-label="Computer navigation"
       className="fixed inset-x-0 top-0 z-[70] flex h-9 items-stretch gap-0.5 border-b border-[var(--color-border)] bg-[var(--color-black)]/90 px-1.5 backdrop-blur"
     >
       <button
         type="button"
         data-testid={desktopTestIds.tabHome}
-        role="tab"
-        aria-selected={activeId === null}
-        onClick={onHome}
-        aria-label="Home — all computers"
-        className="my-1 inline-flex items-center gap-1.5 rounded-md px-2.5 text-xs font-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
-        style={{
-          color: activeId === null ? 'var(--color-white)' : 'var(--color-muted)',
-          backgroundColor: activeId === null ? 'var(--color-cyan)' + '26' : 'transparent',
-        }}
+        onClick={onLogo}
+        aria-label="Show all computers"
+        className="my-0.5 inline-flex shrink-0 items-center rounded-md px-1.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
       >
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" />
-        </svg>
-        Home
+        <Wordmark size={24} textClassName="text-sm" />
       </button>
 
-      <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
+      <div
+        role="tablist"
+        aria-label="Computers"
+        className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto"
+      >
         {tabs.map((t) => {
           const selected = t.desktop.id === activeId;
           const { color, live } = tabDotColor(t.desktop.status);
@@ -370,8 +374,6 @@ function TabStrip({
               key={t.desktop.id}
               data-testid={desktopTestIds.tab}
               data-tab-id={t.desktop.id}
-              role="tab"
-              aria-selected={selected}
               draggable
               onDragStart={() => {
                 dragId.current = t.desktop.id;
@@ -386,13 +388,15 @@ function TabStrip({
               onDragEnd={() => {
                 dragId.current = null;
               }}
-              className="group my-1 flex min-w-0 max-w-[12rem] cursor-grab items-center gap-1.5 rounded-md pl-2 pr-1 transition-colors active:cursor-grabbing"
+              className="group my-1 flex min-w-[7rem] max-w-[12rem] cursor-grab items-center gap-1.5 rounded-md px-2 transition-colors active:cursor-grabbing"
               style={{
                 backgroundColor: selected ? 'var(--color-cyan)' + '26' : 'transparent',
               }}
             >
               <button
                 type="button"
+                role="tab"
+                aria-selected={selected}
                 onClick={() => onSelect(t.desktop.id)}
                 aria-label={`Switch to ${t.desktop.name}`}
                 className="flex min-w-0 items-center gap-1.5 py-1 text-xs font-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
@@ -402,20 +406,12 @@ function TabStrip({
                 <span className="truncate">{t.desktop.name}</span>
                 <span
                   className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: color, boxShadow: live ? `0 0 6px ${color}` : undefined }}
+                  style={{
+                    backgroundColor: color,
+                    boxShadow: live ? `0 0 6px ${color}` : undefined,
+                  }}
                   aria-hidden="true"
                 />
-              </button>
-              <button
-                type="button"
-                data-testid={desktopTestIds.tabClose}
-                onClick={() => onClose(t.desktop.id)}
-                aria-label={`Close ${t.desktop.name} tab`}
-                className="grid h-5 w-5 shrink-0 place-items-center rounded text-[var(--color-muted)] opacity-0 transition-opacity hover:text-white focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] group-hover:opacity-100"
-              >
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6 6 18" />
-                </svg>
               </button>
             </div>
           );
@@ -425,14 +421,28 @@ function TabStrip({
       <button
         type="button"
         data-testid={desktopTestIds.tabNew}
-        onClick={onHome}
+        onClick={onNewComputer}
         aria-label="New computer"
         className="my-1 grid w-8 shrink-0 place-items-center rounded-md text-[var(--color-muted)] transition-colors hover:bg-[var(--color-cyan)]/15 hover:text-[var(--color-cyan)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
       >
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
+
+      <div
+        id="navbar-manager-controls"
+        className="ml-1 flex shrink-0 items-center gap-1.5 border-l border-[var(--color-border)] pl-2"
+      />
     </div>
   );
 }

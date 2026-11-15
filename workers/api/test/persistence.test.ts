@@ -81,7 +81,7 @@ function fakeBucket(): HomeBackupBucket & {
     return {
       size: entry.bytes.byteLength,
       body: bytesToStream(sliced),
-      json: async <T,>() => JSON.parse(entry.text ?? new TextDecoder().decode(entry.bytes)) as T,
+      json: async <T>() => JSON.parse(entry.text ?? new TextDecoder().decode(entry.bytes)) as T,
       // Full object bytes as a clean ArrayBuffer (restore buffers the tar to POST with a known length).
       arrayBuffer: async () => entry.bytes.slice().buffer,
     } satisfies HomeBackupObject;
@@ -207,7 +207,12 @@ describe('homeBackup.snapshotHome — capture /home to R2', () => {
       return new Response(tarStream(), { status: 200 });
     });
 
-    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    const result = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      FIXED_SUFFIX
+    );
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -319,8 +324,8 @@ describe('homeBackup.restoreHome — restore the latest /home snapshot', () => {
 });
 
 /**
- * stopWithCheckpoint is a DO method, but its CORE invariant (snapshot BEFORE stop; the stop always
- * proceeds; carry the checkpoint result) is pure composition over `snapshotHome`. This fake adapter
+ * stopWithCheckpoint is a DO method, but its CORE invariant (snapshot BEFORE stop; stop only after
+ * a successful durable checkpoint) is pure composition over `snapshotHome`. This fake adapter
  * mirrors the DO's exact logic so the ordering + the unbound-R2 guard are provable without the
  * Workers runtime. `deps === null` models `this.env.BACKUPS` being undefined.
  */
@@ -329,10 +334,11 @@ async function stopWithCheckpointAdapter(
   stop: () => Promise<void>,
   desktopId: string,
   now = FIXED_NOW
-): Promise<{ stopped: true; checkpoint: SnapshotResult }> {
+): Promise<{ stopped: boolean; checkpoint: SnapshotResult }> {
   const checkpoint: SnapshotResult = deps
     ? await snapshotHome(deps, desktopId, now)
     : { ok: false, kind: 'capability_gap', reason: 'persistence not configured' };
+  if (!checkpoint.ok) return { stopped: false, checkpoint };
   await stop();
   return { stopped: true, checkpoint };
 }
@@ -374,7 +380,7 @@ describe('stopWithCheckpoint — checkpoint-before-stop ordering (P0)', () => {
     expect(order.indexOf('stop')).toBeGreaterThan(order.indexOf('snapshot:put-tar'));
   });
 
-  it('still stops (reporting a capability_gap) when the backup service is unreachable', async () => {
+  it('keeps the computer running when the backup service is unreachable', async () => {
     const order: string[] = [];
     const bucket = fakeBucket();
     const containerFetch = vi.fn<ContainerBackupFetch>(async () => {
@@ -386,22 +392,21 @@ describe('stopWithCheckpoint — checkpoint-before-stop ordering (P0)', () => {
 
     const result = await stopWithCheckpointAdapter({ bucket, containerFetch }, stop, DESKTOP_ID);
 
-    // The stop proceeded even though nothing durable was captured — a stop must never wedge.
-    expect(stop).toHaveBeenCalledOnce();
-    expect(order).toEqual(['stop']);
+    expect(stop).not.toHaveBeenCalled();
+    expect(order).toEqual([]);
     expect(result).toEqual({
-      stopped: true,
+      stopped: false,
       checkpoint: { ok: false, kind: 'capability_gap', reason: 'backup service unreachable' },
     });
   });
 
-  it('is a plain stop (no crash, capability_gap) when BACKUPS is unbound', async () => {
+  it('keeps the computer running when BACKUPS is unbound', async () => {
     const stop = vi.fn(async () => {});
     const result = await stopWithCheckpointAdapter(null, stop, DESKTOP_ID);
 
-    expect(stop).toHaveBeenCalledOnce();
+    expect(stop).not.toHaveBeenCalled();
     expect(result).toEqual({
-      stopped: true,
+      stopped: false,
       checkpoint: { ok: false, kind: 'capability_gap', reason: 'persistence not configured' },
     });
   });
@@ -438,8 +443,18 @@ describe('snapshotHome — unique keys (P1: no same-ms collision)', () => {
     // Same clock for BOTH snapshots (identical ISO timestamp) but distinct random suffixes — the
     // exact race the fix closes: without the suffix both keys would be identical and the second put
     // would overwrite the first tar while latest.json churned.
-    const a = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, () => 'aaaaaaaa');
-    const b = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, () => 'bbbbbbbb');
+    const a = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      () => 'aaaaaaaa'
+    );
+    const b = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      () => 'bbbbbbbb'
+    );
 
     expect(a.ok && b.ok).toBe(true);
     if (!a.ok || !b.ok) return;
@@ -527,8 +542,15 @@ describe('snapshotHome — integrity gate (P2: never point latest at a corrupt a
   it('rejects a NON-GZIP stored object (wrong magic) → error/snapshot_integrity, latest.json untouched', async () => {
     const bucket = fakeBucket();
     // Seed a prior GOOD snapshot so we can prove latest.json is left pointing at IT after a bad one.
-    const good = vi.fn<ContainerBackupFetch>(async () => new Response(tarStream(), { status: 200 }));
-    const first = await snapshotHome({ bucket, containerFetch: good }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    const good = vi.fn<ContainerBackupFetch>(
+      async () => new Response(tarStream(), { status: 200 })
+    );
+    const first = await snapshotHome(
+      { bucket, containerFetch: good },
+      DESKTOP_ID,
+      FIXED_NOW,
+      FIXED_SUFFIX
+    );
     expect(first.ok).toBe(true);
     const pointerBefore = bucket.store.get(manifestKey(DESKTOP_ID))?.text;
 
@@ -557,7 +579,12 @@ describe('snapshotHome — integrity gate (P2: never point latest at a corrupt a
       async () => new Response(notGzipStream(tiny), { status: 200 })
     );
 
-    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    const result = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      FIXED_SUFFIX
+    );
 
     expect(result).toEqual({ ok: false, kind: 'error', reason: 'snapshot_integrity' });
     // No pointer was ever written (this was the first, failed, snapshot).
@@ -606,7 +633,12 @@ describe('restore ordering (P1: stop BEFORE the /restore POST, start after)', ()
       order.push('start');
     });
 
-    const result = await restoreWithStopAdapter({ bucket, containerFetch }, stop, start, DESKTOP_ID);
+    const result = await restoreWithStopAdapter(
+      { bucket, containerFetch },
+      stop,
+      start,
+      DESKTOP_ID
+    );
 
     expect(result).toEqual({ ok: true, restoredKey: EXPECTED_TAR_KEY });
     // The POST to /restore MUST come strictly after the stop (never untar a live /home), and the
@@ -626,7 +658,12 @@ describe('restore ordering (P1: stop BEFORE the /restore POST, start after)', ()
       order.push('start');
     });
 
-    const result = await restoreWithStopAdapter({ bucket, containerFetch }, stop, start, DESKTOP_ID);
+    const result = await restoreWithStopAdapter(
+      { bucket, containerFetch },
+      stop,
+      start,
+      DESKTOP_ID
+    );
 
     expect(result).toEqual({ ok: false, kind: 'error', reason: 'no_backup' });
     // Even on a failed restore the desktop is never left stopped: stop then start still ran.
@@ -673,7 +710,12 @@ describe('snapshotHome — multipart tar upload (regression: R2 rejects a length
     const containerFetch = vi.fn<ContainerBackupFetch>(
       async () => new Response(tarStream(), { status: 200 })
     );
-    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    const result = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      FIXED_SUFFIX
+    );
     expect(result.ok).toBe(true);
     // One small (< part-size) tar → exactly one part, one complete, one multipart session.
     expect(calls).toEqual({ mpu: 1, parts: 1, completes: 1 });
@@ -694,7 +736,12 @@ describe('snapshotHome — multipart tar upload (regression: R2 rejects a length
     const containerFetch = vi.fn<ContainerBackupFetch>(
       async () => new Response(tarStream(), { status: 200 })
     );
-    const result = await snapshotHome({ bucket, containerFetch }, DESKTOP_ID, FIXED_NOW, FIXED_SUFFIX);
+    const result = await snapshotHome(
+      { bucket, containerFetch },
+      DESKTOP_ID,
+      FIXED_NOW,
+      FIXED_SUFFIX
+    );
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.kind).toBe('error');

@@ -101,7 +101,11 @@ async function recordBackupTime(
   try {
     await registry.setLastBackup(id, isoTimestamp, owner);
   } catch (err) {
-    console.warn('[deskl.ink desktops] lastBackupAt update failed (DO code-propagation lag?)', id, err);
+    console.warn(
+      '[deskl.ink desktops] lastBackupAt update failed (DO code-propagation lag?)',
+      id,
+      err
+    );
   }
 }
 
@@ -131,7 +135,11 @@ interface Lifecycle {
 
 /** The RPC surface the control-plane drives on a Computer DO (durable_object path). */
 interface ComputerStub {
-  configure(config: { imageKey: string; instance: string; env?: Record<string, string> }): Promise<void>;
+  configure(config: {
+    imageKey: string;
+    instance: string;
+    env?: Record<string, string>;
+  }): Promise<void>;
   startComputer(): Promise<void>;
   stopComputer(): Promise<void>;
   destroyComputer(): Promise<void>;
@@ -281,7 +289,6 @@ function persistenceFor(
 function newDesktopId(): string {
   return crypto.randomUUID();
 }
-
 
 const app = new Hono<AppContext>();
 
@@ -491,12 +498,9 @@ app.post('/:id/ticket', async (c) => {
 /**
  * POST /api/v1/desktops/:id/stop — CHECKPOINT then stop (P0 "never destroy user work").
  *
- * A graceful stop must never lose data, so this snapshots `/home` to R2 FIRST and only proceeds to
- * the container stop once that checkpoint RESOLVES (the R2 put completed, or persistence is
- * confirmably absent) — never reporting stopped before the checkpoint resolves. The checkpoint is
- * honest + non-blocking: an unreachable backup service / unbound R2 yields a typed `capability_gap`
- * and the stop still proceeds (a stop must never wedge). Idempotent: `.stop()` no-ops if not
- * running. Sets status `persisting` during the checkpoint, then `stopped`.
+ * A graceful stop must never lose data, so this snapshots `/home` to R2 FIRST and proceeds only
+ * after that checkpoint is durable. If persistence fails, the computer remains running and the
+ * registry returns to `ready`; the dashboard must never claim `stopped` while compute is live.
  */
 app.post('/:id/stop', async (c) => {
   const id = c.req.param('id');
@@ -523,20 +527,50 @@ app.post('/:id/stop', async (c) => {
         existing.size,
         existing.form
       ).stopWithCheckpoint(id);
-      if (result.checkpoint.ok) {
+      if (result.stopped) {
         // Record the checkpoint time (owner-scoped; admin unscoped) so the tile shows a lasting
         // "Backed up <time>" indicator — the stop checkpoint IS a durable backup.
-        await recordBackupTime(registry, id, result.checkpoint.manifest.createdAt, admin ? undefined : principalId);
+        await recordBackupTime(
+          registry,
+          id,
+          result.checkpoint.manifest.createdAt,
+          admin ? undefined : principalId
+        );
       } else {
-        // Honest breadcrumb — the stop proceeded, but nothing durable was captured (service/R2 gap).
-        console.warn('[deskl.ink desktops] stop checkpoint did not persist', id, result.checkpoint);
+        console.error(
+          '[deskl.ink desktops] stop blocked because checkpoint failed',
+          id,
+          result.checkpoint
+        );
+        const desktop = await registry.updateStatus(id, 'ready');
+        return c.json(
+          {
+            ok: false,
+            error: 'checkpoint_failed',
+            message:
+              'Your computer is still running because its backup could not be saved. Try stopping again.',
+            checkpoint: result.checkpoint,
+            desktop,
+          },
+          503
+        );
       }
     } else {
       await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
     }
   } catch (err) {
-    // A stop failure shouldn't wedge the record — log, still mark stopped.
+    // Never publish `stopped` after a failed stop. Keep the record actionable for a retry.
     console.error('[deskl.ink desktops] stop failed', id, err);
+    const desktop = await registry.updateStatus(id, 'ready');
+    return c.json(
+      {
+        ok: false,
+        error: 'stop_failed',
+        message: 'The computer is still running because shutdown did not complete. Try again.',
+        desktop,
+      },
+      502
+    );
   }
 
   const desktop = await registry.updateStatus(id, 'stopped');
@@ -582,13 +616,21 @@ app.post('/:id/snapshot', async (c) => {
     ).snapshotHome(id);
     // Persist the backup time (owner-scoped; admin path unscoped) so the tile shows a lasting
     // "Backed up <time>" indicator — the on-demand backup's durable confirmation. Only on success.
-    if (result.ok) await recordBackupTime(registry, id, result.manifest.createdAt, admin ? undefined : principalId);
+    if (result.ok)
+      await recordBackupTime(
+        registry,
+        id,
+        result.manifest.createdAt,
+        admin ? undefined : principalId
+      );
     return c.json(SnapshotResultSchema.parse(result));
   } catch (err) {
     // Final safety net: the contract is a typed result, NEVER a 500. An unexpected throw (RPC/R2/
     // parse) becomes an honest typed error so the caller always gets a parseable SnapshotResult.
     console.error('[deskl.ink desktops] snapshot route error', id, err);
-    return c.json(SnapshotResultSchema.parse({ ok: false, kind: 'error', reason: 'snapshot_failed' }));
+    return c.json(
+      SnapshotResultSchema.parse({ ok: false, kind: 'error', reason: 'snapshot_failed' })
+    );
   }
 });
 
@@ -680,7 +722,12 @@ app.post('/:id/restart', async (c) => {
       // Record the checkpoint time (owner-scoped; admin unscoped) on success — the restart's
       // pre-stop checkpoint IS a durable backup, so the tile shows a lasting "Backed up <time>".
       if (result.checkpoint.ok) {
-        await recordBackupTime(registry, id, result.checkpoint.manifest.createdAt, admin ? undefined : principalId);
+        await recordBackupTime(
+          registry,
+          id,
+          result.checkpoint.manifest.createdAt,
+          admin ? undefined : principalId
+        );
       }
     } else {
       await lifecycleFor(c.env, id, existing.distro, existing.size, existing.form).stop();
@@ -779,7 +826,13 @@ app.all('/:id/vnc/*', async (c) => {
 
   // Resolve the compute backend from the ticket's (distro, size) claims — routes the 12-class
   // fleet to the right namespace, or (COMPUTER_DO=1) the single Computer DO by id.
-  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size, verdict.claims.form);
+  const container = lifecycleFor(
+    c.env,
+    id,
+    verdict.claims.distro,
+    verdict.claims.size,
+    verdict.claims.form
+  );
 
   // WebSocket upgrades: pass the ORIGINAL request straight through (NO switchPort / NO new Request
   // at this layer — both drop the forbidden Upgrade/Connection headers, so websockify would see a
@@ -827,7 +880,13 @@ app.all('/:id/term/*', async (c) => {
     return c.json({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  const container = lifecycleFor(c.env, id, verdict.claims.distro, verdict.claims.size, verdict.claims.form);
+  const container = lifecycleFor(
+    c.env,
+    id,
+    verdict.claims.distro,
+    verdict.claims.size,
+    verdict.claims.form
+  );
 
   // Forward the request with its `/term` prefix INTACT through the WS-capable stub `.fetch` — do
   // NOT reconstruct/strip it here, which would drop the WebSocket upgrade. The DesktopContainer DO

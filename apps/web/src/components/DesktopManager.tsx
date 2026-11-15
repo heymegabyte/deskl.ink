@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   desktopTestIds,
   DESKTOP_SIZES,
@@ -11,7 +12,6 @@ import {
 } from '../../../../packages/shared/src/desktop-api';
 import { api, ApiError, type SessionState } from '../lib/api.js';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
-import { Wordmark } from './Logo.js';
 import { OsPicker } from './OsPicker.js';
 import { SettingsModal } from './SettingsModal.js';
 import { DistroLogo } from './DistroLogo.js';
@@ -89,6 +89,8 @@ interface DesktopManagerProps {
   onSignOut: () => void;
   /** A computer was destroyed → close its tab if open. */
   onDeleted?: (id: string) => void;
+  /** Keep the app bar's persistent computer tabs synchronized with the live list. */
+  onDesktopsChange?: (desktops: DesktopResource[]) => void;
   /** Bumped by the command palette to request opening the New-computer picker. */
   openPickerSignal?: number;
   /** The signed-in identity (from App's session fetch) — shown in the header account menu. */
@@ -99,6 +101,7 @@ export function DesktopManager({
   onOpen,
   onSignOut,
   onDeleted,
+  onDesktopsChange,
   openPickerSignal,
   user,
 }: DesktopManagerProps) {
@@ -122,6 +125,7 @@ export function DesktopManager({
   // screen-reader users share a single source of truth (no double-announce). Errors are surfaced
   // separately via the role="alert" error banner.
   const [announcement, setAnnouncement] = useState('');
+  const [navbarHost, setNavbarHost] = useState<HTMLElement | null>(null);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
@@ -143,6 +147,14 @@ export function DesktopManager({
   useEffect(() => {
     if (openPickerSignal) setPickerOpen(true);
   }, [openPickerSignal]);
+
+  useEffect(() => {
+    setNavbarHost(document.getElementById('navbar-manager-controls'));
+  }, []);
+
+  useEffect(() => {
+    onDesktopsChange?.(desktops);
+  }, [desktops, onDesktopsChange]);
 
   // Show-then-auto-dismiss the success toast whenever a new announcement arrives. The timer is
   // cleared on the next message (so rapid actions re-arm a fresh 3s window, not a stale one) and on
@@ -512,89 +524,58 @@ export function DesktopManager({
           onCancel={() => setPendingDelete(null)}
         />
       )}
-      {/* Top bar */}
-      <header className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-4 sm:px-6">
-        <Wordmark size={30} textClassName="text-lg" />
-
-        <div className="flex items-center gap-3">
-          <FinancialBar desktops={desktops} />
-
-          {/* Stop everything costing money (spec §40) — appears only while something is running. */}
-          {runningCount > 0 &&
-            (confirmStopAll ? (
-              <div className="hidden items-center gap-1.5 sm:inline-flex">
+      {navbarHost &&
+        createPortal(
+          <>
+            {/* Stop everything costing money (spec §40) — appears only while something is running. */}
+            {runningCount > 0 &&
+              (confirmStopAll ? (
+                <div className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    data-testid={desktopTestIds.stopAllConfirm}
+                    onClick={() => void stopAll()}
+                    className="rounded-md bg-[var(--color-warning)] px-2 py-1 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-warning)]"
+                  >
+                    {`Stop ${runningCount}?`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmStopAll(false)}
+                    className="rounded-md px-1.5 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  data-testid={desktopTestIds.stopAllConfirm}
-                  onClick={() => void stopAll()}
-                  className="rounded-lg bg-[var(--color-warning)] px-3 py-2 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-warning)]"
+                  data-testid={desktopTestIds.stopAll}
+                  onClick={() => setConfirmStopAll(true)}
+                  aria-label="Stop all running computers"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-warning)]/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
                 >
-                  {`Stop ${runningCount}?`}
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                  </svg>
+                  <span className="hidden lg:inline">Stop all</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmStopAll(false)}
-                  className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                data-testid={desktopTestIds.stopAll}
-                onClick={() => setConfirmStopAll(true)}
-                aria-label="Stop all running computers"
-                className="hidden items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-600 text-[var(--color-muted)] transition-colors hover:border-[var(--color-warning)]/60 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] sm:inline-flex"
-              >
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
-                  <rect x="7" y="7" width="10" height="10" rx="1.5" />
-                </svg>
-                Stop all
-              </button>
-            ))}
-
-          <button
-            type="button"
-            data-testid={desktopTestIds.newComputerButton}
-            onClick={() => setPickerOpen(true)}
-            disabled={creating}
-            aria-label="Create a new computer"
-            aria-busy={creating}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-cyan)] px-3 py-2.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
-          >
-            {creating ? (
-              <Spinner />
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            )}
-            {/* Label hides on mobile so the header fits (the + icon + aria-label carry it). */}
-            <span className="hidden min-w-[7.5ch] text-center sm:inline-block">
-              {creating ? 'Creating…' : 'New computer'}
-            </span>
-          </button>
-
-          {/* Account menu — the signed-in identity + Settings + Sign out, folded into one compact
-              avatar button (replaces the bare header Sign-out to declutter and show WHO is signed in).
-              Opening Settings closes the menu and raises the manager-level SettingsModal. */}
-          <AccountMenu
-            user={user}
-            onSignOut={onSignOut}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        </div>
-      </header>
+              ))}
+            <FinancialBar desktops={desktops} />
+            <AccountMenu
+              user={user}
+              onSignOut={onSignOut}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          </>,
+          navbarHost
+        )}
 
       {/* Error banner (quiet, dismissible by the next successful poll). */}
       {error && (
@@ -813,10 +794,22 @@ function ProviderGlyph({ provider }: { provider?: string | undefined }) {
   if (provider === 'google') {
     return (
       <svg viewBox="0 0 24 24" {...common}>
-        <path fill="#4285F4" d="M23 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.2a5.3 5.3 0 0 1-2.3 3.48v2.9h3.72C21.78 18.9 23 15.9 23 12.27Z" />
-        <path fill="#34A853" d="M12 23c3.1 0 5.7-1.03 7.62-2.79l-3.72-2.9c-1.03.7-2.35 1.1-3.9 1.1-3 0-5.54-2.02-6.45-4.74H1.7v2.98A11 11 0 0 0 12 23Z" />
-        <path fill="#FBBC05" d="M5.55 13.67a6.6 6.6 0 0 1 0-4.22V6.47H1.7a11 11 0 0 0 0 9.86l3.85-2.66Z" />
-        <path fill="#EA4335" d="M12 5.4c1.69 0 3.2.58 4.4 1.72l3.3-3.3C17.7 1.98 15.1 1 12 1A11 11 0 0 0 1.7 6.47l3.85 2.98C6.46 7.42 9 5.4 12 5.4Z" />
+        <path
+          fill="#4285F4"
+          d="M23 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.2a5.3 5.3 0 0 1-2.3 3.48v2.9h3.72C21.78 18.9 23 15.9 23 12.27Z"
+        />
+        <path
+          fill="#34A853"
+          d="M12 23c3.1 0 5.7-1.03 7.62-2.79l-3.72-2.9c-1.03.7-2.35 1.1-3.9 1.1-3 0-5.54-2.02-6.45-4.74H1.7v2.98A11 11 0 0 0 12 23Z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M5.55 13.67a6.6 6.6 0 0 1 0-4.22V6.47H1.7a11 11 0 0 0 0 9.86l3.85-2.66Z"
+        />
+        <path
+          fill="#EA4335"
+          d="M12 5.4c1.69 0 3.2.58 4.4 1.72l3.3-3.3C17.7 1.98 15.1 1 12 1A11 11 0 0 0 1.7 6.47l3.85 2.98C6.46 7.42 9 5.4 12 5.4Z"
+        />
       </svg>
     );
   }
@@ -829,7 +822,15 @@ function ProviderGlyph({ provider }: { provider?: string | undefined }) {
   }
   // email / dev (and any fallback) — a neutral mail glyph.
   return (
-    <svg viewBox="0 0 24 24" {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      {...common}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m3 7 9 6 9-6" />
     </svg>
@@ -863,7 +864,8 @@ function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
     const { baselineUsdPerHour, maxUsdPerHour } = estimateDesktopCost(d.size);
     burn += baselineUsdPerHour;
     burnMax += maxUsdPerHour;
-    sessionEst += baselineUsdPerHour * Math.max(0, (now - new Date(d.createdAt).getTime()) / 3_600_000);
+    sessionEst +=
+      baselineUsdPerHour * Math.max(0, (now - new Date(d.createdAt).getTime()) / 3_600_000);
   }
   const live = running.length > 0;
   const title =
@@ -873,7 +875,7 @@ function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
     <div
       data-testid={desktopTestIds.financialBar}
       title={title}
-      className="hidden items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-black)]/40 px-3 py-1.5 font-mono text-xs text-[var(--color-muted)] sm:inline-flex"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-black)]/40 px-2 py-1 font-mono text-[11px] text-[var(--color-muted)]"
     >
       <span data-testid={desktopTestIds.financialBarRunning} className="flex items-center gap-1.5">
         <span
@@ -884,12 +886,15 @@ function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
           }}
           aria-hidden="true"
         />
-        {`${running.length} running`}
+        <span className="hidden md:inline">{`${running.length} running`}</span>
       </span>
       <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
       <span className="text-[var(--color-white)]">{`~$${burn.toFixed(2)}/hr`}</span>
-      <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
-      <span title="estimated spend this session">{`~$${sessionEst.toFixed(2)} est`}</span>
+      <span className="hidden h-3 w-px bg-[var(--color-border)] xl:inline" aria-hidden="true" />
+      <span
+        className="hidden xl:inline"
+        title="estimated spend this session"
+      >{`~$${sessionEst.toFixed(2)} est`}</span>
     </div>
   );
 }

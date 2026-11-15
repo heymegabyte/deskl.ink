@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Production Release'
+  short_description: 'Safely commit, deploy, and validate production changes'
+  default_prompt: 'Use $production-release to commit verified deskl.ink changes to main, deploy them to production, and validate the live result.'

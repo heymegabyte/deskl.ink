@@ -282,24 +282,22 @@ export class DesktopContainer extends Container<Env> {
   }
 
   /**
-   * Checkpoint-before-stop — the durable-persistence invariant. Snapshots `/home` FIRST and only
-   * AFTER the checkpoint RESOLVES (the R2 put completed, or the backup service / R2 is confirmably
-   * absent) proceeds to the normal container stop. NEVER reports stopped before the checkpoint
-   * resolves, so a graceful stop never loses data. The stop itself ALWAYS proceeds (a stop must
-   * never wedge on a backup failure); the returned `checkpoint` tells the caller exactly what was —
-   * or wasn't — durably captured. When R2 is unbound this is just a plain stop (no crash).
+   * Checkpoint-before-stop — the durable-persistence invariant. A persistent computer is stopped
+   * only after its `/home` snapshot is durably committed to R2. A failed checkpoint leaves the
+   * container running so the user can retry without losing the only current copy of their work.
    */
   async stopWithCheckpoint(desktopId: string): Promise<StopWithCheckpointResult> {
-    // `snapshotHome` already returns a typed capability_gap when R2 is unbound / the service is
-    // unreachable (it never throws), so the checkpoint is always a resolved, honest outcome before
-    // we stop. Belt-and-suspenders: guard the await so even an unexpected throw can't block the stop.
     let checkpoint: SnapshotResult;
     try {
       checkpoint = await this.snapshotHome(desktopId);
     } catch (err) {
-      console.error('[deskl.ink DesktopContainer] checkpoint snapshot threw; stopping anyway', err);
+      console.error(
+        '[deskl.ink DesktopContainer] checkpoint snapshot threw; keeping computer running',
+        err
+      );
       checkpoint = { ok: false, kind: 'error', reason: 'checkpoint_failed' };
     }
+    if (!checkpoint.ok) return { stopped: false, checkpoint };
     await this.stop();
     return { stopped: true, checkpoint };
   }

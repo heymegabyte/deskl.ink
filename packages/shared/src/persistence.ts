@@ -71,12 +71,24 @@ export const RestoreResultSchema = z.discriminatedUnion('ok', [
 export type RestoreResult = z.infer<typeof RestoreResultSchema>;
 
 /**
- * Result of a checkpoint-before-stop — the stop ALWAYS proceeds (a stop must never wedge), carrying
- * the snapshot outcome so a caller sees exactly what was (or wasn't) durably captured. The invariant
- * is ordering, not success: the checkpoint is RESOLVED (R2 put done, or the service confirmably
- * absent) BEFORE the container is stopped, so a graceful stop never loses data.
+ * Result of a checkpoint-before-stop. A persistent computer may stop only after its snapshot is
+ * durably committed. If the checkpoint fails, the container remains running and `stopped:false`
+ * tells the caller not to publish a false stopped state.
  */
-export const StopWithCheckpointResultSchema = z
-  .object({ stopped: z.literal(true), checkpoint: SnapshotResultSchema })
-  .strict();
+export const StopWithCheckpointResultSchema = z.discriminatedUnion('stopped', [
+  z
+    .object({
+      stopped: z.literal(true),
+      checkpoint: z.object({ ok: z.literal(true), manifest: SnapshotManifestSchema }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      stopped: z.literal(false),
+      checkpoint: z
+        .object({ ok: z.literal(false), kind: PersistenceFailureKindSchema, reason: z.string() })
+        .strict(),
+    })
+    .strict(),
+]);
 export type StopWithCheckpointResult = z.infer<typeof StopWithCheckpointResultSchema>;

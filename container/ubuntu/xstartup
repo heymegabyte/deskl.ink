@@ -3,59 +3,45 @@
 # deskl.ink — TigerVNC xstartup (runs inside the X server on display :1)
 # -----------------------------------------------------------------------------
 # Xtigervnc execs this script once the X server is up. Its job: establish the
-# environment KDE Plasma needs, dress the root window in deskl.ink near-black,
-# quiet X power-management, and hand off to a FULL Plasma session via
-# startplasma-x11. Keep it POSIX sh (xstartup is invoked via /bin/sh).
+# environment GNOME needs, dress the root window in deskl.ink near-black,
+# quiet X power-management, apply the same deskl.ink mark used by GitHub and the
+# website, and hand off to a full GNOME session.
 #
-# Plasma-over-Xvnc gotchas handled here (all verified against noble / Plasma 5.27):
-#   1. Plasma MUST have its own D-Bus session bus, or plasmashell segfaults on
-#      connect ("Plasma closed unexpectedly"). We launch the whole session under
-#      `dbus-run-session`, which spins up a fresh bus AND exports
-#      DBUS_SESSION_BUS_ADDRESS for every child (fixes tray icons + notifications
-#      too). We first UNSET any inherited bus/session so nothing attaches to a
-#      stale host bus.
-#   2. XDG_RUNTIME_DIR must exist with 0700 perms — Plasma/KWin write sockets
+# GNOME-over-Xvnc needs a private D-Bus session and XDG runtime directory:
+#   1. `dbus-run-session` creates the bus used by GNOME Shell and settings.
+#   2. XDG_RUNTIME_DIR must exist with 0700 perms — GNOME writes sockets
 #      there. The container has no systemd/elogind to create /run/user/<uid>, so
 #      we provision /tmp/runtime-desklink ourselves.
-#   3. XDG_SESSION_TYPE=x11 (NOT wayland) so Plasma starts the X11 session, and
-#      XDG_CURRENT_DESKTOP=KDE so apps/portals identify the DE correctly.
-#   4. The WM is kwin_x11 — startplasma-x11 launches it automatically; the
-#      pre-baked ~/.config/kwinrc pins it and disables compositing (critical for
-#      software VNC: no GPU to accelerate blur/shadow effects → tearing + CPU).
+#   3. XDG_SESSION_TYPE=x11 forces GNOME's X11 path under TigerVNC.
 # -----------------------------------------------------------------------------
 set -e
 
 # Make sure the session agrees on which display it is painting.
 export DISPLAY="${DISPLAY:-:1}"
 
-# --- Fresh D-Bus: drop anything inherited so Plasma starts its OWN bus. --------
-# A stale/host session bus is the classic cause of a blank screen or a
-# plasmashell crash ("Failed to connect to session bus").
+# --- Fresh D-Bus: drop anything inherited so GNOME starts its own bus. ----------
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 
-# --- XDG runtime dir (0700) — Plasma/KWin need a private socket dir. -----------
+# --- XDG runtime dir (0700) — GNOME needs a private socket dir. ----------------
 # No systemd/elogind here to create /run/user/<uid>, so provision it ourselves.
 XDG_RUNTIME_DIR="/tmp/runtime-desklink"
 export XDG_RUNTIME_DIR
 mkdir -p "${XDG_RUNTIME_DIR}"
 chmod 700 "${XDG_RUNTIME_DIR}"
 
-# --- Tell Plasma this is an X11 KDE session (not Wayland). ---------------------
+# --- Tell GNOME this is an X11 session (not Wayland). --------------------------
 export XDG_SESSION_TYPE=x11
-export XDG_CURRENT_DESKTOP=KDE
-export XDG_SESSION_DESKTOP=KDE
-export DESKTOP_SESSION=plasma
+export XDG_CURRENT_DESKTOP=GNOME
+export XDG_SESSION_DESKTOP=gnome
+export DESKTOP_SESSION=gnome
 # Legacy toggle some stacks still read; harmless, avoids an xmodmap hiccup.
 export XKL_XMODMAP_DISABLE=1
 # Force software GL for any stray GL client — there is no GPU in the container.
 export LIBGL_ALWAYS_SOFTWARE=1
-export KWIN_COMPOSE=N
 
 # --- deskl.ink backdrop floor: solid near-black (#05060A). --------------------
-# Plasma's desktop (plasmashell) repaints this once up — the pre-baked
-# appletsrc sets the same solid color — but this covers the brief pre-paint
-# window and any no-DE fallback.
+# GNOME repaints this once settings load; this covers the brief pre-paint window.
 if command -v xsetroot >/dev/null 2>&1; then
   xsetroot -solid "#05060A"
 fi
@@ -67,16 +53,19 @@ if command -v xset >/dev/null 2>&1; then
   xset s noblank || true    # never blank the framebuffer
 fi
 
-# --- Hand off to a full Plasma X11 session under a fresh D-Bus session. --------
-# `exec` so the session becomes this script's process — when Plasma exits,
-# Xtigervnc tears the display down. `dbus-run-session` provisions the private
-# bus Plasma requires and runs startplasma-x11 as its child.
+# --- Apply brand settings and hand off to GNOME under a fresh D-Bus session. ----
 if command -v dbus-run-session >/dev/null 2>&1; then
-  exec dbus-run-session -- startplasma-x11
+  exec dbus-run-session -- sh -lc '
+    gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+    gsettings set org.gnome.desktop.background picture-uri file:///usr/share/backgrounds/deskl-ink.png || true
+    gsettings set org.gnome.desktop.background picture-uri-dark file:///usr/share/backgrounds/deskl-ink.png || true
+    gsettings set org.gnome.desktop.background picture-options zoom || true
+    gsettings set org.gnome.desktop.session idle-delay 0 || true
+    exec gnome-session --session=gnome
+  '
 else
-  # Fallback for images without dbus-run-session: eval a dbus-launch bus into
-  # the environment, then start Plasma directly.
+  # Fallback for images without dbus-run-session.
   eval "$(dbus-launch --sh-syntax)"
   export DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
-  exec startplasma-x11
+  exec gnome-session --session=gnome
 fi

@@ -54,6 +54,12 @@ excessive cards, giant permanent nav, clutter. Tokens: `packages/shared/src/desi
 
 - Dev: `pnpm install`, `pnpm dev` (web), `pnpm -C workers/api dev`. Checks: `pnpm typecheck`,
   `pnpm lint`, `pnpm test`.
+- Production-bound implementation prompts use `.agents/skills/production-release/SKILL.md`. When
+  release is authorized and the exact tree passes required checks, finish by committing the scoped
+  files to `main`, pushing normally, deploying through the repository-owned Cloudflare path, and
+  validating the affected journey on production. Never auto-deploy read-only work, secrets,
+  unrelated dirty changes, failing builds, or changes whose required external dependency is absent;
+  report the precise blocker instead of making a false completion claim.
 - TDD-first for important infra/state machinery (Durable Objects, persistence, billing, lifecycle):
   failing test → implement → verify. Golden-path E2E (the 26-step dogfood flow) is the definition of done.
 - Verify slices by actually running/deploying and observing the real golden path — not just a green build.
