@@ -129,6 +129,9 @@ export function DesktopManager({
   const [announcement, setAnnouncement] = useState('');
   const [navbarHost, setNavbarHost] = useState<HTMLElement | null>(null);
   const [wallet, setWallet] = useState<WalletState | null>(null);
+  const [query, setQuery] = useState('');
+  const [restoring, setRestoring] = useState<ReadonlySet<string>>(new Set());
+  const [showCreditWelcome, setShowCreditWelcome] = useState(false);
   const lockHandledRef = useRef(false);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
@@ -155,6 +158,15 @@ export function DesktopManager({
   useEffect(() => {
     setNavbarHost(document.getElementById('navbar-manager-controls'));
   }, []);
+
+  useEffect(() => {
+    const key = `deskl.ink:credit-welcome:${user?.email ?? 'account'}`;
+    try {
+      setShowCreditWelcome(window.localStorage.getItem(key) !== 'dismissed');
+    } catch {
+      setShowCreditWelcome(true);
+    }
+  }, [user?.email]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -407,6 +419,29 @@ export function DesktopManager({
     [desktops]
   );
 
+  const restoreComputer = useCallback(
+    async (desktop: DesktopResource) => {
+      setRestoring((prev) => new Set(prev).add(desktop.id));
+      setError(null);
+      try {
+        if (!RUNNING_STATUSES.has(desktop.status)) await api.startDesktop(desktop.id);
+        const result = await api.restoreDesktop(desktop.id);
+        if (result.ok) setAnnouncement(`Restored ${desktop.name} from its latest snapshot.`);
+        else setError(`Restore failed: ${result.reason}`);
+        void refresh();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : `Could not restore ${desktop.name}.`);
+      } finally {
+        setRestoring((prev) => {
+          const next = new Set(prev);
+          next.delete(desktop.id);
+          return next;
+        });
+      }
+    },
+    [refresh]
+  );
+
   /** Stop EVERY running computer (spec §40 — "stop everything costing money"). */
   const stopAll = useCallback(async () => {
     setConfirmStopAll(false);
@@ -467,6 +502,13 @@ export function DesktopManager({
   );
 
   const isEmpty = !loading && desktops.length === 0;
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredDesktops = normalizedQuery
+    ? desktops.filter((desktop) =>
+        `${desktop.name} ${desktop.os} ${desktop.form}`.toLowerCase().includes(normalizedQuery)
+      )
+    : desktops;
+  const snapshots = filteredDesktops.filter((desktop) => desktop.lastBackupAt);
   const runningCount = desktops.filter((d) => RUNNING_STATUSES.has(d.status)).length;
   // Resolve the delete dialog's target from the live list by its id. If the id ever vanishes from the
   // list (e.g. a poll reconciled it away while the dialog was open) this is `undefined` and the modal
@@ -627,27 +669,169 @@ export function DesktopManager({
           <BillingRequired />
         ) : loading ? (
           <LoadingGrid />
-        ) : isEmpty ? (
-          <EmptyLaunchpad creating={creating} onCreate={() => void createComputer()} />
         ) : (
-          <ul className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {desktops.map((desktop) => (
-              <DesktopTile
-                key={desktop.id}
-                desktop={desktop}
-                onOpen={() => onOpen(desktop, ticketsRef.current.get(desktop.id))}
-                onStop={() => void stopComputer(desktop.id)}
-                onRestart={() => void restartComputer(desktop.id)}
-                onBackup={() => void snapshotComputer(desktop.id)}
-                backingUp={backingUp.has(desktop.id)}
-                onDelete={() => setPendingDelete(desktop.id)}
-                onRename={(name) => void renameComputer(desktop.id, name)}
-                editing={renaming === desktop.id}
-                onEditStart={() => setRenaming(desktop.id)}
-                onEditCancel={() => setRenaming(null)}
-              />
-            ))}
-          </ul>
+          <div className="mx-auto w-full max-w-6xl space-y-8">
+            {showCreditWelcome && wallet && (
+              <div
+                className="flex items-start gap-3 rounded-xl border border-[var(--color-cyan)]/35 bg-[var(--color-cyan)]/8 px-4 py-3"
+                role="status"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-800 text-white">
+                    You received $25 in free usage credits.
+                  </p>
+                  <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+                    Use them to demo deskl.ink. Your balance stays visible in the navbar, where
+                    billing will be available when you run low.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Dismiss credit message"
+                  onClick={() => {
+                    const key = `deskl.ink:credit-welcome:${user?.email ?? 'account'}`;
+                    try {
+                      window.localStorage.setItem(key, 'dismissed');
+                    } catch {
+                      // Storage can be disabled; dismiss for this render anyway.
+                    }
+                    setShowCreditWelcome(false);
+                  }}
+                  className="rounded-md px-2 py-1 text-[var(--color-muted)] hover:bg-white/5 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <section aria-labelledby="computer-assets-title">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2
+                    id="computer-assets-title"
+                    className="font-display text-lg font-800 text-white"
+                  >
+                    Computers
+                  </h2>
+                  <p className="text-xs text-[var(--color-muted)]">Your desktops and servers</p>
+                </div>
+                <label className="relative block w-full sm:w-72">
+                  <span className="sr-only">Search computers and snapshots</span>
+                  <svg
+                    className="pointer-events-none absolute left-3 top-2.5 text-[var(--color-muted)]"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search computers, OS, snapshots…"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-black/30 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-cyan)]"
+                  />
+                </label>
+              </div>
+              {isEmpty ? (
+                <EmptyLaunchpad creating={creating} onCreate={() => void createComputer()} />
+              ) : filteredDesktops.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-muted)]">
+                  No computers match “{query}”.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredDesktops.map((desktop) => (
+                    <DesktopTile
+                      key={desktop.id}
+                      desktop={desktop}
+                      onOpen={() => onOpen(desktop, ticketsRef.current.get(desktop.id))}
+                      onStop={() => void stopComputer(desktop.id)}
+                      onRestart={() => void restartComputer(desktop.id)}
+                      onBackup={() => void snapshotComputer(desktop.id)}
+                      backingUp={backingUp.has(desktop.id)}
+                      onDelete={() => setPendingDelete(desktop.id)}
+                      onRename={(name) => void renameComputer(desktop.id, name)}
+                      editing={renaming === desktop.id}
+                      onEditStart={() => setRenaming(desktop.id)}
+                      onEditCancel={() => setRenaming(null)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section aria-labelledby="snapshots-title">
+              <div className="mb-3">
+                <h2 id="snapshots-title" className="font-display text-lg font-800 text-white">
+                  Snapshots
+                </h2>
+                <p className="text-xs text-[var(--color-muted)]">
+                  Restorable user-data versions stored in R2
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-[0.68rem] uppercase tracking-wider text-[var(--color-muted)]">
+                    <tr>
+                      <th className="px-4 py-2.5">Computer</th>
+                      <th className="hidden px-4 py-2.5 sm:table-cell">Version</th>
+                      <th className="px-4 py-2.5">Saved</th>
+                      <th className="px-4 py-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border)]">
+                    {snapshots.length ? (
+                      snapshots.map((desktop) => (
+                        <tr key={desktop.id} className="bg-black/20">
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-2">
+                              <DistroLogo distro={desktop.distro} size={24} />
+                              <span>
+                                <span className="block font-700 text-white">{desktop.name}</span>
+                                <span className="block text-[0.68rem] text-[var(--color-muted)] sm:hidden">
+                                  {desktop.os}
+                                </span>
+                              </span>
+                            </span>
+                          </td>
+                          <td className="hidden px-4 py-3 font-mono text-xs text-[var(--color-muted)] sm:table-cell">
+                            {desktop.os}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--color-muted)]">
+                            {relativeTime(desktop.lastBackupAt!)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              disabled={restoring.has(desktop.id)}
+                              onClick={() => void restoreComputer(desktop)}
+                              className="rounded-md border border-[var(--color-cyan)]/40 px-3 py-1.5 text-xs font-700 text-[var(--color-cyan)] hover:bg-[var(--color-cyan)]/10 disabled:opacity-50"
+                            >
+                              {restoring.has(desktop.id) ? 'Restoring…' : 'Restore'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-4 py-8 text-center text-sm text-[var(--color-muted)]"
+                        >
+                          No snapshots yet. Use Backup / snapshot from the + menu.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         )}
       </main>
     </div>

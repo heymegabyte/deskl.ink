@@ -31,7 +31,9 @@ import {
 // against `packages/shared/src`. One definition, imported here; no shape is duplicated.
 import {
   SnapshotResultSchema,
+  RestoreResultSchema,
   type SnapshotResult,
+  type RestoreResult,
 } from '../../../../packages/shared/src/persistence';
 import type { z } from 'zod';
 
@@ -282,6 +284,10 @@ export const api = {
       method: 'POST',
       signal,
     });
+  },
+
+  async restoreDesktop(id: string, signal?: AbortSignal): Promise<RestoreResult> {
+    return request(desktopApi.restore(id), RestoreResultSchema, { method: 'POST', signal });
   },
 
   /** PATCH /api/v1/desktops/:id — rename a computer (metadata only). Returns the updated desktop. */

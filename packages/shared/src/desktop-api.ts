@@ -106,7 +106,10 @@ export function estimateDesktopCost(size: DesktopSizeId): {
   const baseline =
     s.ramGiB * CF_CONTAINER_RATES.memoryUsdPerGiBHour +
     s.diskGB * CF_CONTAINER_RATES.diskUsdPerGBHour;
-  return { baselineUsdPerHour: baseline, maxUsdPerHour: baseline + s.vcpu * CF_CONTAINER_RATES.cpuUsdPerVcpuHour };
+  return {
+    baselineUsdPerHour: baseline,
+    maxUsdPerHour: baseline + s.vcpu * CF_CONTAINER_RATES.cpuUsdPerVcpuHour,
+  };
 }
 
 /**
@@ -277,6 +280,7 @@ export const desktopApi = {
   restart: (id: string) => `/api/v1/desktops/${id}/restart`,
   /** capture `/home` to durable R2 storage on demand. Returns the typed SnapshotResult (persistence.ts). */
   snapshot: (id: string) => `/api/v1/desktops/${id}/snapshot`,
+  restore: (id: string) => `/api/v1/desktops/${id}/restore`,
   destroy: (id: string) => `/api/v1/desktops/${id}`,
   /** mint a fresh VNC ticket for a running desktop (self-heal when no create-time ticket). */
   ticket: (id: string) => `/api/v1/desktops/${id}/ticket`,

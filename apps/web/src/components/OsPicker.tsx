@@ -198,6 +198,29 @@ export function OsPicker({
                 );
               })}
             </div>
+            <label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-black/20 px-3 py-2">
+              <span>
+                <span className="block text-xs font-700 text-white">OS version</span>
+                <span className="block text-[0.65rem] text-[var(--color-muted)]">
+                  Only verified bootable images are selectable
+                </span>
+              </span>
+              <select
+                value={DISTROS[distro].version}
+                onChange={() => undefined}
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-black)] px-2 py-1.5 text-xs text-white"
+              >
+                <option value={DISTROS[distro].version}>{DISTROS[distro].version}</option>
+              </select>
+            </label>
+            <details className="mt-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[0.68rem] text-[var(--color-muted)]">
+              <summary className="cursor-pointer font-700 text-white">More Linux images</summary>
+              <p className="mt-2 leading-relaxed">
+                CentOS, Kali, Zorin, Pop!_OS, Linux Mint, elementary OS, openSUSE, Arch, and Alpine
+                require verified container images before they can be provisioned. They are
+                intentionally unavailable instead of launching the wrong OS.
+              </p>
+            </details>
             {form === 'desktop' && (
               <div className="mt-3 grid grid-cols-4 gap-1.5">
                 {DESKTOP_SIZE_IDS.map((id) => {
