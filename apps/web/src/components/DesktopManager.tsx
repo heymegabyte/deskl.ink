@@ -527,46 +527,46 @@ export function DesktopManager({
       {navbarHost &&
         createPortal(
           <>
-            {/* Stop everything costing money (spec §40) — appears only while something is running. */}
-            {runningCount > 0 &&
-              (confirmStopAll ? (
-                <div className="inline-flex items-center gap-1">
-                  <button
-                    type="button"
-                    data-testid={desktopTestIds.stopAllConfirm}
-                    onClick={() => void stopAll()}
-                    className="rounded-md bg-[var(--color-warning)] px-2 py-1 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-warning)]"
-                  >
-                    {`Stop ${runningCount}?`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmStopAll(false)}
-                    className="rounded-md px-1.5 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
+            {/* Stop everything costing money (spec §40); disabled when nothing is running. */}
+            {confirmStopAll && runningCount > 0 ? (
+              <div className="inline-flex items-center gap-1">
                 <button
                   type="button"
-                  data-testid={desktopTestIds.stopAll}
-                  onClick={() => setConfirmStopAll(true)}
-                  aria-label="Stop all running computers"
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-warning)]/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
+                  data-testid={desktopTestIds.stopAllConfirm}
+                  onClick={() => void stopAll()}
+                  className="rounded-md bg-[var(--color-warning)] px-2 py-1 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-warning)]"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="12"
-                    height="12"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <rect x="7" y="7" width="10" height="10" rx="1.5" />
-                  </svg>
-                  <span className="hidden lg:inline">Stop all</span>
+                  {`Stop ${runningCount}?`}
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setConfirmStopAll(false)}
+                  className="rounded-md px-1.5 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid={desktopTestIds.stopAll}
+                onClick={() => setConfirmStopAll(true)}
+                aria-label="Stop all running computers"
+                disabled={runningCount === 0}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-warning)]/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--color-muted)]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                </svg>
+                <span className="hidden lg:inline">Stop all</span>
+              </button>
+            )}
             <FinancialBar desktops={desktops} />
             <AccountMenu
               user={user}
@@ -851,10 +851,10 @@ const NAME_TYPOGRAPHY = 'font-display text-base font-700 tracking-normal';
  * session spend. Every figure is an ESTIMATE from Cloudflare's published rate card
  * (`estimateDesktopCost`) × each running computer's uptime — NOT a finalized invoice (the metered
  * ledger is M3). Wallet balance arrives with Stripe (M3); until then this shows the honest live
- * burn, never a fabricated balance. Hidden when the user has no computers.
+ * burn, never a fabricated balance. Zero remains visible when the user has no computers so the
+ * compact app bar never shifts or hides its cost affordance.
  */
 function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
-  if (desktops.length === 0) return null;
   const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
   const now = Date.now();
   let burn = 0;
