@@ -10,7 +10,7 @@ import {
   type DesktopSizeId,
   type ComputerForm,
 } from '../../../../packages/shared/src/desktop-api';
-import { api, ApiError, type SessionState } from '../lib/api.js';
+import { api, ApiError, type SessionState, type WalletState } from '../lib/api.js';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
 import { OsPicker } from './OsPicker.js';
 import { SettingsModal } from './SettingsModal.js';
@@ -95,6 +95,7 @@ interface DesktopManagerProps {
   openPickerSignal?: number;
   /** The signed-in identity (from App's session fetch) — shown in the header account menu. */
   user?: SessionState['user'];
+  onBillingLock?: () => void;
 }
 
 export function DesktopManager({
@@ -104,6 +105,7 @@ export function DesktopManager({
   onDesktopsChange,
   openPickerSignal,
   user,
+  onBillingLock,
 }: DesktopManagerProps) {
   const [desktops, setDesktops] = useState<DesktopResource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +128,8 @@ export function DesktopManager({
   // separately via the role="alert" error banner.
   const [announcement, setAnnouncement] = useState('');
   const [navbarHost, setNavbarHost] = useState<HTMLElement | null>(null);
+  const [wallet, setWallet] = useState<WalletState | null>(null);
+  const lockHandledRef = useRef(false);
 
   // Freshest VNC ticket per desktop, captured at create time. Opening a tile
   // forwards it so the fullscreen view can connect without re-minting.
@@ -150,6 +154,21 @@ export function DesktopManager({
 
   useEffect(() => {
     setNavbarHost(document.getElementById('navbar-manager-controls'));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = () =>
+      void api
+        .getWallet(controller.signal)
+        .then(setWallet)
+        .catch(() => undefined);
+    load();
+    const timer = setInterval(load, 5_000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -186,6 +205,16 @@ export function DesktopManager({
       if (!signal?.aborted) setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!wallet?.locked || lockHandledRef.current) return;
+    lockHandledRef.current = true;
+    onBillingLock?.();
+    const running = desktops.filter((desktop) => RUNNING_STATUSES.has(desktop.status));
+    void Promise.allSettled(running.map((desktop) => api.stopDesktop(desktop.id))).then(
+      () => void refresh()
+    );
+  }, [wallet?.locked, desktops, onBillingLock, refresh]);
 
   // Visibility-aware polling: refresh on mount, on a timer, and on tab focus;
   // pause the timer while the tab is hidden. No manual refresh button.
@@ -572,7 +601,7 @@ export function DesktopManager({
                 <span className="hidden lg:inline">Save & stop all</span>
               </button>
             )}
-            <FinancialBar desktops={desktops} />
+            <FinancialBar desktops={desktops} wallet={wallet} />
             <AccountMenu
               user={user}
               onSignOut={onSignOut}
@@ -594,7 +623,9 @@ export function DesktopManager({
 
       {/* Grid / empty-state */}
       <main className="flex-1 overflow-y-auto p-6 sm:p-10">
-        {loading ? (
+        {wallet?.locked ? (
+          <BillingRequired />
+        ) : loading ? (
           <LoadingGrid />
         ) : isEmpty ? (
           <EmptyLaunchpad creating={creating} onCreate={() => void createComputer()} />
@@ -859,7 +890,13 @@ const NAME_TYPOGRAPHY = 'font-display text-base font-700 tracking-normal';
  * burn, never a fabricated balance. Zero remains visible when the user has no computers so the
  * compact app bar never shifts or hides its cost affordance.
  */
-function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
+function FinancialBar({
+  desktops,
+  wallet,
+}: {
+  desktops: DesktopResource[];
+  wallet: WalletState | null;
+}) {
   const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
   const now = Date.now();
   let burn = 0;
@@ -894,13 +931,41 @@ function FinancialBar({ desktops }: { desktops: DesktopResource[] }) {
         <span className="hidden md:inline">{`${running.length} running`}</span>
       </span>
       <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
-      <span className="text-[var(--color-white)]">{`~$${burn.toFixed(2)}/hr`}</span>
+      <span className="text-[var(--color-white)]">{`~$${(wallet?.hourlyUsd ?? burn).toFixed(2)}/hr`}</span>
+      <span className="h-3 w-px bg-[var(--color-border)]" aria-hidden="true" />
+      <span className={wallet?.locked ? 'text-[var(--color-danger)]' : 'text-[var(--color-cyan)]'}>
+        {wallet ? `$${wallet.balanceUsd.toFixed(2)} credits` : 'Credits …'}
+      </span>
       <span className="hidden h-3 w-px bg-[var(--color-border)] xl:inline" aria-hidden="true" />
       <span
         className="hidden xl:inline"
         title="estimated spend this session"
       >{`~$${sessionEst.toFixed(2)} est`}</span>
     </div>
+  );
+}
+
+function BillingRequired() {
+  return (
+    <section
+      className="mx-auto mt-16 max-w-md rounded-2xl border border-[var(--color-danger)]/35 bg-[var(--color-black)]/70 p-8 text-center shadow-[0_0_60px_rgba(255,76,96,.1)]"
+      aria-labelledby="billing-required-title"
+    >
+      <p className="font-mono text-xs uppercase tracking-[.18em] text-[var(--color-danger)]">
+        Account frozen
+      </p>
+      <h2 id="billing-required-title" className="mt-2 font-display text-2xl font-800 text-white">
+        Add credits to continue
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-[var(--color-muted)]">
+        Your balance is $0.00. All running computers are being saved to R2 and stopped. Computer
+        access returns only after verified funds reach your wallet.
+      </p>
+      <p className="mt-5 rounded-lg border border-[var(--color-border)] bg-white/5 px-4 py-3 text-xs text-[var(--color-muted)]">
+        Payment connection is not enabled on this deployment yet. No card will be charged
+        automatically.
+      </p>
+    </section>
   );
 }
 

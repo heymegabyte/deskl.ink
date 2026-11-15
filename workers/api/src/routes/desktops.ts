@@ -303,6 +303,12 @@ app.post('/', async (c) => {
   if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
   const { id: principalId } = auth;
   const registry = getRegistry(c.env);
+  if (!auth.admin && (await registry.wallet(principalId)).locked) {
+    return c.json(
+      { ok: false, error: 'billing_required', message: 'Add credits to create a computer.' },
+      402
+    );
+  }
 
   // Cost-abuse guard (defense in depth — the caller is already authenticated above): cap create
   // attempts per client IP AND globally so even a compromised/automated session can't spin up
@@ -439,6 +445,12 @@ app.post('/:id/start', async (c) => {
   if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
   const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
+  if (!admin && (await registry.wallet(principalId)).locked) {
+    return c.json(
+      { ok: false, error: 'billing_required', message: 'Add credits to start a computer.' },
+      402
+    );
+  }
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
@@ -471,6 +483,9 @@ app.post('/:id/ticket', async (c) => {
   if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
   const { id: principalId, admin } = auth;
   const registry = getRegistry(c.env);
+  if (!admin && (await registry.wallet(principalId)).locked) {
+    return c.json({ ok: false, error: 'billing_required' }, 402);
+  }
   const existing = admin ? await registry.get(id) : await registry.getOwned(id, principalId);
   if (!existing) return c.json({ ok: false, error: 'not_found' }, 404);
 
@@ -811,6 +826,11 @@ app.delete('/:id', async (c) => {
  */
 app.all('/:id/vnc/*', async (c) => {
   const id = c.req.param('id');
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (!auth.admin && (await getRegistry(c.env).wallet(auth.id)).locked) {
+    return c.json({ ok: false, error: 'billing_required' }, 402);
+  }
   // noVNC loads its JS/CSS as RELATIVE module imports and opens the WebSocket WITHOUT the
   // parent page's `?ticket=` query — so requiring the query on every request 401s every asset
   // and the module graph fails to load. Resolve the ticket from the query OR a path-scoped
@@ -871,6 +891,11 @@ app.all('/:id/vnc/*', async (c) => {
  */
 app.all('/:id/term/*', async (c) => {
   const id = c.req.param('id');
+  const auth = await resolveAuth(c);
+  if (!auth) return c.json({ ok: false, error: 'unauthorized' }, 401);
+  if (!auth.admin && (await getRegistry(c.env).wallet(auth.id)).locked) {
+    return c.json({ ok: false, error: 'billing_required' }, 402);
+  }
   const cookieName = `deskl_term_${id}`;
   const ticket = c.req.query('ticket') ?? getCookie(c, cookieName);
 

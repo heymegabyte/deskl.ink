@@ -61,6 +61,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false); // ⌘K command palette (§87)
   // Bumping this asks the manager to open its New-computer picker (from the palette / shortcut).
   const [pickerNonce, setPickerNonce] = useState(0);
+  const [billingLocked, setBillingLocked] = useState(false);
 
   // Capture the previously-open tab ids + the ?new shortcut ONCE at first render.
   const savedTabIdsRef = useRef<string[]>(
@@ -257,11 +258,11 @@ export function App() {
   return (
     <div className="relative h-full">
       <TabStrip
-        tabs={tabs}
+        tabs={billingLocked ? [] : tabs}
         activeId={activeId}
         onSelect={setActiveId}
         onLogo={goHome}
-        onNewComputer={requestNewComputer}
+        onNewComputer={billingLocked ? () => undefined : requestNewComputer}
         onReorder={reorderTab}
       />
 
@@ -275,9 +276,16 @@ export function App() {
           onOpen={openDesktop}
           onSignOut={signOut}
           onDeleted={closeTab}
-          onDesktopsChange={syncDesktopTabs}
+          {...(billingLocked ? {} : { onDesktopsChange: syncDesktopTabs })}
           openPickerSignal={pickerNonce}
           user={user}
+          onBillingLock={() => {
+            setBillingLocked(true);
+            setTabs([]);
+            setActiveId(null);
+            setPaletteOpen(false);
+            window.history.replaceState(null, '', '/billing');
+          }}
         />
       </div>
 

@@ -12,6 +12,7 @@ import { requestLogger, type AppContext } from './observability.js';
 import desktops from './routes/desktops.js';
 import mcp from './routes/mcp.js';
 import auth from './routes/auth.js';
+import billing from './routes/billing.js';
 
 // Container + registry Durable Objects must be exported from the Worker entry
 // so the runtime can instantiate them (classes referenced in wrangler.jsonc
@@ -106,7 +107,7 @@ app.post('/api/v1/csp-report', async (c) => {
     for (const entry of list) {
       const e = entry as Record<string, unknown>;
       // report-uri wraps in { "csp-report": {...} }; report-to wraps in { body: {...} }.
-      const r = ((e['csp-report'] ?? e['body'] ?? e) ?? {}) as Record<string, unknown>;
+      const r = (e['csp-report'] ?? e['body'] ?? e ?? {}) as Record<string, unknown>;
       const blocked = String(r['blocked-uri'] ?? r['blockedURL'] ?? '');
       if (/^(chrome|moz|safari|webkit)-extension:/i.test(blocked)) continue; // extension noise
       console.log(
@@ -130,6 +131,7 @@ app.post('/api/v1/csp-report', async (c) => {
 
 // Identity: Google/GitHub OAuth, email magic link, session + logout (M2). Stateless, no DB.
 app.route('/api/v1/auth', auth);
+app.route('/api/v1/billing', billing);
 
 // Desktop control-plane: create/list/get/start/stop/destroy + ticketed VNC proxy.
 app.route('/api/v1/desktops', desktops);

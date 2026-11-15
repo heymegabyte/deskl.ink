@@ -27,6 +27,7 @@ import {
   type DesktopSizeId,
   type DesktopStatus,
   type DistroId,
+  estimateDesktopCost,
 } from '@deskl/shared';
 import type { Env } from '../env.js';
 
@@ -62,6 +63,18 @@ interface DesktopRow extends Record<string, SqlStorageValue> {
 interface RateRow extends Record<string, SqlStorageValue> {
   window_start: number;
   count: number;
+}
+
+interface WalletRow extends Record<string, SqlStorageValue> {
+  owner: string;
+  balance_micros: number;
+  settled_at: number;
+}
+
+export interface WalletState {
+  balanceUsd: number;
+  hourlyUsd: number;
+  locked: boolean;
 }
 
 /** Fields the control-plane supplies on create; the rest are derived here. */
@@ -130,6 +143,59 @@ export class DesktopRegistry extends DurableObject<Env> {
         window_start INTEGER NOT NULL,
         count INTEGER NOT NULL
       );`
+    );
+    this.ctx.storage.sql.exec(
+      `CREATE TABLE IF NOT EXISTS wallets (
+        owner TEXT PRIMARY KEY,
+        balance_micros INTEGER NOT NULL,
+        settled_at INTEGER NOT NULL
+      );`
+    );
+  }
+
+  /** Authoritative prepaid wallet. New signed-in accounts receive exactly $25 once. */
+  wallet(owner: string): WalletState {
+    const now = Date.now();
+    this.ctx.storage.sql.exec(
+      `INSERT INTO wallets (owner, balance_micros, settled_at) VALUES (?, 25000000, ?)
+       ON CONFLICT(owner) DO NOTHING;`,
+      owner,
+      now
+    );
+    this.settleWallet(owner, now);
+    const row = this.ctx.storage.sql
+      .exec<WalletRow>(`SELECT * FROM wallets WHERE owner = ? LIMIT 1;`, owner)
+      .toArray()[0];
+    const hourlyUsd = this.hourlyBurn(owner);
+    const balanceMicros = row?.balance_micros ?? 0;
+    return { balanceUsd: balanceMicros / 1_000_000, hourlyUsd, locked: balanceMicros <= 0 };
+  }
+
+  private hourlyBurn(owner: string): number {
+    const rows = this.ctx.storage.sql
+      .exec<DesktopRow>(
+        `SELECT * FROM desktops WHERE owner = ? AND status IN ('starting','restoring','ready','active','stopping','persisting');`,
+        owner
+      )
+      .toArray();
+    return rows.reduce((total, row) => {
+      const size = row.size as DesktopSizeId;
+      return total + estimateDesktopCost(size).baselineUsdPerHour;
+    }, 0);
+  }
+
+  private settleWallet(owner: string, now = Date.now()): void {
+    const row = this.ctx.storage.sql
+      .exec<WalletRow>(`SELECT * FROM wallets WHERE owner = ? LIMIT 1;`, owner)
+      .toArray()[0];
+    if (!row) return;
+    const elapsedHours = Math.max(0, now - row.settled_at) / 3_600_000;
+    const debitMicros = Math.ceil(this.hourlyBurn(owner) * elapsedHours * 1_000_000);
+    this.ctx.storage.sql.exec(
+      `UPDATE wallets SET balance_micros = MAX(0, balance_micros - ?), settled_at = ? WHERE owner = ?;`,
+      debitMicros,
+      now,
+      owner
     );
   }
 
@@ -242,6 +308,8 @@ export class DesktopRegistry extends DurableObject<Env> {
    */
   updateStatus(id: string, status: DesktopStatus): DesktopResource | undefined {
     const now = new Date().toISOString();
+    const current = this.getRow(id);
+    if (current?.owner) this.settleWallet(current.owner);
     this.ctx.storage.sql.exec(
       `UPDATE desktops SET status = ?, last_active_at = ? WHERE id = ?;`,
       status,
@@ -301,11 +369,7 @@ export class DesktopRegistry extends DurableObject<Env> {
    * created under an anonymous principal aren't orphaned once the user signs in. Idempotent.
    */
   reassignOwner(fromOwner: string, toOwner: string): void {
-    this.ctx.storage.sql.exec(
-      `UPDATE desktops SET owner = ? WHERE owner = ?;`,
-      toOwner,
-      fromOwner
-    );
+    this.ctx.storage.sql.exec(`UPDATE desktops SET owner = ? WHERE owner = ?;`, toOwner, fromOwner);
   }
 
   /** Delete a desktop row. Idempotent — removing an unknown id is a no-op. */

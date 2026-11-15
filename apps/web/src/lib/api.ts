@@ -149,7 +149,22 @@ export interface SessionState {
   user?: { email: string; name: string | null; provider: string };
 }
 
+export interface WalletState {
+  balanceUsd: number;
+  hourlyUsd: number;
+  locked: boolean;
+}
+
 export const api = {
+  async getWallet(signal?: AbortSignal): Promise<WalletState> {
+    const res = await fetch(`${API_BASE}/api/v1/billing/wallet`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      signal: signal ?? null,
+    });
+    if (!res.ok) throw new ApiError('http', 'Could not load account credits.', res.status);
+    return (await res.json()) as WalletState;
+  },
   /** GET /api/v1/auth/session — is the caller logged in? Drives the login gate. */
   async getSession(signal?: AbortSignal): Promise<SessionState> {
     try {
