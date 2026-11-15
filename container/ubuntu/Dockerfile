@@ -93,6 +93,9 @@ RUN apt-get update \
 # noVNC's default landing page is vnc.html; symlink index.html → vnc.html so the
 # bare path (http://host:6080/) also loads the client. /vnc.html already works.
 RUN ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+COPY assets/deskl-novnc.css /usr/share/novnc/deskl-novnc.css
+RUN sed -i 's#</head>#<link rel="stylesheet" href="deskl-novnc.css"></head>#' /usr/share/novnc/vnc.html \
+ && sed -i 's#<title>noVNC</title>#<title>deskl.ink remote desktop</title>#' /usr/share/novnc/vnc.html
 
 # Browser terminal: the ttyd static binary (tsl0922/ttyd, pinned). ttyd serves an
 # xterm.js terminal over HTTP+WS on :7681 and is designed for reverse-proxy subpath

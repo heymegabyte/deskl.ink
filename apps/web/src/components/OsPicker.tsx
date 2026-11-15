@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusTrap } from '../lib/useFocusTrap.js';
 import {
   DISTROS,
@@ -6,10 +6,10 @@ import {
   DESKTOP_SIZES,
   DESKTOP_SIZE_IDS,
   COMPUTER_FORMS,
-  COMPUTER_FORM_SPECS,
   desktopTestIds,
   estimateDesktopCost,
   type DistroId,
+  type DesktopResource,
   type DesktopSizeId,
   type ComputerForm,
 } from '@deskl/shared';
@@ -17,255 +17,228 @@ import { DistroLogo } from './DistroLogo.js';
 import { readDefaults } from '../lib/defaults.js';
 
 interface OsPickerProps {
-  /** Create a computer with the chosen form + distro + size. */
   onCreate: (distro: DistroId, size: DesktopSizeId, form: ComputerForm) => void;
+  onBackup: (desktopId: string) => Promise<void> | void;
+  desktops: DesktopResource[];
+  backingUp: ReadonlySet<string>;
   onClose: () => void;
   creating?: boolean;
 }
 
-/** Tiny label above a group of choices. */
-function GroupLabel({ children }: { children: React.ReactNode }) {
+function ModeButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
-    <p className="mb-2 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-[var(--color-muted)]">
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 text-xs font-700 focus-visible:outline-2 focus-visible:outline-[var(--color-cyan)] ${active ? 'bg-[var(--color-cyan)] text-[var(--color-black)]' : 'text-[var(--color-muted)] hover:bg-white/5 hover:text-white'}`}
+    >
       {children}
-    </p>
+    </button>
   );
 }
 
-/**
- * The OS picker — a gorgeous glass popup to choose which Linux to spin up AND how much
- * machine to give it. Ubuntu + Everyday (4 GiB) are pre-selected (the default/golden path);
- * every distro and size is selectable. Each distro has an original brand-colour orb (never a
- * trademarked logo); each size maps to a real Cloudflare instance_type (RAM), so the choice
- * actually provisions that much VM — it is not a cosmetic label.
- */
-export function OsPicker({ onCreate, onClose, creating = false }: OsPickerProps) {
-  // Seed distro + size from the user's saved defaults (Settings → "Default new computer"), read ONCE
-  // via the lazy useState initializer so opening the picker reflects "my default" — not always
-  // Ubuntu · Everyday. `readDefaults()` always returns a fully-valid {distro,size} (falls back to the
-  // golden path for a missing / stale entry), so these are safe seeds even on a fresh account. `form`
-  // stays Desktop (defaults scope the distro + size; the form is an in-picker choice).
+/** Compact launcher for creating a supported computer or saving its user-data layer to R2. */
+export function OsPicker({
+  onCreate,
+  onBackup,
+  desktops,
+  backingUp,
+  onClose,
+  creating = false,
+}: OsPickerProps) {
+  const [mode, setMode] = useState<'new' | 'backup'>('new');
   const [form, setForm] = useState<ComputerForm>('desktop');
   const [distro, setDistro] = useState<DistroId>(() => readDefaults().distro);
   const [size, setSize] = useState<DesktopSizeId>(() => readDefaults().size);
-  // Modal focus management (ARIA dialog): contain Tab within the dialog + restore focus on close.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef);
+  const snapshotTargets = useMemo(
+    () => desktops.filter((d) => d.status === 'ready' || d.status === 'active'),
+    [desktops]
+  );
 
-  // Server form is Ubuntu · Everyday (headless) for v1 — pin those when it's chosen so the stored
-  // distro/size match what actually boots (more server distros/sizes are coming).
-  const chooseForm = (f: ComputerForm) => {
-    setForm(f);
-    if (f === 'server') {
-      // Servers are everyday-size for v1; the distro stays the user's choice (all distros supported).
-      setSize('everyday');
-    }
-  };
-
-  // Esc closes.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
   }, [onClose]);
+
+  const chooseForm = (next: ComputerForm) => {
+    setForm(next);
+    if (next === 'server') setSize('everyday');
+  };
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center p-4"
+      className="fixed inset-0 z-50 grid place-items-center p-3"
       role="dialog"
       aria-modal="true"
-      aria-label="Choose your computer"
+      aria-label="Computer actions"
     >
-      {/* dim + blur the manager behind */}
       <button
         type="button"
-        aria-label="Cancel"
+        aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-[var(--color-black)]/70 backdrop-blur-sm"
       />
-
       <div
         ref={dialogRef}
-        className="ds-glass relative w-full max-w-2xl rounded-2xl border border-[var(--color-border)] p-7 shadow-[0_0_70px_rgba(0,229,255,0.12)] [animation:ds-pop_180ms_var(--ease-expressive)]"
-        style={{ animationName: 'ds-pop' }}
+        className="ds-glass relative w-full max-w-lg rounded-xl border border-[var(--color-border)] p-4 shadow-[0_18px_70px_rgba(0,0,0,.55)]"
       >
-        <h2 className="font-display text-xl font-800 tracking-tight text-white">New computer</h2>
-        <p className="mt-1 mb-6 text-sm text-[var(--color-muted)]">
-          Pick your Linux and how much machine it gets. Ready in seconds — you can resize later.
-        </p>
-
-        {/* Form: Desktop vs Server (spec §9) */}
-        <GroupLabel>Type</GroupLabel>
-        <div className="grid grid-cols-2 gap-3">
-          {COMPUTER_FORMS.map((id) => {
-            const f = COMPUTER_FORM_SPECS[id];
-            const active = form === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                data-testid={desktopTestIds.formOption}
-                data-form={id}
-                aria-pressed={active}
-                onClick={() => chooseForm(id)}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-4 text-left transition-all duration-200 ease-[var(--ease-expressive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] ${
-                  active
-                    ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/5 shadow-[0_0_24px_rgba(0,229,255,0.18)]'
-                    : 'border-[var(--color-border)] hover:-translate-y-px hover:border-white/20 hover:bg-white/5'
-                }`}
-              >
-                <span className="flex items-center gap-2 font-display text-base font-700 text-white">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke={active ? 'var(--color-cyan)' : 'currentColor'}
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    {id === 'desktop' ? (
-                      <>
-                        <rect x="2" y="4" width="20" height="13" rx="2" />
-                        <path d="M8 21h8M12 17v4" />
-                      </>
-                    ) : (
-                      <>
-                        <rect x="3" y="4" width="18" height="6" rx="1.5" />
-                        <rect x="3" y="14" width="18" height="6" rx="1.5" />
-                        <path d="M7 7h.01M7 17h.01" />
-                      </>
-                    )}
-                  </svg>
-                  {f.name}
-                </span>
-                <span className="text-xs leading-snug text-[var(--color-muted)]">{f.tagline}</span>
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between gap-3">
+          <div className="rounded-lg border border-[var(--color-border)] bg-black/20 p-0.5">
+            <ModeButton active={mode === 'new'} onClick={() => setMode('new')}>
+              New computer
+            </ModeButton>
+            <ModeButton active={mode === 'backup'} onClick={() => setMode('backup')}>
+              Backup / snapshot
+            </ModeButton>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-muted)] hover:bg-white/5 hover:text-white"
+          >
+            ×
+          </button>
         </div>
 
-        {/* Distro — both desktop and server pick a distro */}
-        <div className="mt-6">
-          <GroupLabel>Linux</GroupLabel>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {DISTRO_IDS.map((id) => {
-                  const d = DISTROS[id];
-                  const active = distro === id;
+        {mode === 'backup' ? (
+          <div className="mt-4">
+            <p className="mb-3 text-xs leading-relaxed text-[var(--color-muted)]">
+              Save a restorable user-data layer to R2 without stopping the computer.
+            </p>
+            {snapshotTargets.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-5 text-center text-sm text-[var(--color-muted)]">
+                Start a computer before creating a snapshot.
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {snapshotTargets.map((desktop) => {
+                  const busy = backingUp.has(desktop.id);
                   return (
-                    <button
-                      key={id}
-                      type="button"
-                      data-testid={desktopTestIds.distroOption}
-                      data-distro={id}
-                      aria-pressed={active}
-                      onClick={() => setDistro(id)}
-                      className={`group flex flex-col items-center gap-2.5 rounded-xl border p-5 text-center transition-all duration-200 ease-[var(--ease-expressive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] ${
-                        active
-                          ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/5 shadow-[0_0_28px_rgba(0,229,255,0.2)]'
-                          : 'border-[var(--color-border)] hover:-translate-y-px hover:border-white/20 hover:bg-white/5'
-                      }`}
-                    >
-                      <DistroLogo distro={id} size={52} />
-                      <span className="font-display text-base font-700 text-white">{d.name}</span>
-                      <span className="font-mono text-xs text-[var(--color-muted)]">{d.version}</span>
-                      <span className="text-xs leading-snug text-[var(--color-muted)]">
-                        {d.tagline}
-                      </span>
-                    </button>
+                    <li key={desktop.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void onBackup(desktop.id)}
+                        className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2 text-left hover:border-[var(--color-cyan)]/50 hover:bg-white/5 disabled:opacity-60"
+                      >
+                        <DistroLogo distro={desktop.distro} size={28} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-700 text-white">
+                            {desktop.name}
+                          </span>
+                          <span className="block text-[0.7rem] text-[var(--color-muted)]">
+                            {desktop.os} · {desktop.form}
+                          </span>
+                        </span>
+                        <span className="text-xs font-700 text-[var(--color-cyan)]">
+                          {busy ? 'Saving…' : 'Snapshot'}
+                        </span>
+                      </button>
+                    </li>
                   );
                 })}
+              </ul>
+            )}
           </div>
-        </div>
-
-        {/* Size (desktop) or a headless-server note (server) */}
-        {form === 'desktop' ? (
-          <div className="mt-6">
-            <GroupLabel>Size</GroupLabel>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-[var(--color-border)] bg-black/20 p-1">
+              {COMPUTER_FORMS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  data-testid={desktopTestIds.formOption}
+                  data-form={id}
+                  aria-pressed={form === id}
+                  onClick={() => chooseForm(id)}
+                  className={`rounded-md px-3 py-2 text-xs font-700 ${form === id ? 'bg-white/10 text-white' : 'text-[var(--color-muted)] hover:text-white'}`}
+                >
+                  {id === 'desktop' ? 'Desktop · GUI' : 'Server · terminal'}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
+              {DISTRO_IDS.map((id) => {
+                const item = DISTROS[id];
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={desktopTestIds.distroOption}
+                    data-distro={id}
+                    aria-pressed={distro === id}
+                    onClick={() => setDistro(id)}
+                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${distro === id ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/5' : 'border-[var(--color-border)] hover:bg-white/5'}`}
+                  >
+                    <DistroLogo distro={id} size={25} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-700 text-white">
+                        {item.name}
+                      </span>
+                      <span className="block text-[0.65rem] text-[var(--color-muted)]">
+                        {item.version}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {form === 'desktop' && (
+              <div className="mt-3 grid grid-cols-4 gap-1.5">
                 {DESKTOP_SIZE_IDS.map((id) => {
-                  const s = DESKTOP_SIZES[id];
-                  const active = size === id;
-                  // Honest CF-rate-card estimate — same `baselineUsdPerHour` the header chip shows,
-                  // so picker + header agree. Shown per size so cost is comparable while choosing.
-                  const { baselineUsdPerHour } = estimateDesktopCost(id);
+                  const item = DESKTOP_SIZES[id];
                   return (
                     <button
                       key={id}
                       type="button"
                       data-testid={desktopTestIds.sizeOption}
                       data-size={id}
-                      aria-pressed={active}
+                      aria-pressed={size === id}
                       onClick={() => setSize(id)}
-                      className={`flex flex-col items-start gap-0.5 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 ease-[var(--ease-expressive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] ${
-                        active
-                          ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/5 shadow-[0_0_24px_rgba(0,229,255,0.18)]'
-                          : 'border-[var(--color-border)] hover:-translate-y-px hover:border-white/20 hover:bg-white/5'
-                      }`}
+                      className={`rounded-lg border px-2 py-2 text-left ${size === id ? 'border-[var(--color-cyan)] bg-[var(--color-cyan)]/5' : 'border-[var(--color-border)] hover:bg-white/5'}`}
                     >
-                      <span className="font-display text-sm font-700 text-white">
-                        {s.friendlyName}
+                      <span className="block truncate text-[0.7rem] font-700 text-white">
+                        {item.friendlyName}
                       </span>
-                      <span
-                        className={`font-mono text-xs ${active ? 'text-[var(--color-cyan)]' : 'text-[var(--color-muted)]'}`}
-                      >
-                        {s.ramGiB} GiB
-                      </span>
-                      {/* Per-size hourly estimate — always rendered (no layout shift); cyan when
-                          active, muted otherwise, to match the GiB line above. */}
-                      <span
-                        className={`font-mono text-[0.7rem] tabular-nums ${active ? 'text-[var(--color-cyan)]/90' : 'text-[var(--color-muted)]/70'}`}
-                      >
-                        ~${baselineUsdPerHour.toFixed(2)}/hr
+                      <span className="block font-mono text-[0.62rem] text-[var(--color-muted)]">
+                        {item.ramGiB} GiB
                       </span>
                     </button>
                   );
                 })}
               </div>
+            )}
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
+              <span className="font-mono text-[0.68rem] text-[var(--color-muted)]">
+                ~${estimateDesktopCost(size).baselineUsdPerHour.toFixed(2)}/hr
+              </span>
+              <button
+                type="button"
+                data-testid={desktopTestIds.createConfirm}
+                onClick={() => onCreate(distro, size, form)}
+                disabled={creating}
+                className="rounded-md bg-[var(--color-cyan)] px-4 py-2 text-xs font-800 text-[var(--color-black)] disabled:opacity-60"
+              >
+                {creating ? 'Creating…' : `Create ${DISTROS[distro].name} ${form}`}
+              </button>
             </div>
-        ) : (
-          <div className="mt-6 rounded-xl border border-[var(--color-border)]/60 bg-white/5 p-4 text-sm leading-relaxed text-[var(--color-muted)]">
-            <span className="font-700 text-white">{DISTROS[distro].name} · 4 GiB · headless</span> — a
-            dev box with git, Node, Python, ripgrep, tmux + a browser terminal, OpenCode-ready. No
-            desktop; your workspace is the terminal. More server sizes are coming.
-          </div>
+          </>
         )}
-
-        {/* Transparent cost BEFORE creation — the selected size's hourly estimate + the honest
-            framing (an estimate from CF's rate card, not a finalized invoice). Uses the same
-            `baselineUsdPerHour` as the header financial chip so the two never disagree. */}
-        <p
-          className="mt-6 font-mono text-[0.7rem] leading-snug text-[var(--color-muted)]"
-          title="Estimated from Cloudflare's published rate card (memory + disk baseline). An estimate, not a finalized bill — metered billing + wallet arrive with Stripe."
-        >
-          Estimate · <span className="text-[var(--color-cyan)]">~${estimateDesktopCost(size).baselineUsdPerHour.toFixed(2)}/hr</span> · billed per minute while running
-        </p>
-
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2.5 text-sm text-[var(--color-muted)] transition-colors hover:text-white"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            data-testid={desktopTestIds.createConfirm}
-            onClick={() => onCreate(distro, size, form)}
-            disabled={creating}
-            aria-busy={creating}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-cyan)] px-5 py-2.5 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {creating
-              ? 'Creating…'
-              : `Create ${DISTROS[distro].name}${form === 'server' ? ' server' : ''} · ${DESKTOP_SIZES[size].ramGiB} GiB`}
-          </button>
-        </div>
       </div>
     </div>
   );

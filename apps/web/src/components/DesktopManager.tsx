@@ -384,7 +384,9 @@ export function DesktopManager({
     const running = desktops.filter((d) => RUNNING_STATUSES.has(d.status));
     if (running.length === 0) return;
     const ids = new Set(running.map((d) => d.id));
-    setAnnouncement(`Stopping ${running.length} computer${running.length === 1 ? '' : 's'}.`);
+    setAnnouncement(
+      `Saving and stopping ${running.length} computer${running.length === 1 ? '' : 's'}.`
+    );
     setDesktops((prev) => prev.map((d) => (ids.has(d.id) ? { ...d, status: 'stopping' } : d)));
     await Promise.allSettled(running.map((d) => api.stopDesktop(d.id)));
     void refresh();
@@ -495,6 +497,9 @@ export function DesktopManager({
       {pickerOpen && (
         <OsPicker
           onCreate={(distro, size, form) => void createComputer(distro, size, form)}
+          onBackup={snapshotComputer}
+          desktops={desktops}
+          backingUp={backingUp}
           onClose={() => setPickerOpen(false)}
           creating={creating}
         />
@@ -536,7 +541,7 @@ export function DesktopManager({
                   onClick={() => void stopAll()}
                   className="rounded-md bg-[var(--color-warning)] px-2 py-1 text-xs font-700 text-[var(--color-black)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-warning)]"
                 >
-                  {`Stop ${runningCount}?`}
+                  {`Save & stop ${runningCount}?`}
                 </button>
                 <button
                   type="button"
@@ -551,7 +556,7 @@ export function DesktopManager({
                 type="button"
                 data-testid={desktopTestIds.stopAll}
                 onClick={() => setConfirmStopAll(true)}
-                aria-label="Stop all running computers"
+                aria-label="Save snapshots and stop all running computers"
                 disabled={runningCount === 0}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-600 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-warning)]/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--color-muted)]"
               >
@@ -564,7 +569,7 @@ export function DesktopManager({
                 >
                   <rect x="7" y="7" width="10" height="10" rx="1.5" />
                 </svg>
-                <span className="hidden lg:inline">Stop all</span>
+                <span className="hidden lg:inline">Save & stop all</span>
               </button>
             )}
             <FinancialBar desktops={desktops} />

@@ -1,0 +1,87 @@
+/* deskl.ink shell for the upstream noVNC client. VNC protocol code remains untouched. */
+:root {
+  color-scheme: dark;
+  --deskl-bg: #05060a;
+  --deskl-panel: #0d1119;
+  --deskl-cyan: #00e5ff;
+  --deskl-border: rgba(255, 255, 255, 0.12);
+}
+body {
+  background: var(--deskl-bg) !important;
+  color: #f7fbff !important;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
+}
+#noVNC_control_bar_anchor {
+  color: #f7fbff !important;
+}
+#noVNC_control_bar {
+  background: rgba(13, 17, 25, 0.96) !important;
+  border: 1px solid var(--deskl-border) !important;
+  border-radius: 0 12px 12px 0 !important;
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.48),
+    0 0 30px rgba(0, 229, 255, 0.08) !important;
+}
+#noVNC_control_bar .noVNC_button {
+  border-radius: 8px !important;
+  filter: grayscale(1) brightness(1.65);
+}
+#noVNC_control_bar .noVNC_button:hover,
+#noVNC_control_bar .noVNC_button:focus {
+  background: rgba(0, 229, 255, 0.12) !important;
+  filter: none;
+}
+#noVNC_status {
+  background: var(--deskl-panel) !important;
+  border: 1px solid var(--deskl-border) !important;
+  border-radius: 999px !important;
+  color: #f7fbff !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+#noVNC_transition {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(0, 229, 255, 0.12), transparent 34%), var(--deskl-bg) !important;
+}
+#noVNC_logo {
+  width: 220px !important;
+  height: 64px !important;
+  background: none !important;
+  font-size: 0 !important;
+}
+#noVNC_logo::before {
+  content: 'd';
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-right: 12px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, var(--deskl-cyan), #6e5bff);
+  color: #05060a;
+  font:
+    900 32px/1 Inter,
+    system-ui,
+    sans-serif;
+  box-shadow: 0 0 32px rgba(0, 229, 255, 0.28);
+}
+#noVNC_logo::after {
+  content: 'deskl.ink';
+  color: #fff;
+  font:
+    900 25px/1 Inter,
+    system-ui,
+    sans-serif;
+  letter-spacing: -0.04em;
+  vertical-align: 17px;
+}
+.noVNC_panel {
+  background: var(--deskl-panel) !important;
+  border: 1px solid var(--deskl-border) !important;
+  border-radius: 10px !important;
+  color: #f7fbff !important;
+}
+input,
+select,
+button {
+  accent-color: var(--deskl-cyan);
+}
