@@ -1,5 +1,8 @@
 # Next verified frontier
 
+- [x] Retained-run recovery: distinguish stale local `main` from the remote tracking
+  ref when checking publication ancestry, and document how to interpret the check.
+
 - [x] SSH guidance accuracy: replace moved source paths, distinguish configurable
   worktree directory/pool/branch composition, and describe credential storage and
   the connection builder's host-verification boundary against current source.

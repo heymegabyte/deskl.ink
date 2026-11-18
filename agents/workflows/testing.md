@@ -111,8 +111,12 @@ Keep component-test results and native journey results separate in the run repor
 A failed receipt can leave useful uncommitted files even when its result SHA equals
 its base. Inspect `git -C <retained-worktree> status --short` and the actual diff;
 compare changed files and untracked tests with the current checkout, then check
-commit ancestry on main. A matching filename or a successful receipt alone does
-not establish that the implementation landed. Later fixes may supersede only part
-of a retained diff. Preserve retained files and screenshots; recover only work
+commit ancestry on the publication target. Inspect both the local `main` and the
+latest available `origin/main` ref: a local branch can lag the remote. Refresh the
+remote ref when permitted, then use `git merge-base --is-ancestor <commit> origin/main`
+and check its exit status (0 means ancestor, 1 means not ancestor). A stale remote
+ref or unavailable fetch leaves current publication unverified. A matching filename
+or a successful receipt alone does not establish that the implementation landed.
+Later fixes may supersede only part of a retained diff. Preserve retained files and screenshots; recover only work
 that is still missing and verify it afresh. Never run `git status <other-worktree>`:
 that argument is a pathspec in the current repository, not a repository switch.
