@@ -218,3 +218,7 @@
 - [x] Native setup guidance: explain postinstall ordering, CI/skip/ignore-scripts
   boundaries and the separate Electron and system-Node database copies. Link
   display-free smoke verification to the isolated native acceptance guidance.
+
+- [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
+  prompt delivery and user-home Codex hook configuration with current source. Remove
+  the copied provider inventory and align shared-module guidance.

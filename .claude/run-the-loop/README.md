@@ -356,3 +356,20 @@ command and log path. Preserve failed attempts and their causes in warnings,
 including the passing retry command when resolved; do not imply an unresolved
 failure passed. Read the completed JSON back and compare it with the actual logs
 and git state before handing publication to the outer runner.
+
+For provider guidance, reconcile agents/integrations/providers.md with
+agents/architecture/shared.md. Trace registry prompt-delivery flags through
+conversations/impl/agent-command.ts and keystroke-injection.ts; an empty prompt flag
+does not imply keystroke delivery. Check classifier factory fallback and hook-config.ts
+filesystem ownership before claiming every provider has a classifier or all hooks
+are worktree-local. Component/unit checks do not establish live provider CLI behavior.
+
+If a failed run has no agent-report.json, record that absence explicitly. Use its
+actual retained diff and completed gate logs only as recovery leads; rerun checks
+and write the current report before committing rather than copying historical results.
+
+After an ignore-scripts install, finish Electron installation, db:setup and any
+required native rebuild before starting the full test suite. Some main-db imports
+load node-pty too; a working tooling SQLite copy alone does not establish readiness.
+Do not overlap a rebuild with tests importing those modules. Retain a failed
+pre-setup attempt separately from the post-setup retry.
