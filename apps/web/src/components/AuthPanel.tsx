@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api.js';
+import { Input, Button } from './theme.tools/index.js';
 
 function GithubGlyph() {
   return (
@@ -12,16 +13,26 @@ function GithubGlyph() {
 function GoogleGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path fill="#EA4335" d="M12 10.2v3.9h5.5a4.7 4.7 0 0 1-2 3.1v2.6h3.2c1.9-1.7 3-4.3 3-7.4 0-.7-.1-1.4-.2-2.1H12Z" />
-      <path fill="#34A853" d="M12 22c2.7 0 4.9-.9 6.6-2.4l-3.2-2.6c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z" />
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5a4.7 4.7 0 0 1-2 3.1v2.6h3.2c1.9-1.7 3-4.3 3-7.4 0-.7-.1-1.4-.2-2.1H12Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 4.9-.9 6.6-2.4l-3.2-2.6c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z"
+      />
       <path fill="#FBBC05" d="M6.4 13.8a6 6 0 0 1 0-3.8V7.4H3.1a10 10 0 0 0 0 9z" />
-      <path fill="#4285F4" d="M12 6.1c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.4l3.3 2.6C7.2 7.7 9.4 6.1 12 6.1Z" />
+      <path
+        fill="#4285F4"
+        d="M12 6.1c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.4l3.3 2.6C7.2 7.7 9.4 6.1 12 6.1Z"
+      />
     </svg>
   );
 }
 
-const oauthBtn =
-  'inline-flex items-center justify-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-near-black)] px-4 py-3 text-sm font-600 text-white no-underline transition-colors duration-150 ease-[var(--ease-standard)] hover:border-[var(--color-cyan)] hover:bg-[var(--color-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)]';
+/** OAuth button className: the `@theme.tools/ui` outline button extended with the
+ *  full-width + taller padding + no-underline the OAuth links need. */
+const oauthBtn = 'w-full gap-2.5 rounded-lg px-4 py-3 text-sm font-600 text-white no-underline';
 
 /**
  * AuthPanel — the real sign-in surface (M2). deskl.ink requires an account; this is the only way in.
@@ -52,8 +63,8 @@ export function AuthPanel() {
         <div className="space-y-1.5">
           <h2 className="font-display text-2xl font-700 text-white">Check your email</h2>
           <p className="text-sm leading-relaxed text-[var(--color-muted)]">
-            We sent a sign-in link to <strong className="text-white">{email}</strong>. Open it on this
-            device to continue — it expires in 15 minutes.
+            We sent a sign-in link to <strong className="text-white">{email}</strong>. Open it on
+            this device to continue — it expires in 15 minutes.
           </p>
         </div>
         <button
@@ -81,19 +92,25 @@ export function AuthPanel() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <a data-testid="auth-github" href="/api/v1/auth/github" className={oauthBtn}>
-          <GithubGlyph />
-          Continue with GitHub
-        </a>
-        <a data-testid="auth-google" href="/api/v1/auth/google" className={oauthBtn}>
-          <GoogleGlyph />
-          Continue with Google
-        </a>
+        <Button asChild variant="outline" size="lg" className={oauthBtn}>
+          <a data-testid="auth-github" href="/api/v1/auth/github">
+            <GithubGlyph />
+            Continue with GitHub
+          </a>
+        </Button>
+        <Button asChild variant="outline" size="lg" className={oauthBtn}>
+          <a data-testid="auth-google" href="/api/v1/auth/google">
+            <GoogleGlyph />
+            Continue with Google
+          </a>
+        </Button>
       </div>
 
       <div className="flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-[var(--color-border)]" />
-        <span className="text-xs font-500 uppercase tracking-wider text-[var(--color-muted)]">or</span>
+        <span className="text-xs font-500 uppercase tracking-wider text-[var(--color-muted)]">
+          or
+        </span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
       </div>
 
@@ -101,7 +118,7 @@ export function AuthPanel() {
         <label htmlFor="auth-email" className="sr-only">
           Email address
         </label>
-        <input
+        <Input
           id="auth-email"
           data-testid="auth-email"
           type="email"
@@ -110,17 +127,20 @@ export function AuthPanel() {
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-black)] px-4 py-3 text-sm text-white placeholder:text-[var(--color-muted)] focus:border-[var(--color-cyan)] focus-visible:outline-none"
+          className="rounded-lg px-4 py-3 text-sm"
         />
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="lg"
           data-testid="auth-email-submit"
+          loading={submitting}
+          loadingText="Sending…"
           disabled={submitting}
-          aria-busy={submitting}
-          className="rounded-lg bg-[var(--color-cyan)] px-4 py-3 text-sm font-700 text-[var(--color-black)] shadow-[0_0_24px_rgba(0,229,255,0.25)] transition-transform duration-150 ease-[var(--ease-expressive)] hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cyan)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-lg font-700 shadow-[0_0_24px_rgba(0,229,255,0.25)]"
         >
-          {submitting ? 'Sending…' : 'Email me a sign-in link'}
-        </button>
+          Email me a sign-in link
+        </Button>
       </form>
 
       <p className="text-xs leading-relaxed text-[var(--color-muted)]">

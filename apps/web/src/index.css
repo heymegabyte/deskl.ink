@@ -21,6 +21,23 @@
   --color-warning: #f5a623;
   --color-danger: #ff5c6c;
 
+  /* ───────────────────────────────────────────────────────────────────────
+     @theme.tools design-system token roles (`@theme-tools/themes`). deskl.ink's
+     OWN cyan/black brand (above) is mapped into the canonical component roles
+     (--primary/--card/--border/--ring) so the vendored `@theme.tools/ui`
+     primitives (components/theme.tools) compose on one token set — architecture
+     from @theme.tools, HUE stays deskl.ink's cyan. Hexes → OKLCH faithfully,
+     no visible hue drift. ─────────────────────────────────────────────────── */
+  --color-primary: oklch(0.84 0.17 198); /* #00e5ff cyan — the brand accent */
+  --color-primary-foreground: oklch(0.06 0.02 265); /* near-black text on cyan fills */
+  --color-secondary: oklch(0.2 0.018 263);
+  --color-secondary-foreground: oklch(0.97 0.004 255);
+  --color-accent-oklch: oklch(0.52 0.24 290); /* #7c3aed violet — secondary accent */
+  --color-accent-foreground: oklch(0.98 0.01 260);
+  --color-destructive: oklch(0.66 0.2 18); /* #ff5c6c danger */
+  --color-destructive-foreground: oklch(0.98 0.01 20);
+  --color-ring: oklch(0.84 0.17 198); /* cyan focus ring */
+
   /* Fonts */
   --font-display: 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-sans: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -42,6 +59,31 @@
 @layer base {
   :root {
     color-scheme: dark;
+
+    /* ── @theme.tools canonical component tokens (raw names) ───────────────
+       The vendored `@theme.tools/ui` primitives + their tactile CSS reference
+       these bare names via `var(--token)`. They map onto deskl.ink's existing
+       --color-* brand so there is one source of truth (one-canonical-seam). ── */
+    --background: var(--color-black);
+    --foreground: var(--color-white);
+    --card: var(--color-surface);
+    --card-foreground: var(--color-white);
+    --popover: var(--color-near-black);
+    --popover-foreground: var(--color-white);
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-primary-foreground);
+    --secondary: var(--color-secondary);
+    --secondary-foreground: var(--color-secondary-foreground);
+    --muted: var(--color-surface);
+    --muted-foreground: var(--color-muted);
+    --accent: var(--color-accent-oklch);
+    --accent-foreground: var(--color-accent-foreground);
+    --destructive: var(--color-destructive);
+    --destructive-foreground: var(--color-destructive-foreground);
+    --border: var(--color-border);
+    --input: var(--color-border);
+    --ring: var(--color-ring);
+    --radius: 0.625rem;
   }
 
   html,
@@ -127,4 +169,176 @@
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+
+/* ============================================================================
+   @theme.tools tactile micro-interactions (MI01–MI26) — ripple, spotlight,
+   magnetic pull, 3D tilt, spring-press, validation shake, link sweep, odometer,
+   shimmer + orbital spinner used by the vendored Button/Card/Input/Badge/StatCard
+   primitives. Every animation is `prefers-reduced-motion`-guarded (and honors the
+   in-app data-reduce-motion override above, which also clamps transitions).
+   ========================================================================== */
+@layer theme-tools-tactile {
+  @keyframes tt-ripple-wave {
+    0% {
+      transform: scale(0);
+      opacity: 0.42;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+  @keyframes tt-validation-shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20% {
+      transform: translateX(-6px);
+    }
+    40% {
+      transform: translateX(5px);
+    }
+    60% {
+      transform: translateX(-3px);
+    }
+    80% {
+      transform: translateX(1.5px);
+    }
+  }
+  @keyframes tt-orbital-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes tt-progress-sweep {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
+  @keyframes tt-pulse-glow {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary, #00e5ff) 55%, transparent);
+    }
+    50% {
+      opacity: 0.65;
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary, #00e5ff) 0%, transparent);
+    }
+  }
+
+  .tt-ripple-surface:not([data-component]),
+  [data-ripple='true']:not([data-component]) {
+    position: relative;
+    overflow: hidden;
+  }
+  [data-cursor-ripple] {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklch, currentColor 28%, var(--primary, #00e5ff) 72%) 0%,
+      transparent 72%
+    );
+    animation: tt-ripple-wave 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  [data-spotlight='true'] {
+    background-image: radial-gradient(
+      240px circle at var(--tt-spot-x, 50%) var(--tt-spot-y, 50%),
+      color-mix(in oklch, var(--primary, #00e5ff) 11%, transparent) 0%,
+      transparent 100%
+    );
+  }
+  [data-magnetic='true'] {
+    transform: translate3d(var(--tt-magnetic-x, 0px), var(--tt-magnetic-y, 0px), 0);
+  }
+  [data-tilt='true'] {
+    transform: perspective(900px) rotateX(var(--tt-tilt-rx, 0deg)) rotateY(var(--tt-tilt-ry, 0deg));
+  }
+  .tt-spring-press:active,
+  [data-pressed='true'] {
+    transition-duration: 80ms;
+    transform: scale(0.975);
+  }
+  [data-hold-confirm='true']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: color-mix(in oklch, var(--destructive, #ff5c6c) 28%, transparent);
+    transform: scaleX(var(--tt-hold-progress, 0));
+    transform-origin: left center;
+    transition: transform 900ms linear;
+    pointer-events: none;
+  }
+  .tt-shimmer {
+    position: relative;
+    overflow: hidden;
+    animation-delay: var(--tt-shimmer-delay, 0ms);
+  }
+  .tt-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklch, var(--foreground, #f5f7fa) 8%, transparent),
+      transparent
+    );
+    animation: tt-progress-sweep 1800ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation-delay: inherit;
+  }
+  .tt-progress-sweep {
+    animation: tt-progress-sweep 1100ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .tt-orbital-spin {
+    animation: tt-orbital-spin 760ms linear infinite;
+    transform-origin: center;
+  }
+  .tt-pulse-glow {
+    animation: tt-pulse-glow 1600ms ease-in-out infinite;
+  }
+  .tt-link-sweep {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 100% 100%;
+    background-size: 0% 1.5px;
+    transition:
+      background-size 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .tt-link-sweep:hover {
+    background-position: 0% 100%;
+    background-size: 100% 1.5px;
+  }
+  .tt-validation-shake,
+  [aria-invalid='true'][data-shake='true'] {
+    animation: tt-validation-shake 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-cursor-ripple] {
+      display: none !important;
+      animation: none !important;
+    }
+    .tt-validation-shake,
+    [data-magnetic='true'],
+    [data-tilt='true'],
+    .tt-shimmer::after,
+    .tt-progress-sweep,
+    .tt-pulse-glow {
+      animation: none !important;
+      transform: none !important;
+    }
+    .tt-orbital-spin {
+      animation-duration: 1.4s;
+    }
+  }
 }

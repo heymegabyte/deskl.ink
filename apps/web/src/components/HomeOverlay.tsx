@@ -2,15 +2,23 @@ import { Suspense, lazy } from 'react';
 import { DESKTOP_SIZES } from '@deskl/shared';
 import { AuthPanel } from './AuthPanel.js';
 import { Wordmark } from './Logo.js';
+import { Badge } from './theme.tools/index.js';
 
 // Lazy-load the WebGL/canvas hero so it stays out of the main bundle.
 const HeroCanvas = lazy(() => import('./HeroCanvas.js'));
 
-/** A compact feature chip rendered in the left product column. */
+/** A compact feature chip rendered in the left product column — the `@theme.tools/ui`
+ *  Badge (enumerable values render as pills, never comma-joined text). The `<li>` keeps
+ *  the list semantics (`contents` so it adds no box) while Badge renders the pill. */
 function FeatureChip({ label }: { label: string }) {
   return (
-    <li className="ds-glass rounded-full px-3.5 py-1.5 text-xs font-500 text-[var(--color-white)]">
-      {label}
+    <li className="contents">
+      <Badge
+        variant="outline"
+        className="rounded-full px-3.5 py-1.5 text-xs font-500 text-[var(--color-white)]"
+      >
+        {label}
+      </Badge>
     </li>
   );
 }
