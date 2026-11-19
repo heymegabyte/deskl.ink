@@ -15,6 +15,7 @@ offline. It is built to be operated by people and by AI agents through the same 
 ## Links
 
 - [deskl.ink](https://deskl.ink/): the product — open a cloud Linux workstation in your browser.
+- [llms-full.txt](https://deskl.ink/llms-full.txt): the complete knowledge corpus with full detail for AI ingestion.
 - [Sitemap](https://deskl.ink/sitemap.xml): the public pages, machine-readable.
 
 ## Notes for AI agents

@@ -34,6 +34,13 @@ test.describe('SEO / AI-search (GEO)', () => {
     const llmsBody = await llms.text();
     expect(llmsBody).not.toContain('<!doctype html>');
     expect(llmsBody).toContain('# deskl.ink');
+
+    const llmsFull = await page.request.get('/llms-full.txt');
+    expect(llmsFull.ok()).toBeTruthy();
+    expect(llmsFull.headers()['content-type'], 'llms-full is not HTML').not.toContain('text/html');
+    const llmsFullBody = await llmsFull.text();
+    expect(llmsFullBody).not.toContain('<!doctype html>');
+    expect(llmsFullBody).toContain('# deskl.ink — Complete Knowledge Corpus');
   });
 
   test('homepage carries a canonical URL + valid SoftwareApplication/WebSite JSON-LD', async ({

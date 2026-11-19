@@ -14,6 +14,10 @@ export default tseslint.config(
       '**/test-results/**',
       '**/*.config.js',
       '**/*.config.ts',
+      // Vendored @theme.tools/seo-geo builders (byte-faithful upstream dist — not authored here).
+      'apps/web/vendor/**',
+      // Node build scripts (run under Node, not part of the browser app TS program).
+      'apps/web/scripts/**',
     ],
   },
   js.configs.recommended,

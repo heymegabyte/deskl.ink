@@ -12,3 +12,6 @@ pnpm-lock.yaml
 coverage/
 playwright-report/
 test-results/
+
+# Vendored @theme.tools/seo-geo builders (byte-faithful upstream dist — re-copy to upgrade).
+apps/web/vendor/

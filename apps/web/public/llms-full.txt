@@ -1,0 +1,38 @@
+# deskl.ink — Complete Knowledge Corpus
+
+> A desktop for you. A computer for your AI. Instantly available, browser-accessible Linux workstations operable by a human, an AI agent, many cooperating agents, or a human and AI together. Cloudflare-native — a workstation boots in seconds and scales to zero when idle.
+
+Cloudflare-native: each live desktop is a container-enabled Durable Object; it boots in seconds and scales to zero when idle.
+A standalone product that owns its own workstation runtime, UI, and agent-control plane — not a plugin of another app.
+Built to be operated by AI as a first-class user, not only by humans, through the same control plane.
+
+## Product
+
+### Cloud Linux workstations in your browser
+Source: https://deskl.ink/
+
+## Cloud Linux workstations in your browser
+
+deskl.ink gives you cloud Linux workstations (Ubuntu, Fedora, Debian) in your browser — no local install, no infrastructure to configure.
+
+- **Sizes:** Everyday (4 GiB) · Developer (6) · Power (8) · Heavy (12).
+- **Forms:** a **Desktop** (full graphical environment streamed over VNC) or a headless **Server** (terminal-native — git, Node, Python, ripgrep, tmux, and a browser terminal).
+- Every open computer is a tab in one workspace; a ⌘K command palette, inline rename, live cost estimates, and a one-click “stop everything running” keep it fast.
+- Installable as an app, and the shell works offline.
+- Built to be operated by people and by AI agents through the same control plane.
+
+## For AI agents
+
+### Agent-operable control plane
+Source: https://deskl.ink/
+
+## Agent-operable control plane
+
+deskl.ink is built to be operated by AI as a first-class user, not only by humans. A single desktop can be driven by a human, one AI agent, many cooperating agents, or a human and AI together.
+
+It is a standalone product that owns its own workstation runtime, UI, and agent-control plane — not a plugin of another app.
+
+### Sitemap
+Source: https://deskl.ink/sitemap.xml
+
+The public pages, machine-readable.
