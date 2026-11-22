@@ -10,7 +10,9 @@
   real SSH server and changed host key, including direct and proxied connections.
   The inspected ssh2 builder configures no explicit host verifier; mocked connection
   tests cannot establish trust behavior. Any behavior change needs scoped architecture
-  and security design before implementation.
+  and security design before implementation. Disposable ssh2 tests now confirm that
+  direct and injected TCP-relay connections accept a changed destination key at the
+  same address. A real OpenSSH ProxyJump and known-hosts configuration remain untested.
 
 - [x] Cross-guide source accuracy: correct the renderer task-creation RPC example,
   PTY classifier ownership and environment distinctions, and overview typecheck scope.

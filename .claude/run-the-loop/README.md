@@ -373,3 +373,9 @@ required native rebuild before starting the full test suite. Some main-db import
 load node-pty too; a working tooling SQLite copy alone does not establish readiness.
 Do not overlap a rebuild with tests importing those modules. Retain a failed
 pre-setup attempt separately from the post-setup retry.
+
+For SSH host-key work, run `src/main/core/ssh/connect/host-key-characterization.test.ts`
+against disposable servers. Its direct and injected TCP-relay cases document current
+acceptance of a changed destination key, not a security guarantee. A relay injected
+at the transport seam does not test OpenSSH ProxyJump, known_hosts, or real remote hosts;
+keep those separate from a proposed trust design and native acceptance.

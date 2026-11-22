@@ -31,6 +31,8 @@
 Run the SSH node tests with `pnpm exec vitest run --project node src/main/core/ssh/`.
 These exercise config resolution, connection lifecycle and proxy behavior, including
 a disposable ssh2 server/client handshake and proxy child processes alongside test
-doubles. They do not establish destination trust after a changed host key, compatibility
-with a deployed remote host, or an Electron remote-project journey. See
+doubles. The changed-host-key characterization documents acceptance over direct and injected
+TCP-relay connections; it does not exercise real OpenSSH ProxyJump or known_hosts.
+These tests do not establish compatibility with a deployed remote host or an Electron
+remote-project journey. See
 `agents/workflows/testing.md` for native isolation requirements.
