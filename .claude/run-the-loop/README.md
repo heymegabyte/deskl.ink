@@ -14,6 +14,9 @@ otherwise correct bridge-documentation recovery.
 When recovering a committed failed run, record both the retained SHA and its new
 recovery SHA. Keep the prior validation entry historical; append fresh results for
 the current run instead of treating the recovered ledger as new execution evidence.
+If the retained SHA is not an ancestor, compare every affected path against the
+refreshed publication target as described in agents/workflows/testing.md before
+repeating the work. Equal contents do not establish ancestry or fresh verification.
 
 Use agents/workflows/testing.md for the real validation commands. Record fresh results and
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite

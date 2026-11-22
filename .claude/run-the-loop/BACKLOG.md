@@ -1,5 +1,8 @@
 # Next verified frontier
 
+- [x] Retained-run recovery: document how to compare affected file contents when a
+  recovered commit has a different SHA, while keeping ancestry and test evidence distinct.
+
 - [x] Retained-run recovery: distinguish stale local `main` from the remote tracking
   ref when checking publication ancestry, and document how to interpret the check.
 

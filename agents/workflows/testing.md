@@ -120,3 +120,10 @@ or a successful receipt alone does not establish that the implementation landed.
 Later fixes may supersede only part of a retained diff. Preserve retained files and screenshots; recover only work
 that is still missing and verify it afresh. Never run `git status <other-worktree>`:
 that argument is a pathspec in the current repository, not a repository switch.
+
+A retained commit need not be an ancestor when its changes were recovered in another
+commit. After refreshing `origin/main`, compare each affected path explicitly with
+`git diff <retained-commit> origin/main -- <path>`. An empty diff establishes equal
+file contents at those two commits, not identical history or a fresh test pass. A
+nonempty diff needs review: later changes may supersede the retained work, or some
+work may still need recovery. Record the compared paths and both commit IDs.
