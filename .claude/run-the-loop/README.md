@@ -17,6 +17,10 @@ the current run instead of treating the recovered ledger as new execution eviden
 If the retained SHA is not an ancestor, compare every affected path against the
 refreshed publication target as described in agents/workflows/testing.md before
 repeating the work. Equal contents do not establish ancestry or fresh verification.
+If `agent-report.json` is missing, inspect the available `run.json` and summary for
+the recorded result and failure, then verify the retained commit and worktree directly.
+Treat missing gate details as unverified; neither a receipt nor matching files prove a
+fresh test pass. Avoid copying raw transcripts or credentials into the new report.
 
 Use agents/workflows/testing.md for the real validation commands. Record fresh results and
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite
