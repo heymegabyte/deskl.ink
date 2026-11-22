@@ -30,8 +30,11 @@ pnpm run test
 - `pnpm test` runs `node`, `main-db`, `migrations`, and `browser`; it does not generate fixtures.
 - Database projects use the system-Node `better-sqlite3` copy under `tooling/node-deps/`,
   installed by postinstall. Run `pnpm run db:setup` if that copy is missing.
-- If the machine's pnpm shim is unavailable, use `corepack pnpm` with the version pinned in
-  `package.json`, including for installation and validation commands.
+- If the machine's pnpm shim is unavailable or cannot resolve the pinned version, use
+  `corepack pnpm` with the version pinned in `package.json`, including for installation
+  and validation commands. `corepack pnpm install --offline` only constrains pnpm:
+  the postinstall script separately invokes `npm install` for `tooling/node-deps`, so
+  it does not guarantee a network-free installation.
 - Browser tests require the Chromium version installed for the current Playwright
   dependency. If launch reports a missing executable, first check whether
   `PLAYWRIGHT_BROWSERS_PATH` points to a different cache than the installed revision.

@@ -31,6 +31,10 @@ verification blocked. This checks Electron-ABI SQLite and real PTY I/O without
 launching the app. Record its result separately from display/preload/UI acceptance;
 never tick a native journey frontier based on this smoke check alone.
 
+If the pnpm shim cannot resolve the pinned version, check the Corepack fallback in
+agents/workflows/testing.md. A pnpm offline install still runs the separate npm
+postinstall, so do not record the entire setup as network-free without evidence.
+
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab
 selection preservation, and range-anchor reset. For typed WorktreeHost mocks, supply the
 host path API as well as filesystem methods.
