@@ -1143,3 +1143,34 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   Generic role roster grouped into bounded recovery/review for this documentation
   slice; no Browser Harness, application UI journey or release publication ran.
   Native acceptance and Windows packaging frontiers remain open in BACKLOG.md.
+
+## Native setup recovery — 2026-11-23
+
+- Run `heymegabyte--deskl.ink-45162408248-1` recovered uncommitted quickstart and
+  loop guidance from failed run `45100434218`. Refreshed `origin/main` matched
+  base `9c1fc462`. The earlier retained commit `fc54b22f` had equal file
+  contents on both affected paths, so its changes required no further recovery.
+- The default Python failed to import `StrictVersion`. The system interpreter
+  passed, and the command-scoped override completed installation and Electron
+  rebuild. The initial smoke check found a missing Electron binary. Running
+  the package installer restored the binary, and native SQLite and PTY smoke
+  then passed. The quickstart records both recovery steps.
+- The loop guide links to the interpreter check and records installation,
+  rebuild and smoke as separate outcomes. This documentation iteration used an
+  independent source review. Electron UI and preload journeys remain unverified.
+- Format, format check, lint and typecheck passed. Lint reported two existing
+  renderer promise warnings. The complete Vitest suite passed 175 files and
+  1,353 tests with one worker and worktree-local Chromium revision 1208.
+
+## Native setup and report handoff — 2026-11-23
+
+- Run `heymegabyte--deskl.ink-45282068621-1` recovered `f8c4e6fd` after
+  confirming it was absent from refreshed `origin/main`. The prior receipt
+  recorded a publication block because the report included failure statuses
+  for recovered attempts. The loop guide now calls for a final status per
+  check, with retries preserved in evidence, and a report read-back before handoff.
+- The default Python lacked `distutils`. The system interpreter passed the
+  `StrictVersion` import and the scoped install completed the Electron rebuild
+  with pinned pnpm. Fresh native verification passed SQLite transactions and
+  PTY I/O. Electron UI and preload acceptance remain open.
+- The current run's report records fresh gate results and the recovery SHA.

@@ -57,4 +57,25 @@ system-Node copy through `vitest.config.ts`; the app uses the root Electron copy
   application UI journey; see
   [testing and validation](workflows/testing.md) for isolated native acceptance.
 
+On Linux, `node-pty` may compile during dependency installation even when `CI=1`
+skips the project's Electron rebuild. If node-gyp reports
+`ModuleNotFoundError: No module named 'distutils'`, check the interpreter named
+in the build output. Select an installed interpreter that can import
+`StrictVersion` and scope the override to the install command:
+
+```bash
+/usr/bin/python3 -c 'from distutils.version import StrictVersion'
+NODE_GYP_FORCE_PYTHON=/usr/bin/python3 pnpm install --frozen-lockfile
+```
+
+Replace `/usr/bin/python3` with the path to a compatible interpreter on your
+machine if the import fails. The [shared release setup](../.github/actions/setup-build/action.yml)
+uses Python 3.11. If the pnpm shim cannot resolve the pinned version, use
+`corepack pnpm` as described in [testing and validation](workflows/testing.md#current-setup).
+
+If the Electron binary is missing after an installation that skipped lifecycle
+scripts, run `node node_modules/electron/install.js` to download the binary for the
+installed package. If the Electron modules also need rebuilding, run
+`pnpm run rebuild` with the same Python override, then run `pnpm run test:native`.
+
 Husky and lint-staged run formatting and linting on staged files during commit.

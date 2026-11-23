@@ -25,6 +25,12 @@ fresh test pass. Avoid copying raw transcripts or credentials into the new repor
 Use agents/workflows/testing.md for the real validation commands. Record fresh results and
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite
 is not proof of a real Electron journey or a published build. Keep fixtures opt-in.
+Before returning, reopen the report at the exact path in the run prompt and confirm it
+parses as JSON and contains the fields requested in the prompt. Use one final status per
+check. If a retry succeeds, record the original failure and the recovery in that passing
+check's evidence. The outer runner blocks
+publication when any test entry has a failure status, even if a later entry passes.
+Keep unresolved failures visible and confirm the worktree is clean after committing.
 
 On a display-less runner, run `pnpm run test:native` before reporting all native
 verification blocked. This checks Electron-ABI SQLite and real PTY I/O without
@@ -34,6 +40,9 @@ never tick a native journey frontier based on this smoke check alone.
 If the pnpm shim cannot resolve the pinned version, check the Corepack fallback in
 agents/workflows/testing.md. A pnpm offline install still runs the separate npm
 postinstall, so do not record the entire setup as network-free without evidence.
+If `node-pty` fails to import Python's `distutils` during installation, use the
+command-scoped interpreter check in [the quickstart](../../agents/quickstart.md#native-dependency-setup).
+Record dependency installation, Electron rebuild and native smoke results separately.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab
 selection preservation, and range-anchor reset. For typed WorktreeHost mocks, supply the
