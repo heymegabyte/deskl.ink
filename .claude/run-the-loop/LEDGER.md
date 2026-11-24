@@ -1174,3 +1174,14 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   with pinned pnpm. Fresh native verification passed SQLite transactions and
   PTY I/O. Electron UI and preload acceptance remain open.
 - The current run's report records fresh gate results and the recovery SHA.
+
+## Interrupted native tooling install — 2026-11-24
+
+- Run `heymegabyte--deskl.ink-45340691075-1` confirmed refreshed `origin/main`
+  at `f150784a` includes the setup guidance recovered from `f8c4e6fd`. The
+  retained commit is outside main's ancestry and its worktree is clean.
+- A POSIX npm shim that terminated itself with SIGTERM reproduced a false
+  success in postinstall with `CI=1`. Postinstall now names the signal and
+  exits 1. Shim exits 42 and 0 retained their original behavior.
+- The loop guide now calls for checking both explicit exit codes and signal
+  termination. Fresh gate results and the result SHA are in the run report.

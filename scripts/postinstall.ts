@@ -19,6 +19,12 @@ if (toolingInstall.error) {
   );
   process.exit(1);
 }
+if (toolingInstall.signal) {
+  console.error(
+    `postinstall: npm install for tooling/node-deps terminated by ${toolingInstall.signal}`
+  );
+  process.exit(1);
+}
 if (typeof toolingInstall.status === 'number' && toolingInstall.status !== 0) {
   process.exit(toolingInstall.status);
 }

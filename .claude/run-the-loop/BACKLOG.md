@@ -227,6 +227,10 @@
   boundaries and the separate Electron and system-Node database copies. Link
   display-free smoke verification to the isolated native acceptance guidance.
 
+- [x] Native setup failure reporting: fail postinstall when the system-Node SQLite
+  dependency installer is terminated by a signal, including when CI skips the
+  Electron rebuild. Preserve successful and explicit nonzero npm exits.
+
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove
   the copied provider inventory and align shared-module guidance.
