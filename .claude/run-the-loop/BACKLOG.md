@@ -230,6 +230,9 @@
 - [x] Native setup failure reporting: fail postinstall when the system-Node SQLite
   dependency installer is terminated by a signal, including when CI skips the
   Electron rebuild. Preserve successful and explicit nonzero npm exits.
+- [x] Native setup regression coverage: run the real CI postinstall entry point
+  against a disposable npm shim for success, nonzero exit, and signal termination
+  in the standard Node test project on POSIX.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove

@@ -43,10 +43,11 @@ postinstall, so do not record the entire setup as network-free without evidence.
 If `node-pty` fails to import Python's `distutils` during installation, use the
 command-scoped interpreter check in [the quickstart](../../agents/quickstart.md#native-dependency-setup).
 Record dependency installation, Electron rebuild and native smoke results separately.
-When changing postinstall failure handling, run the entry point with a disposable
-`npm` shim on `PATH`. Check both an explicit nonzero exit and, on POSIX, signal
-termination. Use `CI=1` to verify an interrupted tooling install fails even when the
-Electron rebuild is skipped, then verify a normal install with the native smoke check.
+When changing postinstall failure handling, run
+`pnpm exec vitest run --project node scripts/postinstall.test.ts`. On POSIX, this
+runs the entry point with a disposable `npm` shim and checks success, an explicit
+nonzero exit, and signal termination with the Electron rebuild skipped in CI.
+Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab
 selection preservation, and range-anchor reset. For typed WorktreeHost mocks, supply the

@@ -32,7 +32,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'scripts/postinstall.test.ts'],
           exclude: [
             '**/_*/**',
             'src/renderer/tests/browser/**',

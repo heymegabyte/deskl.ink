@@ -1185,3 +1185,15 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   exits 1. Shim exits 42 and 0 retained their original behavior.
 - The loop guide now calls for checking both explicit exit codes and signal
   termination. Fresh gate results and the result SHA are in the run report.
+
+## Postinstall regression coverage — 2026-11-24
+
+- Run `heymegabyte--deskl.ink-45456666861-1` confirmed remote `main` includes
+  the earlier native setup recovery and signal fix. The pre-fix entry point
+  returned 0 after its npm child terminated with SIGTERM.
+- The standard Node test project now runs the real CI postinstall entry point
+  with a disposable npm shim on POSIX. It checks exit 0, exit 42, and exit 1
+  with the SIGTERM diagnostic. Windows skips these POSIX cases.
+- The regular install and Electron SQLite and PTY smoke checks passed.
+  Independent review checked the subprocess isolation and regression case.
+  The run report records the merge gates and result SHA.
