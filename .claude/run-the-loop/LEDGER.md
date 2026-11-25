@@ -1197,3 +1197,15 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The regular install and Electron SQLite and PTY smoke checks passed.
   Independent review checked the subprocess isolation and regression case.
   The run report records the merge gates and result SHA.
+
+## Missing tooling installer regression — 2026-11-24
+
+- Run `heymegabyte--deskl.ink-45533729316-1` confirmed remote `main` at
+  `e4cecef8` contains the earlier postinstall coverage and the setup guidance
+  recovered in `f150784a`. The retained worktree was clean.
+- The CI postinstall test now checks that an empty POSIX executable search path
+  produces exit 1 and identifies the npm launch failure. Removing the spawn-error
+  handling from a temporary copy reproduced exit 0 under the same conditions.
+- The loop guide records the extra case. Native SQLite and PTY smoke passed.
+  The run report records the merge gates and result SHA. Electron UI and preload
+  acceptance remain open.

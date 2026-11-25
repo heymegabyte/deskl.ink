@@ -45,8 +45,9 @@ command-scoped interpreter check in [the quickstart](../../agents/quickstart.md#
 Record dependency installation, Electron rebuild and native smoke results separately.
 When changing postinstall failure handling, run
 `pnpm exec vitest run --project node scripts/postinstall.test.ts`. On POSIX, this
-runs the entry point with a disposable `npm` shim and checks success, an explicit
-nonzero exit, and signal termination with the Electron rebuild skipped in CI.
+runs the entry point with a temporary directory as its only `PATH` entry and checks
+success, an explicit nonzero exit, signal termination, and a missing `npm` executable.
+CI skips the Electron rebuild in these cases.
 Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab
