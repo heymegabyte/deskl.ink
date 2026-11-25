@@ -47,7 +47,9 @@ When changing postinstall failure handling, run
 `pnpm exec vitest run --project node scripts/postinstall.test.ts`. On POSIX, this
 runs the entry point with a temporary directory as its only `PATH` entry and checks
 success, an explicit nonzero exit, signal termination, and a missing `npm` executable.
-CI skips the Electron rebuild in these cases.
+The suite also copies the real entry point into an isolated fixture and uses
+executable shims to verify that npm runs first, a normal install requests a rebuild
+of both Electron modules, and either CI or the explicit skip flag suppresses that request.
 Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab

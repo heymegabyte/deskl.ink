@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,3 +41,51 @@ test.skipIf(process.platform === 'win32').each([
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test.skipIf(process.platform === 'win32').each([
+  { name: 'local install', ci: '', skipRebuild: '', rebuild: true },
+  { name: 'CI install', ci: '1', skipRebuild: '', rebuild: false },
+  { name: 'explicit skip', ci: '', skipRebuild: '1', rebuild: false },
+])(
+  'runs tooling install before deciding whether to rebuild ($name)',
+  ({ ci, skipRebuild, rebuild }) => {
+    const directory = mkdtempSync(join(tmpdir(), 'emdash-postinstall-'));
+    try {
+      const scriptDirectory = join(directory, 'scripts');
+      const binDirectory = join(directory, 'node_modules', '.bin');
+      mkdirSync(scriptDirectory);
+      mkdirSync(binDirectory, { recursive: true });
+      const script = join(scriptDirectory, 'postinstall.ts');
+      copyFileSync(postinstall, script);
+      writeFileSync(join(directory, 'npm'), '#!/bin/sh\nprintf "npm %s\\n" "$*"\n', {
+        mode: 0o700,
+      });
+      writeFileSync(
+        join(binDirectory, 'electron-rebuild'),
+        '#!/bin/sh\nprintf "electron-rebuild %s\\n" "$*"\n',
+        { mode: 0o700 }
+      );
+
+      const result = spawnSync(process.execPath, ['--experimental-strip-types', script], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CI: ci,
+          EMDASH_SKIP_ELECTRON_REBUILD: skipRebuild,
+          EMDASH_DISABLE_NATIVE_DB: '',
+          EMDASH_DISABLE_PTY: '',
+          PATH: directory,
+        },
+        timeout: 10_000,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      const expectedOutput = ['npm install --prefix tooling/node-deps'];
+      if (rebuild) expectedOutput.push('electron-rebuild -f --only better-sqlite3,node-pty');
+      expect(result.stdout.trim().split('\n')).toEqual(expectedOutput);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+);

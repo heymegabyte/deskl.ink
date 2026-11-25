@@ -1209,3 +1209,17 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The loop guide records the extra case. Native SQLite and PTY smoke passed.
   The run report records the merge gates and result SHA. Electron UI and preload
   acceptance remain open.
+
+## Postinstall rebuild gating — 2026-11-25
+
+- Run `heymegabyte--deskl.ink-45607501175-1` confirmed refreshed `origin/main`
+  at `d7ce3250` includes the prior missing-npm regression and the native setup
+  guidance recovered in `f150784a`. The retained `f8c4e6fd` worktree was clean.
+- The POSIX postinstall suite now checks that npm runs before a normal local
+  Electron rebuild, and that npm still runs in CI and with the explicit skip
+  flag. The rebuild shim records the requested modules in an isolated copy of the
+  actual entry point. The loop guide records when to run this coverage.
+- A command-scoped npm registry and cache recovered setup after mirror tarball
+  failures. The real rebuild completed, and the display-free SQLite and PTY smoke
+  passed. Electron UI and preload journeys remain open. The run report records
+  fresh merge-gate evidence and the result SHA.

@@ -233,6 +233,8 @@
 - [x] Native setup regression coverage: run the real CI postinstall entry point
   with a disposable PATH for success, nonzero exit, signal termination, and a missing
   npm executable in the standard Node test project on POSIX.
+- [x] Native rebuild gating coverage: verify npm runs before the local Electron
+  rebuild, and that both CI and the explicit rebuild skip flag still run npm.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove
