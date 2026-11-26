@@ -25,6 +25,8 @@ fresh test pass. Avoid copying raw transcripts or credentials into the new repor
 Use agents/workflows/testing.md for the real validation commands. Record fresh results and
 external/runtime blockers in the run's non-secret agent-report.json. A passing unit suite
 is not proof of a real Electron journey or a published build. Keep fixtures opt-in.
+Write an initial report before starting long setup or validation commands, then update it
+with observed outcomes as checks finish. Mark pending checks unverified until they complete.
 Before returning, reopen the report at the exact path in the run prompt and confirm it
 parses as JSON and contains the fields requested in the prompt. Use one final status per
 check. If a retry succeeds, record the original failure and the recovery in that passing
@@ -50,6 +52,8 @@ success, an explicit nonzero exit, signal termination, and a missing `npm` execu
 The suite also copies the real entry point into an isolated fixture and uses
 executable shims to verify that npm runs first, a normal install requests a rebuild
 of both Electron modules, and either CI or the explicit skip flag suppresses that request.
+The fixture also checks that disabling either module leaves only the other in `--only`
+and disabling both still runs the tooling install without requesting a rebuild.
 Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab

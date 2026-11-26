@@ -1223,3 +1223,15 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
   failures. The real rebuild completed, and the display-free SQLite and PTY smoke
   passed. Electron UI and preload journeys remain open. The run report records
   fresh merge-gate evidence and the result SHA.
+
+## Native rebuild module selection recovery — 2026-11-25
+
+- Run `heymegabyte--deskl.ink-45747322111-1` recovered the uncommitted module
+  selection tests from run `heymegabyte--deskl.ink-45697540545-1`. Refreshed
+  `origin/main` at `1941aea6` contained the earlier rebuild gating tests.
+- The POSIX suite passed all ten cases. The three recovered cases verify the
+  exact remaining module when either native module is disabled and confirm
+  the system-Node tooling install still runs when both modules are disabled.
+- The loop guide now calls for checkpointing the structured report before long
+  checks. The display-free Electron SQLite and PTY smoke passed. The run report
+  records the merge gates and result SHA. Electron UI and preload remain open.

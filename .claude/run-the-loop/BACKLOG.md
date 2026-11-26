@@ -235,6 +235,10 @@
   npm executable in the standard Node test project on POSIX.
 - [x] Native rebuild gating coverage: verify npm runs before the local Electron
   rebuild, and that both CI and the explicit rebuild skip flag still run npm.
+- [x] Native rebuild module selection: check the exact rebuild arguments when the
+  database or PTY is disabled and verify tooling setup still runs when both are disabled.
+- [ ] Native rebuild failure propagation: exercise a failing rebuild executable and
+  verify a local tooling npm failure prevents the rebuild from starting.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove

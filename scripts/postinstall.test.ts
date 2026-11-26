@@ -43,12 +43,15 @@ test.skipIf(process.platform === 'win32').each([
 });
 
 test.skipIf(process.platform === 'win32').each([
-  { name: 'local install', ci: '', skipRebuild: '', rebuild: true },
-  { name: 'CI install', ci: '1', skipRebuild: '', rebuild: false },
-  { name: 'explicit skip', ci: '', skipRebuild: '1', rebuild: false },
+  { name: 'local install', modules: 'better-sqlite3,node-pty' },
+  { name: 'CI install', ci: '1' },
+  { name: 'explicit skip', skipRebuild: '1' },
+  { name: 'native database disabled', disableNativeDb: '1', modules: 'node-pty' },
+  { name: 'PTY disabled', disablePty: '1', modules: 'better-sqlite3' },
+  { name: 'both native modules disabled', disableNativeDb: '1', disablePty: '1' },
 ])(
   'runs tooling install before deciding whether to rebuild ($name)',
-  ({ ci, skipRebuild, rebuild }) => {
+  ({ ci = '', skipRebuild = '', disableNativeDb = '', disablePty = '', modules }) => {
     const directory = mkdtempSync(join(tmpdir(), 'emdash-postinstall-'));
     try {
       const scriptDirectory = join(directory, 'scripts');
@@ -72,8 +75,8 @@ test.skipIf(process.platform === 'win32').each([
           ...process.env,
           CI: ci,
           EMDASH_SKIP_ELECTRON_REBUILD: skipRebuild,
-          EMDASH_DISABLE_NATIVE_DB: '',
-          EMDASH_DISABLE_PTY: '',
+          EMDASH_DISABLE_NATIVE_DB: disableNativeDb,
+          EMDASH_DISABLE_PTY: disablePty,
           PATH: directory,
         },
         timeout: 10_000,
@@ -82,7 +85,7 @@ test.skipIf(process.platform === 'win32').each([
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(0);
       const expectedOutput = ['npm install --prefix tooling/node-deps'];
-      if (rebuild) expectedOutput.push('electron-rebuild -f --only better-sqlite3,node-pty');
+      if (modules) expectedOutput.push(`electron-rebuild -f --only ${modules}`);
       expect(result.stdout.trim().split('\n')).toEqual(expectedOutput);
     } finally {
       rmSync(directory, { recursive: true, force: true });
