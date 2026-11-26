@@ -54,6 +54,9 @@ executable shims to verify that npm runs first, a normal install requests a rebu
 of both Electron modules, and either CI or the explicit skip flag suppresses that request.
 The fixture also checks that disabling either module leaves only the other in `--only`
 and disabling both still runs the tooling install without requesting a rebuild.
+For failure propagation, assert the exact child exit code and command trace. A failed
+local tooling install must stop before invoking the rebuild. A failed rebuild must
+fail postinstall after successful tooling setup.
 Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab

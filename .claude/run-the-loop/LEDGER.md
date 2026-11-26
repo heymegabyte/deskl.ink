@@ -1235,3 +1235,17 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The loop guide now calls for checkpointing the structured report before long
   checks. The display-free Electron SQLite and PTY smoke passed. The run report
   records the merge gates and result SHA. Electron UI and preload remain open.
+
+## Postinstall rebuild failure propagation — 2026-11-26
+
+- Run `heymegabyte--deskl.ink-45822378187-1` confirmed remote `main` at
+  `482a3e07` contains the retained module-selection tests from the failed run
+  `heymegabyte--deskl.ink-45697540545-1`. The setup guidance retained at
+  `f8c4e6fd` is represented by `f150784a` and subsequent updates.
+- Two POSIX subprocess cases verify that a failing local tooling install
+  returns its own exit code without starting Electron rebuild, and that a
+  failing rebuild returns its own exit code after successful tooling setup.
+  All 12 focused tests passed. The loop guide now specifies both assertions.
+- The normal native rebuild completed, and the display-free Electron SQLite
+  and PTY checks passed. Electron UI and preload acceptance remain open.
+  The structured run report records the merge gates and result SHA.

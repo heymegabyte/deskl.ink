@@ -237,8 +237,8 @@
   rebuild, and that both CI and the explicit rebuild skip flag still run npm.
 - [x] Native rebuild module selection: check the exact rebuild arguments when the
   database or PTY is disabled and verify tooling setup still runs when both are disabled.
-- [ ] Native rebuild failure propagation: exercise a failing rebuild executable and
-  verify a local tooling npm failure prevents the rebuild from starting.
+- [x] Native rebuild failure propagation: assert the exact rebuild exit code and
+  verify a failed local tooling install exits with its own code before invoking rebuild.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove
