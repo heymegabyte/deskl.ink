@@ -239,6 +239,9 @@
   database or PTY is disabled and verify tooling setup still runs when both are disabled.
 - [x] Native rebuild failure propagation: assert the exact rebuild exit code and
   verify a failed local tooling install exits with its own code before invoking rebuild.
+- [x] Native rebuild launch and interruption coverage: verify that an absent rebuild
+  executable reports the spawn failure and that SIGTERM exits with status 1 after
+  tooling setup.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove

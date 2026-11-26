@@ -47,9 +47,21 @@ test.skipIf(process.platform === 'win32').each([
   { name: 'failed tooling install', toolingExit: 42, status: 42 },
   {
     name: 'failed Electron rebuild',
-    rebuildExit: 43,
+    rebuildCommand: 'exit 43',
     modules: 'better-sqlite3,node-pty',
     status: 43,
+  },
+  {
+    name: 'terminated Electron rebuild',
+    rebuildCommand: 'kill -TERM $$',
+    modules: 'better-sqlite3,node-pty',
+    status: 1,
+  },
+  {
+    name: 'missing Electron rebuild',
+    missingRebuild: true,
+    status: 1,
+    diagnostic: 'failed to run electron-rebuild',
   },
   { name: 'CI install', ci: '1' },
   { name: 'explicit skip', skipRebuild: '1' },
@@ -64,9 +76,11 @@ test.skipIf(process.platform === 'win32').each([
     disableNativeDb = '',
     disablePty = '',
     toolingExit = 0,
-    rebuildExit = 0,
+    rebuildCommand = 'exit 0',
+    missingRebuild = false,
     modules,
     status = 0,
+    diagnostic,
   }) => {
     const directory = mkdtempSync(join(tmpdir(), 'emdash-postinstall-'));
     try {
@@ -81,11 +95,13 @@ test.skipIf(process.platform === 'win32').each([
         `#!/bin/sh\nprintf "npm %s\\n" "$*"\nexit ${toolingExit}\n`,
         { mode: 0o700 }
       );
-      writeFileSync(
-        join(binDirectory, 'electron-rebuild'),
-        `#!/bin/sh\nprintf "electron-rebuild %s\\n" "$*"\nexit ${rebuildExit}\n`,
-        { mode: 0o700 }
-      );
+      if (!missingRebuild) {
+        writeFileSync(
+          join(binDirectory, 'electron-rebuild'),
+          `#!/bin/sh\nprintf "electron-rebuild %s\\n" "$*"\n${rebuildCommand}\n`,
+          { mode: 0o700 }
+        );
+      }
 
       const result = spawnSync(process.execPath, ['--experimental-strip-types', script], {
         encoding: 'utf8',
@@ -102,6 +118,7 @@ test.skipIf(process.platform === 'win32').each([
 
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(status);
+      if (diagnostic) expect(result.stderr).toContain(diagnostic);
       const expectedOutput = ['npm install --prefix tooling/node-deps'];
       if (modules) expectedOutput.push(`electron-rebuild -f --only ${modules}`);
       expect(result.stdout.trim().split('\n')).toEqual(expectedOutput);

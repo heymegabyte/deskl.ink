@@ -57,6 +57,9 @@ and disabling both still runs the tooling install without requesting a rebuild.
 For failure propagation, assert the exact child exit code and command trace. A failed
 local tooling install must stop before invoking the rebuild. A failed rebuild must
 fail postinstall after successful tooling setup.
+Cover rebuild spawn errors and signal termination separately from numeric exits.
+Keep the rebuild executable inside the disposable fixture so a missing-binary case
+cannot resolve an executable from the developer's installation.
 Verify a normal install separately with the native smoke check.
 
 For task selection changes, cover both Active → Archived and Archived → Active, same-tab

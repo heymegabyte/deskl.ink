@@ -1249,3 +1249,15 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The normal native rebuild completed, and the display-free Electron SQLite
   and PTY checks passed. Electron UI and preload acceptance remain open.
   The structured run report records the merge gates and result SHA.
+
+## Postinstall rebuild launch and interruption — 2026-11-26
+
+- Run `heymegabyte--deskl.ink-45901670275-1` checked remote `main` at
+  `3d24e0ab` and found the retained module-selection tests and setup guidance
+  already represented in its history.
+- All 14 focused POSIX cases passed. The two additions verify exit status 1
+  after successful tooling setup when Electron rebuild is missing or receives
+  SIGTERM. The missing-executable case also verifies the diagnostic.
+- The loop guide now records how to isolate rebuild spawn and signal cases.
+  The display-free Electron SQLite and PTY smoke passed. Electron UI and
+  preload acceptance remain open.
