@@ -52,6 +52,8 @@ success, an explicit nonzero exit, signal termination, and a missing `npm` execu
 The suite also copies the real entry point into an isolated fixture and uses
 executable shims to verify that npm runs first, a normal install requests a rebuild
 of both Electron modules, and either CI or the explicit skip flag suppresses that request.
+The fixture path contains spaces. Invoke the entry point from its scripts directory
+and check that npm runs from the fixture root so its relative tooling prefix stays correct.
 The fixture also checks that disabling either module leaves only the other in `--only`
 and disabling both still runs the tooling install without requesting a rebuild.
 For failure propagation, assert the exact child exit code and command trace. A failed

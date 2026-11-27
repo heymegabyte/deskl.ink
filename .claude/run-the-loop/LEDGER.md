@@ -1261,3 +1261,17 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The loop guide now records how to isolate rebuild spawn and signal cases.
   The display-free Electron SQLite and PTY smoke passed. Electron UI and
   preload acceptance remain open.
+
+## Native tooling install directory — 2026-11-26
+
+- Run `heymegabyte--deskl.ink-45937807032-1` confirmed remote `main` at
+  `a54a57aa` contains the earlier recovery of native setup guidance and
+  module-selection tests.
+- The POSIX postinstall fixture now uses a checkout path containing spaces and
+  invokes the entry point from its scripts directory. It checks that npm runs
+  from the checkout root, where the relative tooling prefix resolves correctly.
+  Temporarily removing npm's working-directory override made the local-install
+  case fail with the scripts directory in its trace.
+- The focused suite passed all 14 cases and the display-free Electron SQLite and
+  PTY smoke passed. Electron UI, preload and Windows packaging acceptance remain
+  open. The run report records the merge gates and result commit.

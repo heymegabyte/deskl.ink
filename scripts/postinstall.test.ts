@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,7 +82,7 @@ test.skipIf(process.platform === 'win32').each([
     status = 0,
     diagnostic,
   }) => {
-    const directory = mkdtempSync(join(tmpdir(), 'emdash-postinstall-'));
+    const directory = mkdtempSync(join(tmpdir(), 'emdash postinstall-'));
     try {
       const scriptDirectory = join(directory, 'scripts');
       const binDirectory = join(directory, 'node_modules', '.bin');
@@ -92,7 +92,7 @@ test.skipIf(process.platform === 'win32').each([
       copyFileSync(postinstall, script);
       writeFileSync(
         join(directory, 'npm'),
-        `#!/bin/sh\nprintf "npm %s\\n" "$*"\nexit ${toolingExit}\n`,
+        `#!/bin/sh\nprintf "npm %s\\n" "$*"\npwd -P\nexit ${toolingExit}\n`,
         { mode: 0o700 }
       );
       if (!missingRebuild) {
@@ -104,6 +104,7 @@ test.skipIf(process.platform === 'win32').each([
       }
 
       const result = spawnSync(process.execPath, ['--experimental-strip-types', script], {
+        cwd: scriptDirectory,
         encoding: 'utf8',
         env: {
           ...process.env,
@@ -119,7 +120,7 @@ test.skipIf(process.platform === 'win32').each([
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(status);
       if (diagnostic) expect(result.stderr).toContain(diagnostic);
-      const expectedOutput = ['npm install --prefix tooling/node-deps'];
+      const expectedOutput = ['npm install --prefix tooling/node-deps', realpathSync(directory)];
       if (modules) expectedOutput.push(`electron-rebuild -f --only ${modules}`);
       expect(result.stdout.trim().split('\n')).toEqual(expectedOutput);
     } finally {

@@ -242,6 +242,9 @@
 - [x] Native rebuild launch and interruption coverage: verify that an absent rebuild
   executable reports the spawn failure and that SIGTERM exits with status 1 after
   tooling setup.
+- [x] Native tooling install directory coverage: invoke postinstall from a subdirectory
+  of a fixture whose path contains spaces and verify that npm receives the checkout
+  root as its working directory.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove
