@@ -98,7 +98,7 @@ test.skipIf(process.platform === 'win32').each([
       if (!missingRebuild) {
         writeFileSync(
           join(binDirectory, 'electron-rebuild'),
-          `#!/bin/sh\nprintf "electron-rebuild %s\\n" "$*"\n${rebuildCommand}\n`,
+          `#!/bin/sh\nprintf "electron-rebuild %s\\n" "$*"\npwd -P\n${rebuildCommand}\n`,
           { mode: 0o700 }
         );
       }
@@ -120,8 +120,9 @@ test.skipIf(process.platform === 'win32').each([
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(status);
       if (diagnostic) expect(result.stderr).toContain(diagnostic);
-      const expectedOutput = ['npm install --prefix tooling/node-deps', realpathSync(directory)];
-      if (modules) expectedOutput.push(`electron-rebuild -f --only ${modules}`);
+      const checkoutRoot = realpathSync(directory);
+      const expectedOutput = ['npm install --prefix tooling/node-deps', checkoutRoot];
+      if (modules) expectedOutput.push(`electron-rebuild -f --only ${modules}`, checkoutRoot);
       expect(result.stdout.trim().split('\n')).toEqual(expectedOutput);
     } finally {
       rmSync(directory, { recursive: true, force: true });

@@ -2,14 +2,14 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const checkoutRoot = fileURLToPath(new URL('..', import.meta.url));
 
 // Install the isolated better-sqlite3 for system Node unconditionally.
 // Vitest fixture and migration projects alias better-sqlite3 to this copy so
 // the root node_modules/better-sqlite3 can stay Electron-compiled at all times.
 const toolingInstall = spawnSync('npm', ['install', '--prefix', 'tooling/node-deps'], {
   stdio: 'inherit',
-  cwd: path.resolve(__dirname, '..'),
+  cwd: checkoutRoot,
   shell: process.platform === 'win32',
 });
 if (toolingInstall.error) {
@@ -36,7 +36,7 @@ if (process.env.CI || process.env.EMDASH_SKIP_ELECTRON_REBUILD === '1') {
 function getElectronRebuildBin() {
   const binName = process.platform === 'win32' ? 'electron-rebuild.cmd' : 'electron-rebuild';
 
-  return path.resolve(__dirname, '..', 'node_modules', '.bin', binName);
+  return path.join(checkoutRoot, 'node_modules', '.bin', binName);
 }
 
 function runElectronRebuild(onlyModules) {
@@ -47,10 +47,11 @@ function runElectronRebuild(onlyModules) {
     args.push('--only', onlyModules.join(','));
   }
 
-  const result =
-    process.platform === 'win32'
-      ? spawnSync(electronRebuildBin, args, { stdio: 'inherit', shell: true })
-      : spawnSync(electronRebuildBin, args, { stdio: 'inherit' });
+  const result = spawnSync(electronRebuildBin, args, {
+    stdio: 'inherit',
+    cwd: checkoutRoot,
+    shell: process.platform === 'win32',
+  });
 
   if (result.error) {
     console.error('postinstall: failed to run electron-rebuild:', result.error);

@@ -245,6 +245,9 @@
 - [x] Native tooling install directory coverage: invoke postinstall from a subdirectory
   of a fixture whose path contains spaces and verify that npm receives the checkout
   root as its working directory.
+- [x] Native rebuild working directory: run Electron rebuild from the checkout root
+  when postinstall is invoked from `scripts/`. Verify both child working directories
+  in the fixture and run the real rebuild and native smoke check.
 
 - [x] Provider integration guidance: reconcile classifier ownership/fallback, registry-driven
   prompt delivery and user-home Codex hook configuration with current source. Remove

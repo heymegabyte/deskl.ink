@@ -1275,3 +1275,16 @@ from the now-covered unit frontier. Result SHA is recorded in agent-report.json.
 - The focused suite passed all 14 cases and the display-free Electron SQLite and
   PTY smoke passed. Electron UI, preload and Windows packaging acceptance remain
   open. The run report records the merge gates and result commit.
+
+## Native rebuild working directory — 2026-11-28
+
+- Run `heymegabyte--deskl.ink-46106907732-1` recovered the unpublished
+  postinstall fix and regression from retained runs `46011362753` and
+  `46077688426`. The publication target was `6022217d` when checked.
+- Five tests reproduced Electron rebuild inheriting `scripts/` as its working
+  directory. All 14 passed after both subprocesses used the checkout root.
+- The real postinstall from `scripts/` completed the Electron rebuild. The
+  Linux native smoke passed SQLite transaction/read and PTY input/output and
+  exit. Interactive Electron UI, preload, and Windows packaging remain open.
+- The loop guide now requires checking both subprocess working directories
+  in the fixture. The run report records merge gates and the result commit.
